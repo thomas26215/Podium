@@ -1,0 +1,356 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../state/app_state.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/avatar.dart';
+import '../../widgets/common.dart';
+import '../settings/settings_screen.dart';
+import 'friends_screen.dart';
+
+class ProfileScreen extends StatelessWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final players = app.viewPlayers;
+    final profileId = app.profileId ?? (players.isNotEmpty ? players.first.uid : null);
+    final profile = profileId == null ? null : app.playerById(profileId);
+
+    if (profile == null) {
+      return const SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(20, 6, 20, 116),
+        child: ScreenHeadingAndEmpty(),
+      );
+    }
+
+    final winRows = app.standings('wins');
+    final rank = winRows.indexWhere((r) => r.player.uid == profileId) + 1;
+    final rows = app.computeRows(null);
+    final mine = rows.where((r) => r.player.uid == profileId).toList();
+    final played = mine.isNotEmpty ? mine.first.played : 0;
+    final wins = mine.isNotEmpty ? mine.first.wins : 0;
+    final ratio = mine.isNotEmpty ? mine.first.ratio : 0.0;
+    final points = mine.isNotEmpty ? mine.first.points : 0;
+    final breakdown = app.profileGameBreakdown(profileId!);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 6, 20, 116),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const ScreenHeading(eyebrow: 'Profil joueur', title: 'Statistiques'),
+          SizedBox(
+            height: 44,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                for (final p in players)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: GestureDetector(
+                      onTap: () => app.openProfile(p.uid),
+                      child: Container(
+                        padding: const EdgeInsets.fromLTRB(6, 6, 12, 6),
+                        decoration: BoxDecoration(
+                          color: p.uid == profileId ? AppColors.ink : AppColors.card,
+                          border: Border.all(color: p.uid == profileId ? AppColors.ink : AppColors.line),
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Avatar(initial: p.initial, color: Color(p.color), size: 26, fontSize: 11),
+                          const SizedBox(width: 7),
+                          Text(p.displayName, style: bodyFont(size: 13, weight: FontWeight.w700, color: p.uid == profileId ? Colors.white : AppColors.ink2)),
+                        ]),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Avatar(initial: profile.initial, color: Color(profile.color), size: 72, fontSize: 30),
+              const SizedBox(width: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(profile.displayName, style: dispFont(size: 26, weight: FontWeight.w800, color: AppColors.ink, letterSpacing: -0.4)),
+                  Text('${rank}e du classement · $points pts cumulés', style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.mut)),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 22),
+          Row(children: [
+            _stat('$wins', 'Victoires', AppColors.green),
+            const SizedBox(width: 10),
+            _stat('$played', 'Parties', AppColors.ink),
+            const SizedBox(width: 10),
+            _stat('${(ratio * 100).round()}%', 'Winrate', AppColors.accent),
+          ]),
+          const SizedBox(height: 22),
+          const SectionHeader(title: 'Par jeu'),
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+            decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
+            child: breakdown.isEmpty
+                ? const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: EmptyState(emoji: '🎮', message: "Pas encore de partie jouée."))
+                : Column(
+                    children: [
+                      for (final b in breakdown)
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 4),
+                          decoration: BoxDecoration(border: Border(top: BorderSide(color: AppColors.line))),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 38,
+                                height: 38,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(11)),
+                                child: Text(b.game.emoji, style: const TextStyle(fontSize: 19)),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(b.game.name, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
+                                    Text('${b.played} parties · ${b.wins} V', style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
+                                  ],
+                                ),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(b.avg.toStringAsFixed(1), style: dispFont(size: 16, weight: FontWeight.w700, color: AppColors.ink)),
+                                  Text('moy. pts', style: bodyFont(size: 11, weight: FontWeight.w600, color: AppColors.mut)),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+          ),
+          const SizedBox(height: 22),
+          GestureDetector(
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FriendsScreen())),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.lg)),
+              child: Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(color: AppColors.accentSoft, borderRadius: BorderRadius.circular(11)),
+                    child: Icon(Icons.people_alt_rounded, size: 19, color: AppColors.accent),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text('Mes amis', style: bodyFont(size: 14.5, weight: FontWeight.w700, color: AppColors.ink))),
+                  if (app.friends.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Text('${app.friends.length}', style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.mut)),
+                    ),
+                  Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.mut),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          GestureDetector(
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.lg)),
+              child: Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(color: AppColors.accentSoft, borderRadius: BorderRadius.circular(11)),
+                    child: Icon(Icons.palette_rounded, size: 19, color: AppColors.accent),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text('Personnalisation', style: bodyFont(size: 14.5, weight: FontWeight.w700, color: AppColors.ink))),
+                  Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.mut),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: () => _confirmSignOut(context, app),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.accent,
+              side: BorderSide(color: AppColors.accent, width: 1.5),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+              minimumSize: const Size.fromHeight(0),
+            ),
+            icon: const Icon(Icons.logout_rounded, size: 20),
+            label: Text('Se déconnecter', style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.accent)),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: () => showDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: const _DeleteAccountDialog())),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.red,
+              side: const BorderSide(color: Colors.red, width: 1.5),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+              minimumSize: const Size.fromHeight(0),
+            ),
+            icon: const Icon(Icons.delete_forever_rounded, size: 20),
+            label: Text('Supprimer mon compte', style: bodyFont(size: 14, weight: FontWeight.w700, color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmSignOut(BuildContext context, AppState app) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppColors.bg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
+        title: Text('Se déconnecter ?', style: dispFont(size: 18, weight: FontWeight.w700, color: AppColors.ink)),
+        content: Text('Vous devrez vous reconnecter pour retrouver vos groupes.', style: bodyFont(size: 14, weight: FontWeight.w600, color: AppColors.mut)),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
+          TextButton(onPressed: () => Navigator.of(context).pop(true), child: Text('Se déconnecter', style: TextStyle(color: AppColors.accent))),
+        ],
+      ),
+    );
+    if (confirmed == true) await app.signOut();
+  }
+
+  Widget _stat(String value, String label, Color color) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+        decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.lg)),
+        child: Column(
+          children: [
+            Text(value, style: dispFont(size: 26, weight: FontWeight.w700, color: color)),
+            const SizedBox(height: 1),
+            Text(label, style: bodyFont(size: 11, weight: FontWeight.w700, color: AppColors.mut)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DeleteAccountDialog extends StatefulWidget {
+  const _DeleteAccountDialog();
+
+  @override
+  State<_DeleteAccountDialog> createState() => _DeleteAccountDialogState();
+}
+
+class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
+  final _passwordCtrl = TextEditingController();
+  bool _obscure = true;
+
+  @override
+  void dispose() {
+    _passwordCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit(AppState app) async {
+    if (_passwordCtrl.text.isEmpty) return;
+    final ok = await app.deleteAccount(_passwordCtrl.text);
+    if (ok && mounted) Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    return Dialog(
+      backgroundColor: AppColors.bg,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Supprimer votre compte ?', style: dispFont(size: 20, weight: FontWeight.w700, color: AppColors.ink)),
+            const SizedBox(height: 8),
+            Text(
+              "Cette action est définitive : votre profil sera supprimé, vous quitterez tous vos groupes, et les groupes dont vous êtes propriétaire seront supprimés avec tout leur historique.",
+              style: bodyFont(size: 13.5, weight: FontWeight.w600, color: AppColors.mut),
+            ),
+            const SizedBox(height: 18),
+            Text('Confirmez avec votre mot de passe', style: bodyFont(size: 12.5, weight: FontWeight.w800, color: AppColors.ink2)),
+            const SizedBox(height: 9),
+            TextField(
+              controller: _passwordCtrl,
+              obscureText: _obscure,
+              style: bodyFont(size: 16, weight: FontWeight.w700, color: AppColors.ink),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: AppColors.card,
+                contentPadding: const EdgeInsets.all(14),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: AppColors.line, width: 1.5)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: AppColors.line, width: 1.5)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: const BorderSide(color: Colors.red, width: 1.5)),
+                suffixIcon: IconButton(
+                  icon: Icon(_obscure ? Icons.visibility_off_rounded : Icons.visibility_rounded, size: 20, color: AppColors.mut),
+                  onPressed: () => setState(() => _obscure = !_obscure),
+                ),
+              ),
+            ),
+            if (app.flowError != null) ...[
+              const SizedBox(height: 8),
+              Text(app.flowError!, style: bodyFont(size: 13, weight: FontWeight.w600, color: Colors.red)),
+            ],
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: app.busy ? null : () => _submit(app),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  disabledBackgroundColor: Colors.red.withValues(alpha: 0.35),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+                  elevation: 0,
+                ),
+                child: app.busy
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : Text('Supprimer définitivement', style: bodyFont(size: 16, weight: FontWeight.w800, color: Colors.white)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ScreenHeadingAndEmpty extends StatelessWidget {
+  const ScreenHeadingAndEmpty({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: const [
+        ScreenHeading(eyebrow: 'Profil joueur', title: 'Statistiques'),
+        EmptyState(emoji: '👤', message: 'Aucun joueur à afficher.'),
+      ],
+    );
+  }
+}

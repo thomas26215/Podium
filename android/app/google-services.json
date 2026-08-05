@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "392494713569",
+    "project_id": "podium-9b4bf",
+    "storage_bucket": "podium-9b4bf.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:392494713569:android:a78fdeb4e7fa6319cf45a0",
+        "android_client_info": {
+          "package_name": "app.podium.com"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAzn7Iis8J6nW3yZaeekSg91nSbs7mUF8s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

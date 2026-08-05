@@ -1,0 +1,189 @@
+rules_version = '2';
+
+// Security rules for Podium.
+//
+// Deploy with: firebase deploy --only firestore:rules
+// (after `firebase init firestore` / `firebase use <your-project>`).
+//
+// Data model recap:
+//   users/{uid}                        one doc per account
+//   guests/{guestId}                   one doc per account-less player, added
+//                                       into `memberIds` as a `guest:{guestId}`
+//                                       string (see GuestsRepository)
+//   emailIndex/{lowercasedEmail}        {uid} — lets "invite by email" find a uid
+//   groups/{groupId}                   a root community (parentId == null) or a
+//                                       subgroup (parentId == root's id)
+//   groups/{rootId}/games/{gameId}     game catalog, lives under the ROOT doc only
+//   groups/{rootId}/matches/{matchId}  recorded matches, lives under the ROOT doc
+//                                       only; each match's own `groupId` field says
+//                                       which root/subgroup it was actually played in
+//
+// Root groups carry an `allMemberIds` field: the union of the root's own
+// members plus every member of every subgroup underneath it (kept in sync
+// by the app whenever a subgroup is created or someone is invited anywhere
+// in the tree — see GroupsRepository). That lets these rules answer "can
+// this uid see the root doc?" and "can this uid see this subgroup?" with at
+// most one extra get() each, instead of walking/recursing the whole tree.
+
+service cloud.firestore {
+match /databases/{database}/documents {
+
+  function signedIn() {
+    return request.auth != null;
+  }
+
+  function isMember(groupData) {
+    return request.auth.uid in groupData.memberIds;
+  }
+
+  function isCommunityMember(groupData) {
+    return request.auth.uid in groupData.allMemberIds;
+  }
+
+  function rootDoc(groupId) {
+    return get(/databases/$(database)/documents/groups/$(groupId));
+  }
+
+  // True if the caller owns the root community `rootId` — used to gate
+  // destructive actions (deleting the root, its games/matches, or any
+  // subgroup underneath it).
+  function isRootOwner(rootId) {
+    return rootDoc(rootId).data.ownerId == request.auth.uid;
+  }
+
+  // True for a wound-down "temporary group" (see Group.closed) — its
+  // history stays readable but nothing new gets recorded in it.
+  function isClosed(groupData) {
+    return groupData.get('closed', false) == true;
+  }
+
+  // True if the caller can see this group doc: for a root, anyone anywhere in
+  // its tree (allMemberIds); for a subgroup, its own direct members plus
+  // everyone in the wider community (checked via the parent's allMemberIds).
+  function canSeeGroup(groupData) {
+    return groupData.parentId == null
+      ? isCommunityMember(groupData)
+      : (isMember(groupData) || isCommunityMember(rootDoc(groupData.parentId).data));
+  }
+
+  // True if this update only adds the caller's own uid to `memberIds` and/or
+  // `allMemberIds` (nothing else touched) — the shape of a self-service QR
+  // invite join. It's a write-only check: a non-member can perform it without
+  // ever being able to `read` the doc first, since the QR code itself already
+  // carries everything the client needs (see GroupInviteCode).
+  function isSelfJoin(before) {
+    let addedMembers = request.resource.data.memberIds.removeAll(before.memberIds);
+    let addedAll = request.resource.data.allMemberIds.removeAll(before.allMemberIds);
+    return request.resource.data.diff(before).affectedKeys().hasOnly(['memberIds', 'allMemberIds'])
+      && request.resource.data.memberIds.removeAll([request.auth.uid]) == before.memberIds
+      && request.resource.data.allMemberIds.removeAll([request.auth.uid]) == before.allMemberIds
+      && (addedMembers.size() > 0 || addedAll.size() > 0);
+  }
+
+  // A shared, global catalog of ready-made games (including special-rules
+  // ones, e.g. role-based Président) that any signed-in user can browse and
+  // import into their own group's catalog. Admin-managed directly via the
+  // Firebase console (console writes bypass these rules), not writable by
+  // the app itself.
+  match /gameLibrary/{gameId} {
+    allow read: if signedIn();
+    allow write: if false;
+  }
+
+  match /users/{uid} {
+    allow read: if signedIn();
+    allow create: if signedIn() && request.auth.uid == uid;
+    allow update: if signedIn() && request.auth.uid == uid;
+    // Only the account itself can delete its own record (account deletion).
+    allow delete: if signedIn() && request.auth.uid == uid;
+  }
+
+  // Lets "invite a friend by email" resolve an email to a uid without
+  // exposing the whole users collection to arbitrary queries.
+  // Players added without a real account (see GuestsRepository). Anyone
+  // signed in can create one (attributed to themselves) and read them all,
+  // same trust model as `users` — a friend group, not a multi-tenant org.
+  match /guests/{guestId} {
+    allow read: if signedIn();
+    allow create: if signedIn() && request.resource.data.createdBy == request.auth.uid;
+    allow update: if false;
+    allow delete: if signedIn() && resource.data.createdBy == request.auth.uid;
+  }
+
+  match /emailIndex/{email} {
+    allow read: if signedIn();
+    allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+    allow update: if false;
+    // Only the indexed account itself can remove its own email entry
+    // (account deletion).
+    allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+  }
+
+  match /groups/{groupId} {
+    allow read: if signedIn() && canSeeGroup(resource.data);
+
+    allow create: if signedIn()
+      && request.resource.data.ownerId == request.auth.uid
+      && request.resource.data.memberIds == [request.auth.uid]
+      && (
+        request.resource.data.parentId == null
+        ? request.resource.data.allMemberIds == [request.auth.uid]
+        : isCommunityMember(rootDoc(request.resource.data.parentId).data)
+      );
+
+    // Anyone in the community can manage its roster/subgroups (invite by
+    // email = arrayUnion on memberIds/allMemberIds, or append a new
+    // subGroupIds entry) — this app's trust model is a friend group, not a
+    // multi-tenant org, so we don't gate management down to an "admin" role.
+    // A non-member can also update the doc if the write is exactly a
+    // self-join (scanning someone's invite QR code).
+    allow update: if signedIn() && (canSeeGroup(resource.data) || isSelfJoin(resource.data));
+
+    // A group can be deleted by its own owner, or (for a subgroup) by the
+    // owner of its root community — same trust model as the create rule.
+    allow delete: if signedIn() && (
+      resource.data.ownerId == request.auth.uid
+      || (resource.data.parentId != null && isRootOwner(resource.data.parentId))
+    );
+
+    match /games/{gameId} {
+      allow read: if signedIn() && isCommunityMember(rootDoc(groupId).data);
+      // Blocked once the root is closed — see isClosed(): a closed group
+      // stays fully readable but frozen against new catalog changes.
+      allow create, update: if signedIn() && isCommunityMember(rootDoc(groupId).data) && !isClosed(rootDoc(groupId).data);
+      // Games are shared by the whole root community, so only wiping the
+      // root (which the root owner alone can do) deletes them.
+      allow delete: if signedIn() && isRootOwner(groupId);
+    }
+
+    match /matches/{matchId} {
+      allow read: if signedIn() && isCommunityMember(rootDoc(groupId).data);
+      // Any community member can record or resume/correct a match (same
+      // trust model as everything else here — a friend group, not a
+      // multi-tenant org). Resuming preserves `createdAt`, `gameId` and
+      // `groupId` client-side; nothing here needs to special-case that.
+      // Blocked once the root is closed (see isClosed()).
+      allow create, update: if signedIn() && isCommunityMember(rootDoc(groupId).data) && !isClosed(rootDoc(groupId).data);
+      // The root owner can delete any match in the tree; a subgroup owner
+      // can delete matches recorded specifically under their own subgroup.
+      allow delete: if signedIn() && (
+        isRootOwner(groupId)
+        || get(/databases/$(database)/documents/groups/$(resource.data.groupId)).data.ownerId == request.auth.uid
+      );
+    }
+
+    // A "match currently being scored" doc: created when someone starts
+    // scoring (a Cloud Function picks that up to push a "Une partie de X a
+    // été débutée" notice to the rest of the group), updated live as scores
+    // change so the rest of the group can watch, and deleted once the match
+    // is saved or scoring is abandoned. Only its author can update/delete it;
+    // any community member can read it to watch the match live.
+    match /matchSessions/{sessionId} {
+      allow read: if signedIn() && isCommunityMember(rootDoc(groupId).data);
+      allow create: if signedIn() && isCommunityMember(rootDoc(groupId).data)
+        && request.resource.data.startedBy == request.auth.uid;
+      allow update, delete: if signedIn() && resource.data.startedBy == request.auth.uid;
+    }
+  }
+}
+}
