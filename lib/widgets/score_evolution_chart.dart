@@ -7,7 +7,7 @@ import '../theme/app_theme.dart';
 
 /// Line chart of each player's cumulative score across rounds, built
 /// straight from a match's (or in-progress draft's) `timeline` — works for
-/// both "rounds" and "live" input modes, since both append one
+/// both round-synced and free-form score entry, since each append one
 /// `TimelinePoint` per score change with a running cumulative `val`.
 class ScoreEvolutionChart extends StatelessWidget {
   final List<TimelinePoint> timeline;

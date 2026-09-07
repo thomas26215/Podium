@@ -415,6 +415,140 @@ class _WinLossRoundsInputState extends State<_WinLossRoundsInput> {
   }
 }
 
+/// Detailed point entry for games that define colored score categories.
+/// Each category contributes to the player's final total automatically,
+/// making end-of-game scoring explicit without duplicating the math.
+class _DetailedScoreInput extends StatefulWidget {
+  final Game game;
+  const _DetailedScoreInput({required this.game});
+
+  @override
+  State<_DetailedScoreInput> createState() => _DetailedScoreInputState();
+}
+
+class _DetailedScoreInputState extends State<_DetailedScoreInput> {
+  final Map<String, Map<String, TextEditingController>> _controllers = {};
+
+  TextEditingController _ctrlFor(String uid, String fieldId, int initialValue) {
+    final perPlayer = _controllers.putIfAbsent(uid, () => {});
+    return perPlayer.putIfAbsent(fieldId, () => TextEditingController(text: initialValue == 0 ? '' : '$initialValue'));
+  }
+
+  @override
+  void dispose() {
+    for (final perPlayer in _controllers.values) {
+      for (final controller in perPlayer.values) {
+        controller.dispose();
+      }
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final d = app.draft;
+    final fields = widget.game.scoreFields ?? const [];
+    final players = [for (final uid in d.playerIds) if (app.playerById(uid) != null) uid];
+
+    if (fields.isEmpty || players.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (d.bestOf > 1) const _SeriesProgressBanner(),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(color: AppColors.accentSoft, border: Border.all(color: AppColors.accent.withValues(alpha: 0.35), width: 1.2), borderRadius: BorderRadius.circular(AppRadius.lg)),
+          child: Row(
+            children: [
+              Icon(Icons.calculate_rounded, size: 16, color: AppColors.accent),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text('Le total se calcule automatiquement à partir de chaque catégorie.', style: bodyFont(size: 12.5, weight: FontWeight.w700, color: AppColors.ink)),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        for (final uid in players)
+          Builder(builder: (_) {
+            final p = app.playerById(uid);
+            if (p == null) return const SizedBox.shrink();
+            final isLead = app.draftLeaderIds.contains(uid);
+            final total = d.points[uid] ?? 0;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: isLead ? AppColors.greenSoft : AppColors.card,
+                border: Border.all(color: isLead ? AppColors.green : AppColors.line, width: 1.5),
+                borderRadius: BorderRadius.circular(AppRadius.lg),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Avatar(initial: p.initial, color: Color(p.color), size: 40, fontSize: 15),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(p.displayName, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
+                            if (isLead) Text('▲ EN TÊTE', style: bodyFont(size: 11, weight: FontWeight.w800, color: AppColors.green, letterSpacing: 0.3)),
+                          ],
+                        ),
+                      ),
+                      Text('$total', style: dispFont(size: 22, weight: FontWeight.w700, color: AppColors.ink)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  for (final field in fields) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          Container(width: 10, height: 10, decoration: BoxDecoration(color: Color(field.color), shape: BoxShape.circle)),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(field.label, style: bodyFont(size: 13.5, weight: FontWeight.w700, color: AppColors.ink2))),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            width: 88,
+                            child: TextField(
+                              controller: _ctrlFor(uid, field.id, d.scoreBreakdown[uid]?[field.id] ?? 0),
+                              keyboardType: const TextInputType.numberWithOptions(signed: true),
+                              textAlign: TextAlign.center,
+                              style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink),
+                              decoration: InputDecoration(
+                                hintText: '0',
+                                filled: true,
+                                fillColor: AppColors.bg,
+                                contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: AppColors.line, width: 1.5)),
+                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: AppColors.line, width: 1.5)),
+                                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: Color(field.color), width: 1.5)),
+                              ),
+                              onChanged: (text) => app.setDetailedScore(uid, field.id, int.tryParse(text.trim()) ?? 0),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          }),
+      ],
+    );
+  }
+}
+
 /// "Par manche" input mode: enter every player's score for the current
 /// round at once (e.g. round 1: 8, 7 — round 2: 7, -2), then review past
 /// rounds and the cumulative score-evolution chart.
@@ -638,8 +772,12 @@ class Step3Scores extends StatelessWidget {
         ],
       );
     }
+    if (game?.hasScoreFields == true && !game!.isWinLoss && !game.isRanks && game.countType != CountType.wins) {
+      return _DetailedScoreInput(game: game);
+    }
     final leaderIds = app.draftLeaderIds;
     final pointLimit = d.unit == 'wins' ? null : app.gameById(d.gameId ?? '')?.pointLimit;
+    final unitLabel = d.unit == 'wins' ? 'Manches gagnées' : 'Points';
     final playersAtLimit = pointLimit == null
         ? const <String>[]
         : d.playerIds.where((uid) => (d.points[uid] ?? 0) >= pointLimit).toList();
@@ -648,27 +786,32 @@ class Step3Scores extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (d.bestOf > 1) const _SeriesProgressBanner(),
-        SegmentedControl(labels: const ['Points', 'Manches gagnées'], selectedIndex: d.unit == 'wins' ? 1 : 0, onChanged: (i) => app.setUnit(i == 1 ? 'wins' : 'points'), fontSize: 13),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(color: AppColors.accentSoft, border: Border.all(color: AppColors.accent.withValues(alpha: 0.35), width: 1.2), borderRadius: BorderRadius.circular(AppRadius.lg)),
+          child: Row(
+            children: [
+              Icon(Icons.lock_rounded, size: 16, color: AppColors.accent),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text('Mode imposé par le jeu : $unitLabel', style: bodyFont(size: 12.5, weight: FontWeight.w700, color: AppColors.ink)),
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 12),
         // "Manches gagnées" always scores round-by-round (one declared
         // winner per manche — see AppState.setUnit/_WinLossRoundsInput), so
-        // Saisie rapide/En direct/Par manche as separate choices don't
-        // apply — there's only the one consistent way to enter it.
+        // only the round-based choice applies there.
         if (d.unit != 'wins') ...[
           if (game?.multiRound == true)
             SegmentedControl(
-              labels: const ['Saisie rapide', 'En direct', 'Par manche'],
-              selectedIndex: switch (d.inputMode) { 'live' => 1, 'rounds' => 2, _ => 0 },
-              onChanged: (i) => app.setInputMode(switch (i) { 1 => 'live', 2 => 'rounds', _ => 'quick' }),
+              labels: const ['Saisie rapide', 'Par manche'],
+              selectedIndex: d.inputMode == 'rounds' ? 1 : 0,
+              onChanged: (i) => app.setInputMode(i == 1 ? 'rounds' : 'quick'),
               fontSize: 12,
             )
-          else
-            SegmentedControl(
-              labels: const ['Saisie rapide', 'En direct'],
-              selectedIndex: d.inputMode == 'live' ? 1 : 0,
-              onChanged: (i) => app.setInputMode(i == 1 ? 'live' : 'quick'),
-              fontSize: 13,
-            ),
         ],
         if (d.mode == 'team' && d.inputMode == 'quick' && d.unit != 'wins') ...[
           const SizedBox(height: 12),

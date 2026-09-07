@@ -256,6 +256,14 @@ class MatchCard extends StatelessWidget {
               Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.mut),
             ],
           ),
+          if (match.hasScoreBreakdown) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(color: AppColors.accentSoft, borderRadius: BorderRadius.circular(999)),
+              child: Text('Par catégories', style: bodyFont(size: 11.5, weight: FontWeight.w800, color: AppColors.accent)),
+            ),
+          ],
         ],
       ),
     );

@@ -1,18 +1,22 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'game.dart';
+
 class MatchEntry {
   final String playerId;
   final int points;
   final String? teamId; // 'A'..'D', only set in team mode
   final String? role; // e.g. "Président" — only set for CountType.ranks games
+  final Map<String, int>? scoreBreakdown; // score field id -> points for this player
 
-  const MatchEntry({required this.playerId, required this.points, this.teamId, this.role});
+  const MatchEntry({required this.playerId, required this.points, this.teamId, this.role, this.scoreBreakdown});
 
   Map<String, dynamic> toMap() => {
         'playerId': playerId,
         'points': points,
         if (teamId != null) 'teamId': teamId,
         if (role != null) 'role': role,
+        if (scoreBreakdown != null && scoreBreakdown!.isNotEmpty) 'scoreBreakdown': scoreBreakdown,
       };
 
   factory MatchEntry.fromMap(Map<String, dynamic> m) => MatchEntry(
@@ -20,6 +24,7 @@ class MatchEntry {
         points: (m['points'] as num?)?.toInt() ?? 0,
         teamId: m['teamId'] as String?,
         role: m['role'] as String?,
+        scoreBreakdown: (m['scoreBreakdown'] as Map?)?.map((k, v) => MapEntry(k as String, (v as num).toInt())),
       );
 }
 
@@ -150,6 +155,7 @@ class GameMatch {
   final List<MatchEntry> entries;
   final List<TimelinePoint> timeline;
   final DateTime createdAt;
+  final List<GameScoreField>? scoreFields;
 
   /// How the score was entered: 'quick' | 'live' | 'rounds' (or `null` for
   /// matches recorded before this field existed). Lets the history UI show
@@ -189,6 +195,7 @@ class GameMatch {
     required this.entries,
     required this.timeline,
     required this.createdAt,
+    this.scoreFields,
     this.inputMode,
     this.createdByUid,
     this.seriesId,
@@ -200,6 +207,7 @@ class GameMatch {
   bool get isTeam => mode == 'team';
   bool get hasTimeline => timeline.isNotEmpty;
   bool get isSeriesLeg => seriesId != null;
+  bool get hasScoreBreakdown => entries.any((e) => e.scoreBreakdown != null && e.scoreBreakdown!.isNotEmpty);
 
   /// [inputMode] when known; for matches saved before that field existed,
   /// infers it from the timeline's shape — round-synced (chunks cleanly
@@ -226,6 +234,7 @@ class GameMatch {
         entries: entries,
         timeline: timeline,
         createdAt: createdAt,
+        scoreFields: scoreFields,
         inputMode: inputMode,
         createdByUid: createdByUid,
         seriesId: seriesId,
@@ -247,6 +256,7 @@ class GameMatch {
         entries: entries,
         timeline: timeline,
         createdAt: createdAt,
+        scoreFields: scoreFields,
         inputMode: inputMode,
         createdByUid: createdByUid,
         seriesId: seriesId,
@@ -263,6 +273,7 @@ class GameMatch {
         'lowWins': lowWins,
         'entries': entries.map((e) => e.toMap()).toList(),
         'timeline': timeline.map((t) => t.toMap()).toList(),
+        if (scoreFields != null && scoreFields!.isNotEmpty) 'scoreFields': scoreFields!.map((f) => f.toMap()).toList(),
         // A client-side timestamp rather than FieldValue.serverTimestamp() —
         // this is the moment the match was recorded as having been *played*
         // (see NewGameDraft.playedAt), which the player can backdate to
@@ -289,6 +300,9 @@ class GameMatch {
           .toList(),
       timeline: ((data['timeline'] as List?) ?? const [])
           .map((e) => TimelinePoint.fromMap(Map<String, dynamic>.from(e as Map)))
+          .toList(),
+        scoreFields: ((data['scoreFields'] as List?) ?? const [])
+          .map((e) => GameScoreField.fromMap(Map<String, dynamic>.from(e as Map)))
           .toList(),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       inputMode: data['inputMode'] as String?,

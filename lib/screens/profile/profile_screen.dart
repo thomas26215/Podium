@@ -197,7 +197,7 @@ class ProfileScreen extends StatelessWidget {
               minimumSize: const Size.fromHeight(0),
             ),
             icon: const Icon(Icons.logout_rounded, size: 20),
-            label: Text('Se déconnecter', style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.accent)),
+            label: Text('Changer de compte', style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.accent)),
           ),
           const SizedBox(height: 10),
           OutlinedButton.icon(
@@ -224,7 +224,7 @@ class ProfileScreen extends StatelessWidget {
         backgroundColor: AppColors.bg,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
         title: Text('Se déconnecter ?', style: dispFont(size: 18, weight: FontWeight.w700, color: AppColors.ink)),
-        content: Text('Vous devrez vous reconnecter pour retrouver vos groupes.', style: bodyFont(size: 14, weight: FontWeight.w600, color: AppColors.mut)),
+        content: Text('Vous pourrez sélectionner un autre compte sur l’écran de connexion.', style: bodyFont(size: 14, weight: FontWeight.w600, color: AppColors.mut)),
         actions: [
           TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
           TextButton(onPressed: () => Navigator.of(context).pop(true), child: Text('Se déconnecter', style: TextStyle(color: AppColors.accent))),

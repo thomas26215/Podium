@@ -5,8 +5,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:podium/models/app_user.dart';
+import 'package:podium/models/game.dart';
 import 'package:podium/models/group.dart';
 import 'package:podium/models/match.dart';
 import 'package:podium/repositories/fakes.dart';
@@ -70,6 +72,10 @@ const _tom = AppUser(uid: 'tom', email: 'tom@test.fr', displayName: 'Tom', color
 }
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   testWidgets('signed-out shows the login screen', (tester) async {
     final seeded = _buildSeededState();
     await tester.pumpWidget(
@@ -160,5 +166,131 @@ void main() {
     // so "Catan" legitimately appears more than once — just assert it's present.
     expect(find.text('Catan'), findsWidgets);
     expect(find.text('Nouveau jeu'), findsOneWidget);
+  });
+
+  testWidgets('recent accounts are remembered after sign out', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    await seeded.state.signOut();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Comptes enregistrés'), findsOneWidget);
+    expect(find.text('Léa'), findsWidgets);
+    expect(find.text('lea@test.fr'), findsOneWidget);
+  });
+
+  testWidgets('history compacts adjacent same-day matches for the same game and players', (tester) async {
+    final usersMap = {'lea': _lea, 'tom': _tom};
+    final users = FakeUsersRepository(usersMap);
+    final auth = FakeAuthRepository(seedUsers: usersMap);
+    final group = Group(
+      id: 'bandits',
+      name: 'Les Bandits',
+      emoji: '🃏',
+      emojiBg: 0xFFFFE9E1,
+      parentId: null,
+      memberIds: const ['lea', 'tom'],
+      subGroupIds: const [],
+      allMemberIds: const ['lea', 'tom'],
+      ownerId: 'lea',
+    );
+    final groups = FakeGroupsRepository(seedGroups: {'bandits': group}, users: users);
+
+    final catan = Game(
+      id: 'catan',
+      name: 'Catan',
+      emoji: '🎲',
+      category: 'Société',
+      countType: CountType.highWins,
+    );
+    final uno = Game(
+      id: 'uno',
+      name: 'Uno',
+      emoji: '🃏',
+      category: 'Cartes',
+      countType: CountType.highWins,
+    );
+    final games = FakeGamesRepository(seed: {'bandits': [catan, uno]});
+
+    final matches = FakeMatchesRepository(seed: {
+      'bandits': [
+        GameMatch(
+          id: 'm1',
+          gameId: 'catan',
+          groupId: 'bandits',
+          mode: 'ffa',
+          unit: 'points',
+          lowWins: false,
+          entries: const [MatchEntry(playerId: 'lea', points: 10), MatchEntry(playerId: 'tom', points: 8)],
+          timeline: const [],
+          createdAt: DateTime(2026, 8, 25, 10),
+        ),
+        GameMatch(
+          id: 'm2',
+          gameId: 'catan',
+          groupId: 'bandits',
+          mode: 'ffa',
+          unit: 'points',
+          lowWins: false,
+          entries: const [MatchEntry(playerId: 'lea', points: 12), MatchEntry(playerId: 'tom', points: 7)],
+          timeline: const [],
+          createdAt: DateTime(2026, 8, 25, 9),
+        ),
+        GameMatch(
+          id: 'm3',
+          gameId: 'uno',
+          groupId: 'bandits',
+          mode: 'ffa',
+          unit: 'points',
+          lowWins: false,
+          entries: const [MatchEntry(playerId: 'lea', points: 5), MatchEntry(playerId: 'tom', points: 6)],
+          timeline: const [],
+          createdAt: DateTime(2026, 8, 25, 8),
+        ),
+      ],
+    });
+
+    final state = AppState(
+      authRepo: auth,
+      groupsRepo: groups,
+      gamesRepo: games,
+      matchesRepo: matches,
+      usersRepo: users,
+      guestsRepo: FakeGuestsRepository(),
+      gameLibraryRepo: FakeGameLibraryRepository(),
+    );
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+
+    auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    state.setTab(AppTab.history);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Suite de 2 parties'), findsOneWidget);
+    expect(find.text('Uno'), findsOneWidget);
+
+    await tester.tap(find.text('Suite de 2 parties'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Partie 1'), findsWidgets);
+    expect(find.text('Partie 2'), findsWidgets);
   });
 }

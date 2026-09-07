@@ -12,6 +12,7 @@ import '../models/game.dart';
 import '../models/group.dart';
 import '../models/group_invite_code.dart';
 import '../models/match.dart';
+import '../models/saved_account.dart';
 import '../repositories/auth_repository.dart';
 import '../repositories/game_library_repository.dart';
 import '../repositories/games_repository.dart';
@@ -64,15 +65,18 @@ class AppState extends ChangeNotifier {
     _applyTheme();
     unawaited(_loadThemePrefs());
     unawaited(_initConnectivity());
+    _savedAccountsReady = _loadSavedAccounts();
     _authSub = authRepo.authStateChanges().listen(_onAuthChanged);
   }
 
   // ---- theme / personalization ----
   ThemeMode themeMode = ThemeMode.system;
   AccentPreset accentPreset = AccentPreset.orange;
+  DashboardStyle dashboardStyle = DashboardStyle.complete;
 
   static const _themeModeKey = 'theme_mode';
   static const _accentKey = 'accent_preset';
+  static const _dashboardStyleKey = 'dashboard_style';
 
   bool get isDark => switch (themeMode) {
         ThemeMode.light => false,
@@ -94,6 +98,10 @@ class AppState extends ChangeNotifier {
       final accentStr = prefs.getString(_accentKey);
       if (accentStr != null) {
         accentPreset = AccentPreset.values.firstWhere((a) => a.name == accentStr, orElse: () => AccentPreset.orange);
+      }
+      final dashboardStyleStr = prefs.getString(_dashboardStyleKey);
+      if (dashboardStyleStr != null) {
+        dashboardStyle = DashboardStyle.values.firstWhere((d) => d.name == dashboardStyleStr, orElse: () => DashboardStyle.complete);
       }
       _applyTheme();
       notifyListeners();
@@ -123,6 +131,15 @@ class AppState extends ChangeNotifier {
     } catch (_) {}
   }
 
+  Future<void> setDashboardStyle(DashboardStyle style) async {
+    dashboardStyle = style;
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_dashboardStyleKey, style.name);
+    } catch (_) {}
+  }
+
   /// Called when the OS-level light/dark setting changes while
   /// [themeMode] is [ThemeMode.system] — see the observer in main.dart.
   void refreshSystemBrightness() {
@@ -136,6 +153,9 @@ class AppState extends ChangeNotifier {
   bool authLoading = true;
   String? authError;
   StreamSubscription? _authSub;
+  static const _savedAccountsKey = 'saved_accounts_v1';
+  late final Future<void> _savedAccountsReady;
+  List<SavedAccount> savedAccounts = [];
 
   // ---- friends (see AppUser.friendIds) ----
   // Live-watches the signed-in user's own doc so `currentUser.friendIds` (and
@@ -314,6 +334,7 @@ class AppState extends ChangeNotifier {
       _memberCache[user.uid] = user;
       profileId = user.uid;
       groupsLoading = true;
+      unawaited(_rememberAccount(user));
       _groupsSub = groupsRepo.watchMyGroups(user.uid).listen(_onGroupsChanged);
       _currentUserSub = usersRepo.watchById(user.uid).listen(_onCurrentUserDocChanged);
       unawaited(notificationsService?.registerForUser(user.uid));
@@ -355,7 +376,8 @@ class AppState extends ChangeNotifier {
     busy = true;
     notifyListeners();
     try {
-      await authRepo.signIn(email: email, password: password);
+      final user = await authRepo.signIn(email: email, password: password);
+      unawaited(_rememberAccount(user));
     } catch (e) {
       flowError = e.toString();
     } finally {
@@ -369,7 +391,8 @@ class AppState extends ChangeNotifier {
     busy = true;
     notifyListeners();
     try {
-      await authRepo.signUp(email: email, password: password, displayName: displayName);
+      final user = await authRepo.signUp(email: email, password: password, displayName: displayName);
+      unawaited(_rememberAccount(user));
     } catch (e) {
       flowError = e.toString();
     } finally {
@@ -379,6 +402,50 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> signOut() => authRepo.signOut();
+
+  Future<void> _loadSavedAccounts() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final rawAccounts = prefs.getStringList(_savedAccountsKey) ?? const <String>[];
+      savedAccounts = rawAccounts
+          .map((raw) => SavedAccount.fromJson(Map<String, dynamic>.from(jsonDecode(raw) as Map)))
+          .where((account) => account.email.isNotEmpty)
+          .toList();
+      notifyListeners();
+    } catch (_) {
+      // Best-effort cache only.
+    }
+  }
+
+  Future<void> _persistSavedAccounts() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_savedAccountsKey, savedAccounts.map((account) => jsonEncode(account.toJson())).toList());
+    } catch (_) {}
+  }
+
+  Future<void> _rememberAccount(AppUser user) async {
+    await _savedAccountsReady;
+    final remembered = SavedAccount(email: user.email.trim().toLowerCase(), displayName: user.displayName, color: user.color);
+    savedAccounts = [
+      remembered,
+      for (final account in savedAccounts)
+        if (account.email != remembered.email) account,
+    ];
+    if (savedAccounts.length > 5) {
+      savedAccounts = savedAccounts.take(5).toList();
+    }
+    await _persistSavedAccounts();
+    notifyListeners();
+  }
+
+  Future<void> removeSavedAccount(String email) async {
+    await _savedAccountsReady;
+    final normalized = email.trim().toLowerCase();
+    savedAccounts = savedAccounts.where((account) => account.email != normalized).toList();
+    await _persistSavedAccounts();
+    notifyListeners();
+  }
 
   // ============================== GROUPS ==============================
 
@@ -1368,7 +1435,7 @@ class AppState extends ChangeNotifier {
     // showing a mode selector that doesn't match the rendered body.
     var inputMode = match.resolvedInputMode;
     if (inputMode == 'rounds' && !game.multiRound) {
-      inputMode = game.isRanks ? 'quick' : 'live';
+      inputMode = 'quick';
     }
 
     draft = NewGameDraft(
@@ -1522,6 +1589,7 @@ class AppState extends ChangeNotifier {
       pointLimit: game.pointLimit?.toString() ?? '',
       topRoles: (game.topRoles == null || game.topRoles!.isEmpty) ? null : List.of(game.topRoles!),
       bottomRoles: (game.bottomRoles == null || game.bottomRoles!.isEmpty) ? null : List.of(game.bottomRoles!),
+      scoreFields: (game.scoreFields == null || game.scoreFields!.isEmpty) ? null : List.of(game.scoreFields!),
       multiRound: game.multiRound,
       parentGameId: game.parentGameId,
     );
@@ -1656,10 +1724,15 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     try {
       final isRanks = gameForm.countType == CountType.ranks;
+      final isPointGame = gameForm.countType == CountType.highWins || gameForm.countType == CountType.lowWins;
       // No numeric score at all for a rounds-won tally, a ranks-based
       // classement, or a plain win/loss mark — a point limit only makes
       // sense when there's actually a running point total.
       final noPointLimit = gameForm.countType == CountType.wins || isRanks || gameForm.countType == CountType.winLoss;
+      final scoreFields = isPointGame
+          ? gameForm.scoreFields.where((field) => field.label.trim().isNotEmpty).map((field) => field.copyWith(label: field.label.trim())).toList()
+          : null;
+      final multiRound = scoreFields != null && scoreFields.isNotEmpty ? false : gameForm.multiRound;
       final Game game;
       if (_editingGameId != null) {
         game = Game(
@@ -1673,8 +1746,9 @@ class AppState extends ChangeNotifier {
           bottomRoles: isRanks ? gameForm.cleanBottomRoles : null,
           topPoints: isRanks ? gameForm.derivedTopPoints : null,
           bottomPoints: isRanks ? gameForm.derivedBottomPoints : null,
-          multiRound: gameForm.multiRound,
+          multiRound: multiRound,
           parentGameId: gameForm.parentGameId,
+          scoreFields: scoreFields,
         );
         await gamesRepo.updateGame(root, game);
         showToast('Jeu mis à jour.');
@@ -1691,13 +1765,15 @@ class AppState extends ChangeNotifier {
           bottomRoles: isRanks ? gameForm.cleanBottomRoles : null,
           topPoints: isRanks ? gameForm.derivedTopPoints : null,
           bottomPoints: isRanks ? gameForm.derivedBottomPoints : null,
-          multiRound: gameForm.multiRound,
+          multiRound: multiRound,
           parentGameId: gameForm.parentGameId,
+          scoreFields: scoreFields,
         );
       }
       draft.gameId = game.id;
       draft.unit = game.defaultUnit;
       draft.inputMode = 'quick';
+      _syncDetailedScores();
       creatingGame = false;
     } catch (e) {
       flowError = e.toString();
@@ -1719,6 +1795,8 @@ class AppState extends ChangeNotifier {
     // stale 'team' choice from a previously-picked game can't leak in
     // (their step-2 UI never shows the mode/team pickers to change it back).
     if (g != null && (g.isRanks || g.isWinLoss)) draft.mode = 'ffa';
+    draft.scoreBreakdown.clear();
+    _syncDetailedScores();
     notifyListeners();
   }
 
@@ -1756,6 +1834,8 @@ class AppState extends ChangeNotifier {
   /// input, and the score board resets — the two don't share a meaningful
   /// running total.
   void setUnit(String u) {
+    final game = gameById(draft.gameId ?? '');
+    if (game != null && u != game.defaultUnit) return;
     if (draft.unit == u) return;
     draft.unit = u;
     draft.inputMode = u == 'wins' ? 'rounds' : 'quick';
@@ -1792,12 +1872,13 @@ class AppState extends ChangeNotifier {
 
   /// Switches how scores are entered (Saisie rapide/En direct/Par manche —
   /// or Une manche/Plusieurs manches for ranks games). Scores from the
-  /// previous mode are cleared: "live"/"rounds" track a running timeline
-  /// that "quick" doesn't touch, so letting the two mix would desync the
+  /// previous mode are cleared: "rounds" tracks a running timeline that
+  /// "quick" doesn't touch, so letting the two mix would desync the
   /// displayed total from the chart/round history.
   void setInputMode(String m) {
-    if (draft.inputMode == m) return;
-    draft.inputMode = m;
+    final next = m == 'rounds' ? 'rounds' : 'quick';
+    if (draft.inputMode == next) return;
+    draft.inputMode = next;
     draft.points = {for (final id in draft.playerIds) id: 0};
     draft.timeline = [];
     _pushLiveUpdate();
@@ -1809,12 +1890,45 @@ class AppState extends ChangeNotifier {
     if (has) {
       draft.playerIds.remove(uid);
       draft.rankOrder.remove(uid);
+      draft.scoreBreakdown.remove(uid);
     } else {
       draft.playerIds.add(uid);
       draft.team.putIfAbsent(uid, () => 'A');
       draft.points.putIfAbsent(uid, () => 0);
       draft.rankOrder.add(uid);
+      final g = gameById(draft.gameId ?? '');
+      if (g != null && g.hasScoreFields) {
+        draft.scoreBreakdown[uid] = {for (final field in g.scoreFields!) field.id: 0};
+      }
     }
+    notifyListeners();
+  }
+
+  List<GameScoreField> get draftScoreFields => gameById(draft.gameId ?? '')?.scoreFields ?? const [];
+
+  void _syncDetailedScores() {
+    final fields = draftScoreFields;
+    if (fields.isEmpty) {
+      draft.scoreBreakdown.clear();
+      return;
+    }
+    final fieldIds = fields.map((f) => f.id).toSet();
+    draft.scoreBreakdown.removeWhere((uid, _) => !draft.playerIds.contains(uid));
+    for (final uid in draft.playerIds) {
+      final scores = draft.scoreBreakdown.putIfAbsent(uid, () => <String, int>{});
+      scores.removeWhere((fieldId, _) => !fieldIds.contains(fieldId));
+      for (final field in fields) {
+        scores.putIfAbsent(field.id, () => 0);
+      }
+      draft.points[uid] = scores.values.fold<int>(0, (sum, value) => sum + value);
+    }
+  }
+
+  void setDetailedScore(String uid, String fieldId, int value) {
+    final scores = draft.scoreBreakdown.putIfAbsent(uid, () => <String, int>{});
+    scores[fieldId] = value;
+    draft.points[uid] = scores.values.fold<int>(0, (sum, current) => sum + current);
+    _pushLiveUpdate();
     notifyListeners();
   }
 
@@ -2324,7 +2438,12 @@ class AppState extends ChangeNotifier {
       return _teamGlobalEntries();
     }
     return draft.playerIds
-        .map((id) => MatchEntry(playerId: id, points: draft.points[id] ?? 0, teamId: draft.mode == 'team' ? (draft.team[id] ?? 'A') : null))
+        .map((id) => MatchEntry(
+              playerId: id,
+              points: draft.points[id] ?? 0,
+              teamId: draft.mode == 'team' ? (draft.team[id] ?? 'A') : null,
+              scoreBreakdown: draft.scoreBreakdown[id],
+            ))
         .toList();
   }
 
@@ -2396,6 +2515,7 @@ class AppState extends ChangeNotifier {
       entries: entries,
       timeline: draft.timeline,
       createdAt: createdAt,
+      scoreFields: g?.scoreFields,
       inputMode: draft.inputMode,
       createdByUid: currentUser?.uid,
       seriesId: _editingMatchId != null ? _editingMatchSeriesId : (isNewSeries ? draft.seriesId : null),
@@ -2437,6 +2557,7 @@ class AppState extends ChangeNotifier {
         _endLiveSession();
         draft.seriesLegIndex += 1;
         draft.points = {for (final id in draft.playerIds) id: 0};
+        draft.scoreBreakdown = {for (final id in draft.playerIds) id: {for (final field in draftScoreFields) field.id: 0}};
         draft.timeline = [];
         draft.rankOrder = List.of(draft.playerIds);
         unawaited(_startLiveSessionIfNeeded());

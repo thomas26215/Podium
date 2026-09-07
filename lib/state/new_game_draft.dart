@@ -11,7 +11,8 @@ class NewGameDraft {
   List<String> playerIds;
   Map<String, String> team; // uid -> 'A'..'D'
   Map<String, int> points; // uid -> current score
-  String inputMode; // 'quick' | 'live'
+  Map<String, Map<String, int>> scoreBreakdown; // uid -> fieldId -> score
+  String inputMode; // 'quick' | 'rounds'
   List<TimelinePoint> timeline;
   List<String> rankOrder; // CountType.ranks games: best-to-worst finishing order
 
@@ -43,7 +44,7 @@ class NewGameDraft {
   /// the team's total is their sum) or 'global' (one combined score entered
   /// directly per team, split evenly across its members when the match is
   /// saved — see `AppState._teamGlobalEntries`). Only affects "Saisie
-  /// rapide"; "En direct"/"Par manche" always stay per-player.
+  /// rapide"; "Par manche" always stay per-player.
   String teamScoreMode;
 
   /// Team id ('A'..'D') -> its combined score, used only when
@@ -58,6 +59,7 @@ class NewGameDraft {
     List<String>? playerIds,
     Map<String, String>? team,
     Map<String, int>? points,
+    Map<String, Map<String, int>>? scoreBreakdown,
     this.inputMode = 'quick',
     List<TimelinePoint>? timeline,
     List<String>? rankOrder,
@@ -71,6 +73,7 @@ class NewGameDraft {
   })  : playerIds = playerIds ?? [],
         team = team ?? {},
         points = points ?? {},
+        scoreBreakdown = scoreBreakdown ?? {},
         timeline = timeline ?? [],
         rankOrder = rankOrder ?? [],
         teamPoints = teamPoints ?? {};
@@ -88,6 +91,7 @@ class NewGameDraft {
         'playerIds': playerIds,
         'team': team,
         'points': points,
+        'scoreBreakdown': scoreBreakdown,
         'inputMode': inputMode,
         'timeline': timeline.map((t) => t.toJson()).toList(),
         'rankOrder': rankOrder,
@@ -108,6 +112,12 @@ class NewGameDraft {
         playerIds: (m['playerIds'] as List?)?.map((e) => e as String).toList(),
         team: (m['team'] as Map?)?.map((k, v) => MapEntry(k as String, v as String)),
         points: (m['points'] as Map?)?.map((k, v) => MapEntry(k as String, (v as num).toInt())),
+        scoreBreakdown: (m['scoreBreakdown'] as Map?)?.map(
+          (k, v) => MapEntry(
+            k as String,
+            (v as Map).map((fieldId, value) => MapEntry(fieldId as String, (value as num).toInt())),
+          ),
+        ),
         inputMode: m['inputMode'] as String? ?? 'quick',
         timeline: (m['timeline'] as List?)?.map((e) => TimelinePoint.fromJson(Map<String, dynamic>.from(e as Map))).toList(),
         rankOrder: (m['rankOrder'] as List?)?.map((e) => e as String).toList(),
@@ -164,6 +174,7 @@ class GameFormDraft {
   // place, etc. Blanks are dropped on submit (see cleanTopRoles/cleanBottomRoles).
   List<String> topRoles;
   List<String> bottomRoles;
+  List<GameScoreField> scoreFields;
 
   /// Whether this game can be played over several rounds with scores
   /// accumulating — applies to every count type, not just ranks.
@@ -182,10 +193,12 @@ class GameFormDraft {
     this.pointLimit = '',
     List<String>? topRoles,
     List<String>? bottomRoles,
+    List<GameScoreField>? scoreFields,
     this.multiRound = false,
     this.parentGameId,
   })  : topRoles = topRoles ?? [''],
-        bottomRoles = bottomRoles ?? [''];
+      bottomRoles = bottomRoles ?? [''],
+      scoreFields = scoreFields ?? [];
 
   factory GameFormDraft.initial({String? parentGameId}) => GameFormDraft(parentGameId: parentGameId);
 

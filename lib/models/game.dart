@@ -38,6 +38,40 @@ String countTypeToString(CountType c) {
   }
 }
 
+/// One colored scoring category used by point-based games such as 7 Wonders.
+class GameScoreField {
+  final String id;
+  final String label;
+  final int color;
+
+  const GameScoreField({required this.id, required this.label, required this.color});
+
+  GameScoreField copyWith({String? id, String? label, int? color}) => GameScoreField(
+        id: id ?? this.id,
+        label: label ?? this.label,
+        color: color ?? this.color,
+      );
+
+  Map<String, dynamic> toMap() => {'id': id, 'label': label, 'color': color};
+
+  factory GameScoreField.fromMap(Map<String, dynamic> m) => GameScoreField(
+        id: (m['id'] as String?) ?? '',
+        label: (m['label'] as String?) ?? '',
+        color: (m['color'] as num?)?.toInt() ?? palette.first,
+      );
+
+  static const palette = [
+    0xFF3B82F6,
+    0xFF22C55E,
+    0xFFEF4444,
+    0xFFF59E0B,
+    0xFF8B5CF6,
+    0xFF06B6D4,
+    0xFFF97316,
+    0xFFEC4899,
+  ];
+}
+
 /// A category of rules reminders (e.g. for Rami: "Règles générales", "Règle
 /// de la première pose", "Règles spéciales"…), each holding its own list of
 /// individual rules. Purely informational — never read by the scoring logic.
@@ -105,6 +139,9 @@ class Game {
   /// never consulted by the scoring logic (see [GameRuleSection]).
   final List<GameRuleSection> ruleSections;
 
+  /// Optional color-coded score breakdown used by point-based games.
+  final List<GameScoreField>? scoreFields;
+
   const Game({
     required this.id,
     required this.name,
@@ -119,6 +156,7 @@ class Game {
     this.multiRound = false,
     this.parentGameId,
     this.ruleSections = const [],
+    this.scoreFields,
   });
 
   bool get lowWins => countType == CountType.lowWins;
@@ -126,7 +164,7 @@ class Game {
   bool get isWinLoss => countType == CountType.winLoss;
   bool get isVariant => parentGameId != null;
 
-  Game copyWith({List<GameRuleSection>? ruleSections}) => Game(
+  Game copyWith({List<GameRuleSection>? ruleSections, List<GameScoreField>? scoreFields}) => Game(
         id: id,
         name: name,
         emoji: emoji,
@@ -140,7 +178,10 @@ class Game {
         multiRound: multiRound,
         parentGameId: parentGameId,
         ruleSections: ruleSections ?? this.ruleSections,
+          scoreFields: scoreFields ?? this.scoreFields,
       );
+
+        bool get hasScoreFields => scoreFields != null && scoreFields!.isNotEmpty;
 
   /// The default scoring unit a new match for this game should start with.
   String get defaultUnit => countType == CountType.wins ? 'wins' : 'points';
@@ -187,6 +228,7 @@ class Game {
         if (multiRound) 'multiRound': multiRound,
         if (parentGameId != null) 'parentGameId': parentGameId,
         if (ruleSections.isNotEmpty) 'ruleSections': ruleSections.map((s) => s.toMap()).toList(),
+        if (scoreFields != null && scoreFields!.isNotEmpty) 'scoreFields': scoreFields!.map((f) => f.toMap()).toList(),
       };
 
   factory Game.fromDoc(String id, Map<String, dynamic> data) {
@@ -205,6 +247,9 @@ class Game {
       parentGameId: data['parentGameId'] as String?,
       ruleSections: ((data['ruleSections'] as List?) ?? const [])
           .map((e) => GameRuleSection.fromMap(Map<String, dynamic>.from(e as Map)))
+          .toList(),
+        scoreFields: ((data['scoreFields'] as List?) ?? const [])
+          .map((e) => GameScoreField.fromMap(Map<String, dynamic>.from(e as Map)))
           .toList(),
     );
   }

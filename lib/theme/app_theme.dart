@@ -34,6 +34,16 @@ String accentPresetLabel(AccentPreset p) => switch (p) {
       AccentPreset.pink => 'Rose',
     };
 
+/// The home tab's layout density — [simple] strips the hero/stat-chip/
+/// mini-ranking visuals down to plain text and a single latest match,
+/// [complete] is the full dashboard with all sections.
+enum DashboardStyle { simple, complete }
+
+String dashboardStyleLabel(DashboardStyle s) => switch (s) {
+      DashboardStyle.simple => 'Épuré',
+      DashboardStyle.complete => 'Complet',
+    };
+
 /// Design tokens ported 1:1 from the Podium.dc.html prototype's :root vars —
 /// now resolved dynamically against the current light/dark mode and accent
 /// choice instead of being fixed constants. Every existing `AppColors.xxx`

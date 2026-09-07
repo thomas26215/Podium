@@ -14,6 +14,7 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final modeIndex = switch (app.themeMode) { ThemeMode.light => 0, ThemeMode.dark => 1, ThemeMode.system => 2 };
+    final dashboardIndex = switch (app.dashboardStyle) { DashboardStyle.simple => 0, DashboardStyle.complete => 1 };
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -52,6 +53,30 @@ class SettingsScreen extends StatelessWidget {
               const SizedBox(height: 16),
               FadeSlideIn(
                 delay: const Duration(milliseconds: 60),
+                child: _card(
+                  title: 'Tableau de bord',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SegmentedControl(
+                        labels: const ['Épuré', 'Complet'],
+                        selectedIndex: dashboardIndex,
+                        onChanged: (i) => app.setDashboardStyle(switch (i) { 0 => DashboardStyle.simple, _ => DashboardStyle.complete }),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        app.dashboardStyle == DashboardStyle.simple
+                            ? 'Écran d’accueil simplifié, avec juste l’essentiel.'
+                            : 'Écran d’accueil complet, avec classement et statistiques détaillées.',
+                        style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              FadeSlideIn(
+                delay: const Duration(milliseconds: 120),
                 child: _card(
                   title: 'Couleur d’accent',
                   child: Wrap(

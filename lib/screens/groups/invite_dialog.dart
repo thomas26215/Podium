@@ -155,27 +155,32 @@ class _InviteDialogState extends State<InviteDialog> {
                     children: [
                       Text('DÉJÀ AJOUTÉS AILLEURS', style: bodyFont(size: 11, weight: FontWeight.w800, color: AppColors.mut, letterSpacing: 0.6)),
                       const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          for (final g in suggestions)
-                            GestureDetector(
-                              onTap: app.busy ? null : () => _addExisting(app, g),
-                              child: Container(
-                                padding: const EdgeInsets.fromLTRB(6, 6, 12, 6),
-                                decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(30)),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Avatar(initial: g.initial, color: Color(g.color), size: 26, fontSize: 11),
-                                    const SizedBox(width: 7),
-                                    Text(g.displayName, style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.ink)),
-                                  ],
+                      SizedBox(
+                        height: 156,
+                        child: SingleChildScrollView(
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final g in suggestions)
+                                GestureDetector(
+                                  onTap: app.busy ? null : () => _addExisting(app, g),
+                                  child: Container(
+                                    padding: const EdgeInsets.fromLTRB(6, 6, 12, 6),
+                                    decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(30)),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Avatar(initial: g.initial, color: Color(g.color), size: 26, fontSize: 11),
+                                        const SizedBox(width: 7),
+                                        Text(g.displayName, style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.ink)),
+                                      ],
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
-                        ],
+                            ],
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Text(

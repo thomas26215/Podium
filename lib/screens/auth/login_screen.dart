@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/avatar.dart';
 import '../../widgets/common.dart';
 import 'signup_screen.dart';
 
@@ -33,6 +34,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
+    final savedAccounts = app.savedAccounts;
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: SafeArea(
@@ -68,6 +70,49 @@ class _LoginScreenState extends State<LoginScreen> {
                     ],
                     const SizedBox(height: 24),
                     PrimaryButton(label: 'Se connecter', loading: app.busy, onPressed: () => _submit(app)),
+                    if (savedAccounts.isNotEmpty) ...[
+                      const SizedBox(height: 26),
+                      Text('Comptes enregistrés', style: bodyFont(size: 12.5, weight: FontWeight.w800, color: AppColors.ink2)),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          for (final account in savedAccounts)
+                            GestureDetector(
+                              onTap: () {
+                                _emailCtrl.text = account.email;
+                                _emailCtrl.selection = TextSelection.collapsed(offset: account.email.length);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.fromLTRB(8, 8, 12, 8),
+                                decoration: BoxDecoration(
+                                  color: AppColors.card,
+                                  border: Border.all(color: AppColors.line),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Avatar(initial: account.displayName.isNotEmpty ? account.displayName[0].toUpperCase() : '?', color: Color(account.color), size: 28, fontSize: 11),
+                                    const SizedBox(width: 8),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(account.displayName, style: bodyFont(size: 13, weight: FontWeight.w800, color: AppColors.ink)),
+                                        Text(account.email, style: bodyFont(size: 11.5, weight: FontWeight.w600, color: AppColors.mut)),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text('Touchez un compte pour remplir l’e-mail, puis saisissez son mot de passe.', style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
+                    ],
                     const SizedBox(height: 18),
                     Center(
                       child: TextButton(

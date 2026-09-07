@@ -34,6 +34,7 @@ abstract class GamesRepository {
     List<int>? bottomPoints,
     bool multiRound = false,
     String? parentGameId,
+    List<GameScoreField>? scoreFields,
   });
 
   /// Copies a game definition (typically from the online library) into this
@@ -86,6 +87,7 @@ class FirebaseGamesRepository implements GamesRepository {
     List<int>? bottomPoints,
     bool multiRound = false,
     String? parentGameId,
+    List<GameScoreField>? scoreFields,
   }) async {
     final ref = _col(rootGroupId).doc();
     final game = Game(
@@ -101,6 +103,7 @@ class FirebaseGamesRepository implements GamesRepository {
       bottomPoints: bottomPoints,
       multiRound: multiRound,
       parentGameId: parentGameId,
+      scoreFields: scoreFields,
     );
     await ref.set(game.toMap());
     return game;
@@ -121,6 +124,7 @@ class FirebaseGamesRepository implements GamesRepository {
       topPoints: source.topPoints,
       bottomPoints: source.bottomPoints,
       multiRound: source.multiRound,
+      scoreFields: source.scoreFields,
     );
     await ref.set(game.toMap());
     return game;

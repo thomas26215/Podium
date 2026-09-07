@@ -146,52 +146,85 @@ class HomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 18),
           ],
-          FadeSlideIn(child: winRows.isEmpty ? const _NoDataHero() : _LeaderHero(row: winRows.first)),
-          const SizedBox(height: 14),
-          FadeSlideIn(
-            delay: const Duration(milliseconds: 60),
-            child: Row(children: [
-              StatChip(value: '${stats['parties']}', label: 'parties'),
-              const SizedBox(width: 10),
-              StatChip(value: '${stats['jeux']}', label: 'jeux joués'),
-              const SizedBox(width: 10),
-              StatChip(value: '${stats['joueurs']}', label: 'joueurs'),
-            ]),
-          ),
-          const SizedBox(height: 22),
-          SectionHeader(title: 'Classement', actionLabel: 'Tout voir', onAction: () => app.setTab(AppTab.ranking)),
-          FadeSlideIn(
-            delay: const Duration(milliseconds: 100),
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 14),
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
-              child: winRows.isEmpty
-                  ? const Padding(padding: EdgeInsets.symmetric(vertical: 20), child: EmptyState(emoji: '🏆', message: 'Aucune partie enregistrée pour l\'instant.'))
-                  : Column(
-                      children: [
-                        for (var i = 0; i < winRows.length && i < 3; i++)
-                          MiniRankRow(rank: i + 1, player: winRows[i].player, wins: winRows[i].wins, onTap: () => app.openProfile(winRows[i].player.uid)),
-                      ],
-                    ),
-            ),
-          ),
-          SectionHeader(title: 'Dernières parties', actionLabel: 'Historique', onAction: () => app.setTab(AppTab.history)),
-          if (app.viewMatches.isEmpty)
-            const EmptyState(emoji: '🎲', message: "Pas encore de partie. Lancez-vous avec le bouton +.")
-          else
-            for (final (i, m) in app.viewMatches.take(3).toList().indexed)
-              Builder(builder: (_) {
-                final g = app.gameById(m.gameId);
-                if (g == null) return const SizedBox.shrink();
-                final winners = m.winnerIds();
-                final winner = winners.isNotEmpty ? app.playerById(winners.first) : null;
-                return FadeSlideIn(delay: Duration(milliseconds: 140 + i * 40), child: HomeMatchTile(game: g, match: m, winner: winner));
-              }),
+          if (app.dashboardStyle == DashboardStyle.simple) ..._simpleSections(app, winRows) else ..._completeSections(app, stats, winRows),
         ],
       ),
     );
   }
+}
+
+/// Épuré: just who's leading and the very last game — the rest of the
+/// dashboard (stat chips, full mini-ranking, recent-matches list) is
+/// dropped for a calmer, less busy home screen.
+List<Widget> _simpleSections(AppState app, List<PlayerRow> winRows) {
+  final lastMatch = app.viewMatches.firstOrNull;
+  final lastMatchGame = lastMatch != null ? app.gameById(lastMatch.gameId) : null;
+
+  return [
+    FadeSlideIn(child: winRows.isEmpty ? const _SimpleNoDataCard() : _SimpleLeaderCard(row: winRows.first)),
+    const SizedBox(height: 22),
+    SectionHeader(title: 'Dernière partie', actionLabel: 'Historique', onAction: () => app.setTab(AppTab.history)),
+    if (lastMatch == null || lastMatchGame == null)
+      const EmptyState(emoji: '🎲', message: "Pas encore de partie. Lancez-vous avec le bouton +.")
+    else
+      FadeSlideIn(
+        delay: const Duration(milliseconds: 60),
+        child: HomeMatchTile(
+          game: lastMatchGame,
+          match: lastMatch,
+          winner: lastMatch.winnerIds().isNotEmpty ? app.playerById(lastMatch.winnerIds().first) : null,
+        ),
+      ),
+  ];
+}
+
+/// Complet: the full hero + stat chips + top-3 ranking + recent-matches
+/// dashboard.
+List<Widget> _completeSections(AppState app, Map<String, int> stats, List<PlayerRow> winRows) {
+  return [
+    FadeSlideIn(child: winRows.isEmpty ? const _NoDataHero() : _LeaderHero(row: winRows.first)),
+    const SizedBox(height: 14),
+    FadeSlideIn(
+      delay: const Duration(milliseconds: 60),
+      child: Row(children: [
+        StatChip(value: '${stats['parties']}', label: 'parties'),
+        const SizedBox(width: 10),
+        StatChip(value: '${stats['jeux']}', label: 'jeux joués'),
+        const SizedBox(width: 10),
+        StatChip(value: '${stats['joueurs']}', label: 'joueurs'),
+      ]),
+    ),
+    const SizedBox(height: 22),
+    SectionHeader(title: 'Classement', actionLabel: 'Tout voir', onAction: () => app.setTab(AppTab.ranking)),
+    FadeSlideIn(
+      delay: const Duration(milliseconds: 100),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
+        child: winRows.isEmpty
+            ? const Padding(padding: EdgeInsets.symmetric(vertical: 20), child: EmptyState(emoji: '🏆', message: 'Aucune partie enregistrée pour l\'instant.'))
+            : Column(
+                children: [
+                  for (var i = 0; i < winRows.length && i < 3; i++)
+                    MiniRankRow(rank: i + 1, player: winRows[i].player, wins: winRows[i].wins, onTap: () => app.openProfile(winRows[i].player.uid)),
+                ],
+              ),
+      ),
+    ),
+    SectionHeader(title: 'Dernières parties', actionLabel: 'Historique', onAction: () => app.setTab(AppTab.history)),
+    if (app.viewMatches.isEmpty)
+      const EmptyState(emoji: '🎲', message: "Pas encore de partie. Lancez-vous avec le bouton +.")
+    else
+      for (final (i, m) in app.viewMatches.take(3).toList().indexed)
+        Builder(builder: (_) {
+          final g = app.gameById(m.gameId);
+          if (g == null) return const SizedBox.shrink();
+          final winners = m.winnerIds();
+          final winner = winners.isNotEmpty ? app.playerById(winners.first) : null;
+          return FadeSlideIn(delay: Duration(milliseconds: 140 + i * 40), child: HomeMatchTile(game: g, match: m, winner: winner));
+        }),
+  ];
 }
 
 /// Offers to resume a match found on this device (see
@@ -337,6 +370,50 @@ class _NoDataHero extends StatelessWidget {
           Text('Enregistrez votre première partie pour lancer le classement.', style: bodyFont(size: 14, weight: FontWeight.w600, color: Colors.white)),
         ],
       ),
+    );
+  }
+}
+
+/// Épuré version of [_LeaderHero]: same info (who's leading, wins, winrate)
+/// on a plain card instead of the dark gradient hero — quieter, less
+/// "look at me" for users who found the full dashboard too busy.
+class _SimpleLeaderCard extends StatelessWidget {
+  final PlayerRow row;
+  const _SimpleLeaderCard({required this.row});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
+      child: Row(
+        children: [
+          Avatar(initial: row.player.initial, color: Color(row.player.color), size: 48, fontSize: 19),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('En tête · ${row.player.displayName}', style: bodyFont(size: 15, weight: FontWeight.w800, color: AppColors.ink)),
+                const SizedBox(height: 2),
+                Text('${row.wins} victoires · ${(row.ratio * 100).round()}% de winrate', style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SimpleNoDataCard extends StatelessWidget {
+  const _SimpleNoDataCard();
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
+      child: Text('Enregistrez votre première partie pour lancer le classement.', style: bodyFont(size: 13.5, weight: FontWeight.w600, color: AppColors.mut)),
     );
   }
 }

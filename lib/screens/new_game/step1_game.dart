@@ -331,6 +331,102 @@ class CreateGameForm extends StatelessWidget {
         _countOption(app, CountType.wins, 'Manches gagnées', 'Président, belote, ping-pong…'),
         _countOption(app, CountType.ranks, 'Classement', 'Simple classement, ou avec des places nommées (Président…)'),
         _countOption(app, CountType.winLoss, 'Victoire / défaite', 'Marquez qui a gagné et qui a perdu, sans compter de points — échecs, matchs 1 contre 1…'),
+        if (f.countType == CountType.highWins || f.countType == CountType.lowWins) ...[
+          const SizedBox(height: 18),
+          _label('Catégories de score'),
+          const SizedBox(height: 8),
+          Text(
+            'Ajoutez les rubriques à compter à la fin de la partie. Chaque champ reçoit sa couleur et le total est calculé automatiquement.',
+            style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
+          ),
+          const SizedBox(height: 12),
+          if (f.scoreFields.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.md)),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text('Ex. merveilles, pièces, guerre, science…', style: bodyFont(size: 13, weight: FontWeight.w600, color: AppColors.mut)),
+                  ),
+                  GestureDetector(
+                    onTap: () => app.setGameForm((draft) => draft
+                      ..scoreFields.add(_newScoreField(draft.scoreFields.length))
+                      ..multiRound = false),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(12)),
+                      child: Text('+ Ajouter', style: bodyFont(size: 13, weight: FontWeight.w700, color: Colors.white)),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            Column(
+              children: [
+                for (final (i, field) in f.scoreFields.indexed) ...[
+                  if (i > 0) const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: Color(field.color).withValues(alpha: 0.55), width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+                    child: Row(
+                      children: [
+                        GestureDetector(
+                          onTap: () async {
+                            final picked = await _pickScoreFieldColor(context, field.color);
+                            if (picked == null) return;
+                            if (!context.mounted) return;
+                            app.setGameForm((draft) => draft..scoreFields[i] = field.copyWith(color: picked));
+                          },
+                          child: Container(
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(color: Color(field.color), shape: BoxShape.circle, boxShadow: [BoxShadow(color: Color(field.color).withValues(alpha: 0.24), blurRadius: 10, offset: const Offset(0, 4))]),
+                            child: const Icon(Icons.palette_rounded, size: 16, color: Colors.white),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextFormField(
+                            initialValue: field.label,
+                            onChanged: (v) => app.setGameForm((draft) => draft..scoreFields[i] = field.copyWith(label: v)),
+                            style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink),
+                            decoration: InputDecoration(
+                              hintText: 'Ex. Science',
+                              filled: true,
+                              fillColor: AppColors.bg,
+                              contentPadding: const EdgeInsets.all(12),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: AppColors.line, width: 1.5)),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: AppColors.line, width: 1.5)),
+                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: Color(field.color), width: 1.5)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: Icon(Icons.close, size: 18, color: AppColors.mut),
+                          onPressed: () => app.setGameForm((draft) => draft..scoreFields.removeAt(i)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 10),
+                GestureDetector(
+                  onTap: () => app.setGameForm((draft) => draft
+                    ..scoreFields.add(_newScoreField(draft.scoreFields.length))
+                    ..multiRound = false),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.md)),
+                    child: Text('+ Ajouter une catégorie', style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.ink2)),
+                  ),
+                ),
+              ],
+            ),
+        ],
         if (f.countType == CountType.ranks) ...[
           const SizedBox(height: 18),
           Text(
@@ -387,36 +483,44 @@ class CreateGameForm extends StatelessWidget {
         ],
         const SizedBox(height: 18),
         GestureDetector(
-          onTap: () => app.setGameForm((f) => f..multiRound = !f.multiRound),
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: f.multiRound ? AppColors.accentSoft : AppColors.card,
-              border: Border.all(color: f.multiRound ? AppColors.accent : AppColors.line, width: 1.5),
-              borderRadius: BorderRadius.circular(AppRadius.md),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Manches multiples', style: bodyFont(size: 14.5, weight: FontWeight.w800, color: AppColors.ink)),
-                      Text(
-                        f.multiRound
-                            ? 'Nombre de manches illimité — les scores se cumulent (ex. Président en plusieurs donnes, Skyjo en plusieurs tours).'
-                            : 'Une seule manche décide de la partie.',
-                        style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
-                      ),
-                    ],
+          onTap: f.scoreFields.isNotEmpty ? null : () => app.setGameForm((f) => f..multiRound = !f.multiRound),
+          child: Opacity(
+            opacity: f.scoreFields.isNotEmpty ? 0.45 : 1,
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: f.multiRound ? AppColors.accentSoft : AppColors.card,
+                border: Border.all(color: f.multiRound ? AppColors.accent : AppColors.line, width: 1.5),
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Manches multiples', style: bodyFont(size: 14.5, weight: FontWeight.w800, color: AppColors.ink)),
+                        Text(
+                          f.scoreFields.isNotEmpty
+                              ? 'Ce champ est grisé car vous jouez avec catégories de score.'
+                              : (f.multiRound
+                                  ? 'Nombre de manches illimité — les scores se cumulent (ex. Président en plusieurs donnes, Skyjo en plusieurs tours).'
+                                  : 'Une seule manche décide de la partie.'),
+                          style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                Switch(
-                  value: f.multiRound,
-                  activeThumbColor: AppColors.accent,
-                  onChanged: (v) => app.setGameForm((f) => f..multiRound = v),
-                ),
-              ],
+                  IgnorePointer(
+                    ignoring: f.scoreFields.isNotEmpty,
+                    child: Switch(
+                      value: f.multiRound,
+                      activeThumbColor: AppColors.accent,
+                      onChanged: (v) => app.setGameForm((f) => f..multiRound = v),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -427,6 +531,11 @@ class CreateGameForm extends StatelessWidget {
   Widget _label(String s) => Text(s, style: bodyFont(size: 12.5, weight: FontWeight.w800, color: AppColors.ink2));
 
   String _ordinal(int n) => n == 1 ? '1ère' : '${n}e';
+
+  GameScoreField _newScoreField(int index) {
+    final color = GameScoreField.palette[index % GameScoreField.palette.length];
+    return GameScoreField(id: 'score_${DateTime.now().microsecondsSinceEpoch}_$index', label: '', color: color);
+  }
 
   Widget _roleList(
     AppState app,
@@ -520,6 +629,148 @@ class CreateGameForm extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+Future<int?> _pickScoreFieldColor(BuildContext context, int initialColor) async {
+  final swatches = <Color>[
+    const Color(0xFF3B82F6),
+    const Color(0xFF22C55E),
+    const Color(0xFFEF4444),
+    const Color(0xFFF59E0B),
+    const Color(0xFF8B5CF6),
+    const Color(0xFF06B6D4),
+    const Color(0xFFF97316),
+    const Color(0xFFE5537B),
+    const Color(0xFF14B8A6),
+    const Color(0xFF0F766E),
+    const Color(0xFF6366F1),
+    const Color(0xFFB45309),
+  ];
+  var selected = Color(initialColor);
+  return showDialog<int>(
+    context: context,
+    builder: (dialogContext) {
+      return StatefulBuilder(
+        builder: (dialogContext, setState) {
+          final hsv = HSVColor.fromColor(selected);
+          final previewTextColor = ThemeData.estimateBrightnessForColor(selected) == Brightness.dark ? Colors.white : Colors.black;
+          return AlertDialog(
+            backgroundColor: AppColors.bg,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
+            title: Text('Choisir une couleur', style: dispFont(size: 18, weight: FontWeight.w700, color: AppColors.ink)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: selected, borderRadius: BorderRadius.circular(AppRadius.lg)),
+                    child: Text('Aperçu', style: bodyFont(size: 12.5, weight: FontWeight.w800, color: previewTextColor)),
+                  ),
+                  const SizedBox(height: 14),
+                  Text('Palette rapide', style: bodyFont(size: 12.5, weight: FontWeight.w800, color: AppColors.ink2)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final color in swatches)
+                        GestureDetector(
+                          onTap: () => setState(() => selected = color),
+                          child: Container(
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              color: color,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: selected.toARGB32() == color.toARGB32() ? AppColors.ink : Colors.transparent, width: 2.5),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _ColorSlider(
+                    label: 'Teinte',
+                    value: hsv.hue,
+                    min: 0,
+                    max: 360,
+                    activeColor: selected,
+                    onChanged: (value) => setState(() => selected = HSVColor.fromAHSV(hsv.alpha, value, hsv.saturation, hsv.value).toColor()),
+                  ),
+                  _ColorSlider(
+                    label: 'Saturation',
+                    value: hsv.saturation,
+                    min: 0,
+                    max: 1,
+                    activeColor: selected,
+                    onChanged: (value) => setState(() => selected = HSVColor.fromAHSV(hsv.alpha, hsv.hue, value, hsv.value).toColor()),
+                  ),
+                  _ColorSlider(
+                    label: 'Luminosité',
+                    value: hsv.value,
+                    min: 0,
+                    max: 1,
+                    activeColor: selected,
+                    onChanged: (value) => setState(() => selected = HSVColor.fromAHSV(hsv.alpha, hsv.hue, hsv.saturation, value).toColor()),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Annuler')),
+              ElevatedButton(
+                onPressed: () => Navigator.of(dialogContext).pop(selected.toARGB32()),
+                style: ElevatedButton.styleFrom(backgroundColor: selected, foregroundColor: previewTextColor, elevation: 0),
+                child: const Text('Choisir'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+}
+
+class _ColorSlider extends StatelessWidget {
+  final String label;
+  final double value;
+  final double min;
+  final double max;
+  final Color activeColor;
+  final ValueChanged<double> onChanged;
+
+  const _ColorSlider({required this.label, required this.value, required this.min, required this.max, required this.activeColor, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(label, style: bodyFont(size: 12, weight: FontWeight.w800, color: AppColors.ink2)),
+              Text(value.toStringAsFixed(max > 1 ? 0 : 2), style: bodyFont(size: 11.5, weight: FontWeight.w700, color: AppColors.mut)),
+            ],
+          ),
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              trackHeight: 4,
+              activeTrackColor: activeColor,
+              thumbColor: activeColor,
+              overlayColor: activeColor.withValues(alpha: 0.12),
+            ),
+            child: Slider(value: value, min: min, max: max, onChanged: onChanged),
+          ),
+        ],
       ),
     );
   }

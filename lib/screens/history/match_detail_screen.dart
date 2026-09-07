@@ -202,6 +202,9 @@ class MatchDetailScreen extends StatelessWidget {
   }
 
   Widget _ffaCard() {
+    if (match.hasScoreBreakdown) {
+      return _detailedBreakdownCard();
+    }
     final winners = _winners;
     final sorted = [...match.entries]..sort((a, b) => game.lowWins ? a.points.compareTo(b.points) : b.points.compareTo(a.points));
     return Container(
@@ -240,6 +243,75 @@ class MatchDetailScreen extends StatelessWidget {
             ),
           );
         }).toList(),
+      ),
+    );
+  }
+
+  Widget _detailedBreakdownCard() {
+    final fields = match.scoreFields ?? const [];
+    final sorted = [...match.entries]..sort((a, b) => game.lowWins ? a.points.compareTo(b.points) : b.points.compareTo(a.points));
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
+      child: Column(
+        children: [
+          for (final entry in sorted)
+            Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.bg,
+                border: Border.all(color: AppColors.line, width: 1.2),
+                borderRadius: BorderRadius.circular(AppRadius.lg),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      _memberAvatar(entry.playerId),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(appState.playerById(entry.playerId)?.displayName ?? '?', style: bodyFont(size: 14.5, weight: FontWeight.w700, color: AppColors.ink)),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(999)),
+                        child: Text('${entry.points}', style: bodyFont(size: 13, weight: FontWeight.w800, color: Colors.white)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  if (fields.isNotEmpty)
+                    for (final field in fields)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 7),
+                        child: Row(
+                          children: [
+                            Container(width: 10, height: 10, decoration: BoxDecoration(color: Color(field.color), shape: BoxShape.circle)),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text(field.label, style: bodyFont(size: 12.5, weight: FontWeight.w700, color: AppColors.ink2))),
+                            Text('${entry.scoreBreakdown?[field.id] ?? 0}', style: bodyFont(size: 12.5, weight: FontWeight.w800, color: AppColors.ink)),
+                          ],
+                        ),
+                      )
+                  else
+                    for (final item in (entry.scoreBreakdown ?? {}).entries)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 7),
+                        child: Row(
+                          children: [
+                            Icon(Icons.circle, size: 10, color: AppColors.mut),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text(item.key, style: bodyFont(size: 12.5, weight: FontWeight.w700, color: AppColors.ink2))),
+                            Text('${item.value}', style: bodyFont(size: 12.5, weight: FontWeight.w800, color: AppColors.ink)),
+                          ],
+                        ),
+                      ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }

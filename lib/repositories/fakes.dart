@@ -280,6 +280,7 @@ class FakeGamesRepository implements GamesRepository {
     List<int>? bottomPoints,
     bool multiRound = false,
     String? parentGameId,
+    List<GameScoreField>? scoreFields,
   }) async {
     final list = byGroup.putIfAbsent(rootGroupId, () => []);
     final game = Game(
@@ -295,6 +296,7 @@ class FakeGamesRepository implements GamesRepository {
       bottomPoints: bottomPoints,
       multiRound: multiRound,
       parentGameId: parentGameId,
+      scoreFields: scoreFields,
     );
     list.add(game);
     _ctrl(rootGroupId).add(list);
@@ -316,6 +318,7 @@ class FakeGamesRepository implements GamesRepository {
       topPoints: source.topPoints,
       bottomPoints: source.bottomPoints,
       multiRound: source.multiRound,
+      scoreFields: source.scoreFields,
     );
     list.add(game);
     _ctrl(rootGroupId).add(list);

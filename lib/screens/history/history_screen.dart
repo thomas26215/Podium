@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/app_user.dart';
+import '../../models/game.dart';
 import '../../models/match.dart';
 import '../../state/app_state.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/avatar.dart';
 import '../../widgets/common.dart';
 import '../../widgets/match_card.dart';
 import 'match_detail_screen.dart';
@@ -19,16 +23,30 @@ class _HistoryItem {
   DateTime get sortKey => legs.map((m) => m.createdAt).reduce((a, b) => a.isAfter(b) ? a : b);
 }
 
+String _matchGroupingSignature(GameMatch match) {
+  final participants = match.entries.map((e) => e.playerId).toList()..sort();
+  return [match.gameId, participants.join(',')].join('|');
+}
+
+DateTime _dayKey(DateTime dt) => DateTime(dt.year, dt.month, dt.day);
+
 List<_HistoryItem> _groupHistoryItems(List<GameMatch> matches) {
   final seriesGroups = <String, List<GameMatch>>{};
-  final items = <_HistoryItem>[];
+  final compactGroups = <String, List<GameMatch>>{};
   for (final m in matches) {
     final sid = m.seriesId;
     if (sid == null) {
-      items.add(_HistoryItem([m]));
+      final key = '${_dayKey(m.createdAt).millisecondsSinceEpoch}|${_matchGroupingSignature(m)}';
+      compactGroups.putIfAbsent(key, () => []).add(m);
     } else {
       seriesGroups.putIfAbsent(sid, () => []).add(m);
     }
+  }
+
+  final items = <_HistoryItem>[];
+  for (final legs in compactGroups.values) {
+    legs.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    items.add(_HistoryItem(legs));
   }
   for (final legs in seriesGroups.values) {
     legs.sort((a, b) => (a.seriesGame ?? 0).compareTo(b.seriesGame ?? 0));
@@ -70,6 +88,13 @@ class HistoryScreen extends StatelessWidget {
                           appState: app,
                           onTapLeg: (leg) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => MatchDetailScreen(game: g, match: leg, appState: app))),
                         )
+                      : item.legs.length > 1
+                          ? _GroupedMatchCard(
+                              game: g,
+                              legs: item.legs,
+                              appState: app,
+                              onTapLeg: (leg) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => MatchDetailScreen(game: g, match: leg, appState: app))),
+                            )
                       : MatchCard(
                           game: g,
                           match: item.legs.single,
@@ -80,6 +105,81 @@ class HistoryScreen extends StatelessWidget {
                 );
               }),
         ],
+      ),
+    );
+  }
+}
+
+class _GroupedMatchCard extends StatefulWidget {
+  final Game game;
+  final List<GameMatch> legs;
+  final AppState appState;
+  final void Function(GameMatch leg) onTapLeg;
+
+  const _GroupedMatchCard({required this.game, required this.legs, required this.appState, required this.onTapLeg});
+
+  @override
+  State<_GroupedMatchCard> createState() => _GroupedMatchCardState();
+}
+
+class _GroupedMatchCardState extends State<_GroupedMatchCard> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final legs = widget.legs;
+    final latest = legs.last;
+    final resultLine = '${legs.length} parties le même jour';
+    final players = legs.expand((m) => m.entries.map((e) => widget.appState.playerById(e.playerId))).whereType<AppUser>().toSet().toList();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.xl),
+        onTap: () => setState(() => _expanded = !_expanded),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: matchHeader(widget.game, 'Suite de ${legs.length} parties', latest.createdAt)),
+                Icon(_expanded ? Icons.expand_less_rounded : Icons.expand_more_rounded, size: 20, color: AppColors.mut),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: Text(resultLine, style: bodyFont(size: 13.5, weight: FontWeight.w700, color: AppColors.ink2))),
+                AvatarCluster(avatars: [for (final p in players.take(4)) (initial: p.initial, color: Color(p.color))]),
+              ],
+            ),
+            if (_expanded) ...[
+              const SizedBox(height: 12),
+              Container(height: 1, color: AppColors.line),
+              const SizedBox(height: 10),
+              for (final (index, leg) in legs.indexed)
+                InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => widget.onTapLeg(leg),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      children: [
+                        SizedBox(width: 58, child: Text('Partie ${index + 1}', style: bodyFont(size: 12.5, weight: FontWeight.w700, color: AppColors.mut))),
+                        Expanded(child: Text(matchResultLine(widget.game, leg, widget.appState), style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.ink))),
+                        Text(hhmm(leg.createdAt), style: bodyFont(size: 11.5, weight: FontWeight.w600, color: AppColors.mut)),
+                        const SizedBox(width: 8),
+                        Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.mut),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ],
+        ),
       ),
     );
   }
