@@ -66,18 +66,32 @@ match /databases/{database}/documents {
       : (isMember(groupData) || isCommunityMember(rootDoc(groupData.parentId).data));
   }
 
+  // True while `groupData`'s QR self-join window is open (see
+  // Group.inviteExpiresAt / GroupsRepository.refreshInviteWindow, refreshed
+  // every time the invite dialog's QR tab is shown). A group that has never
+  // opened a window (the field is simply absent — every group created before
+  // this existed, or one that's never shown its QR tab) stays joinable
+  // unconditionally, so this only ever *tightens* behavior for groups that
+  // opt in by generating a code, never breaks existing ones on deploy.
+  function inviteWindowOpen(groupData) {
+    return !('inviteExpiresAt' in groupData) || request.time < groupData.inviteExpiresAt;
+  }
+
   // True if this update only adds the caller's own uid to `memberIds` and/or
   // `allMemberIds` (nothing else touched) — the shape of a self-service QR
   // invite join. It's a write-only check: a non-member can perform it without
   // ever being able to `read` the doc first, since the QR code itself already
-  // carries everything the client needs (see GroupInviteCode).
+  // carries everything the client needs (see GroupInviteCode). Also requires
+  // the invite window to still be open, so a screenshot/photo of an old code
+  // can't be replayed forever — see inviteWindowOpen().
   function isSelfJoin(before) {
     let addedMembers = request.resource.data.memberIds.removeAll(before.memberIds);
     let addedAll = request.resource.data.allMemberIds.removeAll(before.allMemberIds);
     return request.resource.data.diff(before).affectedKeys().hasOnly(['memberIds', 'allMemberIds'])
       && request.resource.data.memberIds.removeAll([request.auth.uid]) == before.memberIds
       && request.resource.data.allMemberIds.removeAll([request.auth.uid]) == before.allMemberIds
-      && (addedMembers.size() > 0 || addedAll.size() > 0);
+      && (addedMembers.size() > 0 || addedAll.size() > 0)
+      && inviteWindowOpen(before);
   }
 
   // A shared, global catalog of ready-made games (including special-rules

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/group.dart';
 import 'users_repository.dart';
@@ -64,6 +65,11 @@ abstract class GroupsRepository {
   /// history stays visible but nothing new can be recorded in it) or
   /// reopens it. See [Group.closed].
   Future<void> setGroupClosed({required String groupId, required bool closed});
+
+  /// Opens (or extends) `groupId`'s QR self-join window — see
+  /// [Group.inviteExpiresAt]. Called whenever the invite dialog's QR tab is
+  /// shown, so a freshly displayed code is always good for a fresh window.
+  Future<void> refreshInviteWindow(String groupId);
 }
 
 class FirebaseGroupsRepository implements GroupsRepository {
@@ -98,8 +104,8 @@ class FirebaseGroupsRepository implements GroupsRepository {
         try {
           final doc = await _groups.doc(pid).get();
           if (doc.exists) byId[pid] = Group.fromDoc(doc.id, doc.data()!);
-        } catch (_) {
-          continue;
+        } catch (e) {
+          debugPrint('watchMyGroups: failed to fetch parent group $pid: $e');
         }
       }
 
@@ -111,8 +117,8 @@ class FirebaseGroupsRepository implements GroupsRepository {
           try {
             final doc = await _groups.doc(sgid).get();
             if (doc.exists) byId[sgid] = Group.fromDoc(doc.id, doc.data()!);
-          } catch (_) {
-            continue;
+          } catch (e) {
+            debugPrint('watchMyGroups: failed to fetch subgroup $sgid: $e');
           }
         }
       }
@@ -240,6 +246,15 @@ class FirebaseGroupsRepository implements GroupsRepository {
     if (Group.fromDoc(rootDoc.id, rootDoc.data()!).closed) {
       throw InviteException('Ce groupe est clos et n\'accepte plus de nouveaux membres.');
     }
+    // Fast client-side check with a friendly message — the real gate is the
+    // matching `inviteWindowOpen` check in firestore.rules' `isSelfJoin`, so
+    // a modified client can't just skip this and join anyway.
+    final targetDoc = groupId == rootId ? rootDoc : await _groups.doc(groupId).get();
+    if (!targetDoc.exists) throw InviteException('Groupe introuvable.');
+    final expiresAt = Group.fromDoc(targetDoc.id, targetDoc.data()!).inviteExpiresAt;
+    if (expiresAt != null && DateTime.now().isAfter(expiresAt)) {
+      throw InviteException("Ce code d'invitation a expiré — demandez-en un nouveau.");
+    }
     final batch = _db.batch();
     if (groupId == rootId) {
       batch.update(_groups.doc(groupId), {
@@ -326,6 +341,13 @@ class FirebaseGroupsRepository implements GroupsRepository {
     await _groups.doc(groupId).update({
       'closed': closed,
       'closedAt': closed ? FieldValue.serverTimestamp() : FieldValue.delete(),
+    });
+  }
+
+  @override
+  Future<void> refreshInviteWindow(String groupId) async {
+    await _groups.doc(groupId).update({
+      'inviteExpiresAt': Timestamp.fromDate(DateTime.now().add(const Duration(minutes: 30))),
     });
   }
 

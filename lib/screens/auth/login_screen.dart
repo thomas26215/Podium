@@ -85,7 +85,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 _emailCtrl.selection = TextSelection.collapsed(offset: account.email.length);
                               },
                               child: Container(
-                                padding: const EdgeInsets.fromLTRB(8, 8, 12, 8),
+                                padding: const EdgeInsets.fromLTRB(8, 8, 6, 8),
                                 decoration: BoxDecoration(
                                   color: AppColors.card,
                                   border: Border.all(color: AppColors.line),
@@ -104,6 +104,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                         Text(account.email, style: bodyFont(size: 11.5, weight: FontWeight.w600, color: AppColors.mut)),
                                       ],
                                     ),
+                                    const SizedBox(width: 2),
+                                    GestureDetector(
+                                      onTap: () => app.removeSavedAccount(account.email),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(6),
+                                        child: Icon(Icons.close_rounded, size: 15, color: AppColors.mut),
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -111,7 +119,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      Text('Touchez un compte pour remplir l’e-mail, puis saisissez son mot de passe.', style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
+                      Text('Touchez un compte pour remplir l’e-mail, ou ✕ pour l’oublier sur cet appareil.', style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
                     ],
                     const SizedBox(height: 18),
                     Center(
@@ -142,14 +150,7 @@ class _LoginScreenState extends State<LoginScreen> {
           keyboardType: keyboardType,
           validator: (v) => (v == null || v.trim().isEmpty) ? 'Requis' : null,
           style: bodyFont(size: 16, weight: FontWeight.w700, color: AppColors.ink),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: AppColors.card,
-            contentPadding: const EdgeInsets.all(14),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: AppColors.line, width: 1.5)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: AppColors.line, width: 1.5)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: AppColors.accent, width: 1.5)),
-          ),
+          decoration: appFieldDecoration(),
         ),
       ],
     );

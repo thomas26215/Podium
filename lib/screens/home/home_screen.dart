@@ -187,11 +187,11 @@ List<Widget> _completeSections(AppState app, Map<String, int> stats, List<Player
     FadeSlideIn(
       delay: const Duration(milliseconds: 60),
       child: Row(children: [
-        StatChip(value: '${stats['parties']}', label: 'parties'),
+        StatChip(value: stats['parties'] ?? 0, label: 'parties'),
         const SizedBox(width: 10),
-        StatChip(value: '${stats['jeux']}', label: 'jeux joués'),
+        StatChip(value: stats['jeux'] ?? 0, label: 'jeux joués'),
         const SizedBox(width: 10),
-        StatChip(value: '${stats['joueurs']}', label: 'joueurs'),
+        StatChip(value: stats['joueurs'] ?? 0, label: 'joueurs'),
       ]),
     ),
     const SizedBox(height: 22),

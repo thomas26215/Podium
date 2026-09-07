@@ -90,14 +90,7 @@ class _SignupScreenState extends State<SignupScreen> {
             return null;
           },
           style: bodyFont(size: 16, weight: FontWeight.w700, color: AppColors.ink),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: AppColors.card,
-            contentPadding: const EdgeInsets.all(14),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: AppColors.line, width: 1.5)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: AppColors.line, width: 1.5)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: AppColors.accent, width: 1.5)),
-          ),
+          decoration: appFieldDecoration(),
         ),
       ],
     );

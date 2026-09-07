@@ -191,6 +191,10 @@ class FakeGroupsRepository implements GroupsRepository {
     if (root0.closed) throw InviteException('Ce groupe est clos et n\'accepte plus de nouveaux membres.');
     final g = groups[groupId];
     if (g == null) return;
+    final expiresAt = g.inviteExpiresAt;
+    if (expiresAt != null && DateTime.now().isAfter(expiresAt)) {
+      throw InviteException("Ce code d'invitation a expiré — demandez-en un nouveau.");
+    }
     if (!g.memberIds.contains(uid)) {
       groups[groupId] = g.copyWith(memberIds: [...g.memberIds, uid]);
     }
@@ -244,6 +248,14 @@ class FakeGroupsRepository implements GroupsRepository {
     final g = groups[groupId];
     if (g == null) return;
     groups[groupId] = g.copyWith(closed: closed, closedAt: closed ? DateTime.now() : null);
+    _emit();
+  }
+
+  @override
+  Future<void> refreshInviteWindow(String groupId) async {
+    final g = groups[groupId];
+    if (g == null) return;
+    groups[groupId] = g.copyWith(inviteExpiresAt: DateTime.now().add(const Duration(minutes: 30)));
     _emit();
   }
 }

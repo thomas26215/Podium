@@ -182,15 +182,7 @@ class _SectionCard extends StatelessWidget {
                       controller: ctrl,
                       maxLines: null,
                       style: bodyFont(size: 13.5, weight: FontWeight.w600, color: AppColors.ink2),
-                      decoration: InputDecoration(
-                        hintText: 'Une règle…',
-                        filled: true,
-                        fillColor: AppColors.bg,
-                        contentPadding: const EdgeInsets.all(10),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: AppColors.line, width: 1.5)),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: AppColors.line, width: 1.5)),
-                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: AppColors.accent, width: 1.5)),
-                      ),
+                      decoration: appFieldDecoration(hintText: 'Une règle…', fillColor: AppColors.bg, contentPadding: const EdgeInsets.all(10)),
                     ),
                   ),
                   if (section.ruleCtrls.length > 1)

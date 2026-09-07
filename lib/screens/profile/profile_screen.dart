@@ -299,13 +299,8 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
               controller: _passwordCtrl,
               obscureText: _obscure,
               style: bodyFont(size: 16, weight: FontWeight.w700, color: AppColors.ink),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: AppColors.card,
-                contentPadding: const EdgeInsets.all(14),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: AppColors.line, width: 1.5)),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: AppColors.line, width: 1.5)),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: const BorderSide(color: Colors.red, width: 1.5)),
+              decoration: appFieldDecoration(
+                focusColor: Colors.red,
                 suffixIcon: IconButton(
                   icon: Icon(_obscure ? Icons.visibility_off_rounded : Icons.visibility_rounded, size: 20, color: AppColors.mut),
                   onPressed: () => setState(() => _obscure = !_obscure),

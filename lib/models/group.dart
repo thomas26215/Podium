@@ -39,6 +39,17 @@ class Group {
   /// closed explicitly once it's over.
   final bool temporary;
 
+  /// End of the current QR self-join window (see
+  /// [GroupsRepository.refreshInviteWindow]): a scanned invite code can only
+  /// be used to join while `DateTime.now()` is before this. `null` means no
+  /// window has ever been opened for this group — self-join is then allowed
+  /// unconditionally (back-compat for groups created before this field
+  /// existed; see firestore.rules' `inviteWindowOpen`). Refreshed every time
+  /// the invite dialog's QR tab is opened, so a screenshot/photo of an old
+  /// code stops working once its window elapses instead of staying a
+  /// forever-valid bearer token.
+  final DateTime? inviteExpiresAt;
+
   const Group({
     required this.id,
     required this.name,
@@ -52,6 +63,7 @@ class Group {
     this.closed = false,
     this.closedAt,
     this.temporary = false,
+    this.inviteExpiresAt,
   });
 
   bool get isRoot => parentId == null;
@@ -83,10 +95,19 @@ class Group {
       closed: (data['closed'] as bool?) ?? false,
       closedAt: (data['closedAt'] as Timestamp?)?.toDate(),
       temporary: (data['temporary'] as bool?) ?? false,
+      inviteExpiresAt: (data['inviteExpiresAt'] as Timestamp?)?.toDate(),
     );
   }
 
-  Group copyWith({List<String>? memberIds, List<String>? subGroupIds, List<String>? allMemberIds, bool? closed, DateTime? closedAt}) => Group(
+  Group copyWith({
+    List<String>? memberIds,
+    List<String>? subGroupIds,
+    List<String>? allMemberIds,
+    bool? closed,
+    DateTime? closedAt,
+    DateTime? inviteExpiresAt,
+  }) =>
+      Group(
         id: id,
         name: name,
         emoji: emoji,
@@ -99,5 +120,6 @@ class Group {
         closed: closed ?? this.closed,
         closedAt: closed == false ? null : (closedAt ?? this.closedAt),
         temporary: temporary,
+        inviteExpiresAt: inviteExpiresAt ?? this.inviteExpiresAt,
       );
 }

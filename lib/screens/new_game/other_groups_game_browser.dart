@@ -22,15 +22,10 @@ class OtherGroupsGameBrowser extends StatelessWidget {
         TextField(
           onChanged: app.setOtherGroupsSearch,
           style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink),
-          decoration: InputDecoration(
+          decoration: appFieldDecoration(
             hintText: 'Rechercher un jeu ou un groupe…',
             prefixIcon: Icon(Icons.search, size: 20, color: AppColors.mut),
-            filled: true,
-            fillColor: AppColors.card,
             contentPadding: const EdgeInsets.symmetric(vertical: 14),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: AppColors.line, width: 1.5)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: AppColors.line, width: 1.5)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: AppColors.accent, width: 1.5)),
           ),
         ),
         const SizedBox(height: 16),
@@ -56,46 +51,22 @@ class _OtherGroupGameTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final game = entry.game;
-    return GestureDetector(
+    return GameTileRow(
+      emoji: game.emoji,
       onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(13)),
-              child: Text(game.emoji, style: const TextStyle(fontSize: 22)),
+      title: Text(game.name, style: bodyFont(size: 15, weight: FontWeight.w800, color: AppColors.ink), overflow: TextOverflow.ellipsis),
+      subtitle: Row(
+        children: [
+          Flexible(child: Text(game.category, style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut), overflow: TextOverflow.ellipsis)),
+          Text('  ·  ', style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
+          Flexible(
+            child: Text(
+              entry.groupName,
+              style: bodyFont(size: 12, weight: FontWeight.w700, color: AppColors.accent),
+              overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(game.name, style: bodyFont(size: 15, weight: FontWeight.w800, color: AppColors.ink), overflow: TextOverflow.ellipsis),
-                  Row(
-                    children: [
-                      Flexible(child: Text(game.category, style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut), overflow: TextOverflow.ellipsis)),
-                      Text('  ·  ', style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
-                      Flexible(
-                        child: Text(
-                          entry.groupName,
-                          style: bodyFont(size: 12, weight: FontWeight.w700, color: AppColors.accent),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.add_circle_rounded, color: AppColors.accent, size: 26),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

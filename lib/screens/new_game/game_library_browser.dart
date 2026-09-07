@@ -23,15 +23,10 @@ class GameLibraryBrowser extends StatelessWidget {
         TextField(
           onChanged: app.setLibrarySearch,
           style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink),
-          decoration: InputDecoration(
+          decoration: appFieldDecoration(
             hintText: 'Rechercher un jeu…',
             prefixIcon: Icon(Icons.search, size: 20, color: AppColors.mut),
-            filled: true,
-            fillColor: AppColors.card,
             contentPadding: const EdgeInsets.symmetric(vertical: 14),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: AppColors.line, width: 1.5)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: AppColors.line, width: 1.5)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: AppColors.accent, width: 1.5)),
           ),
         ),
         const SizedBox(height: 16),
@@ -57,47 +52,23 @@ class _LibraryGameTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final special = game.isRanks;
-    return GestureDetector(
+    return GameTileRow(
+      emoji: game.emoji,
       onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
-        child: Row(
-          children: [
+      title: Row(
+        children: [
+          Flexible(child: Text(game.name, style: bodyFont(size: 15, weight: FontWeight.w800, color: AppColors.ink), overflow: TextOverflow.ellipsis)),
+          if (special) ...[
+            const SizedBox(width: 6),
             Container(
-              width: 44,
-              height: 44,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(13)),
-              child: Text(game.emoji, style: const TextStyle(fontSize: 22)),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(color: AppColors.accentSoft, borderRadius: BorderRadius.circular(20)),
+              child: Text('RÈGLES SPÉCIALES', style: bodyFont(size: 9, weight: FontWeight.w800, color: AppColors.accent, letterSpacing: 0.3)),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(child: Text(game.name, style: bodyFont(size: 15, weight: FontWeight.w800, color: AppColors.ink), overflow: TextOverflow.ellipsis)),
-                      if (special) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(color: AppColors.accentSoft, borderRadius: BorderRadius.circular(20)),
-                          child: Text('RÈGLES SPÉCIALES', style: bodyFont(size: 9, weight: FontWeight.w800, color: AppColors.accent, letterSpacing: 0.3)),
-                        ),
-                      ],
-                    ],
-                  ),
-                  Text(game.category, style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
-                ],
-              ),
-            ),
-            Icon(Icons.add_circle_rounded, color: AppColors.accent, size: 26),
           ],
-        ),
+        ],
       ),
+      subtitle: Text(game.category, style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
     );
   }
 }

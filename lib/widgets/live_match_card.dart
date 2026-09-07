@@ -6,6 +6,7 @@ import '../models/match.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import 'avatar.dart';
+import 'common.dart';
 
 /// Small pulsing red dot used to mark a match as currently live.
 class LiveDot extends StatefulWidget {
@@ -121,7 +122,7 @@ class LiveMatchCard extends StatelessWidget {
                       style: bodyFont(size: 12.5, weight: FontWeight.w700, color: AppColors.ink),
                     ),
                   ),
-                  Text('${leader!.points}', style: bodyFont(size: 13, weight: FontWeight.w800, color: AppColors.accent)),
+                  AnimatedCounter(value: leader!.points, style: bodyFont(size: 13, weight: FontWeight.w800, color: AppColors.accent)),
                 ],
               )
             else

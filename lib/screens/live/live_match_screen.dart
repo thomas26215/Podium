@@ -113,7 +113,8 @@ class _LiveMatchBody extends StatelessWidget {
             Builder(builder: (_) {
               final p = app.playerById(entry.playerId);
               final isLead = entry.points == bestPoints;
-              return Container(
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 350),
                 margin: const EdgeInsets.only(bottom: 9),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -137,7 +138,7 @@ class _LiveMatchBody extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Text('${entry.points}', style: dispFont(size: 22, weight: FontWeight.w700, color: AppColors.ink)),
+                    AnimatedCounter(value: entry.points, style: dispFont(size: 22, weight: FontWeight.w700, color: AppColors.ink)),
                   ],
                 ),
               );

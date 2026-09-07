@@ -710,6 +710,12 @@ class AppState extends ChangeNotifier {
     final me = currentUser;
     if (me == null) return false;
     if (_rejectIfGroupClosed(groupId)) return false;
+    final alreadyIn = getGroupMemberIds(groupId).map(playerById).whereType<AppUser>();
+    if (alreadyIn.any((p) => p.displayName.trim().toLowerCase() == name.toLowerCase())) {
+      flowError = 'Il y a déjà un joueur nommé « $name » dans ce groupe.';
+      notifyListeners();
+      return false;
+    }
     busy = true;
     flowError = null;
     notifyListeners();
@@ -772,6 +778,16 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     }
     return ok;
+  }
+
+  /// Opens (or extends) `groupId`'s QR self-join window — call whenever the
+  /// invite dialog's QR tab is shown. Best-effort: a failure here just means
+  /// the shown code keeps whatever window it already had, so it's silent
+  /// rather than surfaced as a [flowError].
+  Future<void> refreshInviteWindow(String groupId) async {
+    try {
+      await groupsRepo.refreshInviteWindow(groupId);
+    } catch (_) {}
   }
 
   /// Rejects a mutating action targeting `groupId` if its group is closed,
@@ -990,7 +1006,7 @@ class AppState extends ChangeNotifier {
       selectGroup(invite.groupId);
       showToast('Vous avez rejoint ${invite.name}.');
     } catch (e) {
-      flowError = "Impossible de rejoindre ce groupe (il n'existe peut-être plus).";
+      flowError = e is InviteException ? e.message : "Impossible de rejoindre ce groupe (il n'existe peut-être plus).";
     } finally {
       busy = false;
       notifyListeners();
@@ -1926,7 +1942,11 @@ class AppState extends ChangeNotifier {
 
   void setDetailedScore(String uid, String fieldId, int value) {
     final scores = draft.scoreBreakdown.putIfAbsent(uid, () => <String, int>{});
-    scores[fieldId] = value;
+    // Unlike setPoints/bump/addRound, a category breakdown can legitimately
+    // go negative (e.g. military losses in 7 Wonders) — clamped to a wide
+    // but finite range rather than [0, 1<<30] to still block a stray
+    // "999999999999" typo from ending up saved into a real match.
+    scores[fieldId] = value.clamp(-(1 << 20), 1 << 20);
     draft.points[uid] = scores.values.fold<int>(0, (sum, current) => sum + current);
     _pushLiveUpdate();
     notifyListeners();

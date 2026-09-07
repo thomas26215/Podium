@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -49,6 +51,14 @@ class _InviteDialogState extends State<InviteDialog> {
     if (ok && mounted) Navigator.of(context).pop();
   }
 
+  void _selectMode(_InviteMode mode, AppState app) {
+    setState(() => _mode = mode);
+    // Opens/extends a fresh 30-minute self-join window every time the QR
+    // tab is shown, so an old screenshot of this code can't be replayed
+    // indefinitely — see Group.inviteExpiresAt.
+    if (mode == _InviteMode.qr) unawaited(app.refreshInviteWindow(widget.groupId));
+  }
+
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
@@ -71,9 +81,9 @@ class _InviteDialogState extends State<InviteDialog> {
               decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(AppRadius.lg)),
               child: Row(
                 children: [
-                  Expanded(child: _ModeTab(label: 'E-mail', selected: _mode == _InviteMode.email, onTap: () => setState(() => _mode = _InviteMode.email))),
-                  Expanded(child: _ModeTab(label: 'Sans compte', selected: _mode == _InviteMode.guest, onTap: () => setState(() => _mode = _InviteMode.guest))),
-                  Expanded(child: _ModeTab(label: 'QR code', selected: _mode == _InviteMode.qr, onTap: () => setState(() => _mode = _InviteMode.qr))),
+                  Expanded(child: _ModeTab(label: 'E-mail', selected: _mode == _InviteMode.email, onTap: () => _selectMode(_InviteMode.email, app))),
+                  Expanded(child: _ModeTab(label: 'Sans compte', selected: _mode == _InviteMode.guest, onTap: () => _selectMode(_InviteMode.guest, app))),
+                  Expanded(child: _ModeTab(label: 'QR code', selected: _mode == _InviteMode.qr, onTap: () => _selectMode(_InviteMode.qr, app))),
                 ],
               ),
             ),
@@ -123,15 +133,7 @@ class _InviteDialogState extends State<InviteDialog> {
                 controller: _emailCtrl,
                 keyboardType: TextInputType.emailAddress,
                 style: bodyFont(size: 16, weight: FontWeight.w700, color: AppColors.ink),
-                decoration: InputDecoration(
-                  hintText: 'ami@exemple.com',
-                  filled: true,
-                  fillColor: AppColors.card,
-                  contentPadding: const EdgeInsets.all(14),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: AppColors.line, width: 1.5)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: AppColors.line, width: 1.5)),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: AppColors.accent, width: 1.5)),
-                ),
+                decoration: appFieldDecoration(hintText: 'ami@exemple.com'),
               ),
               Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -198,15 +200,7 @@ class _InviteDialogState extends State<InviteDialog> {
                 controller: _guestNameCtrl,
                 textCapitalization: TextCapitalization.words,
                 style: bodyFont(size: 16, weight: FontWeight.w700, color: AppColors.ink),
-                decoration: InputDecoration(
-                  hintText: 'Nom du joueur',
-                  filled: true,
-                  fillColor: AppColors.card,
-                  contentPadding: const EdgeInsets.all(14),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: AppColors.line, width: 1.5)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: AppColors.line, width: 1.5)),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: AppColors.accent, width: 1.5)),
-                ),
+                decoration: appFieldDecoration(hintText: 'Nom du joueur'),
               ),
               Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -243,6 +237,12 @@ class _InviteDialogState extends State<InviteDialog> {
                 'Faites scanner ce code par votre ami depuis Podium pour le faire rejoindre le groupe instantanément.',
                 textAlign: TextAlign.center,
                 style: bodyFont(size: 13, weight: FontWeight.w600, color: AppColors.mut),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Valable 30 minutes — rouvrez cet écran pour en générer un nouveau.',
+                textAlign: TextAlign.center,
+                style: bodyFont(size: 11.5, weight: FontWeight.w600, color: AppColors.mut),
               ),
             ],
           ],

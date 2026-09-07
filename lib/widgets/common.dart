@@ -81,9 +81,30 @@ class FadeSlideIn extends StatelessWidget {
   }
 }
 
+/// Animates an integer value counting up/down to its new total whenever it
+/// changes, instead of snapping — used anywhere a score/tally is displayed
+/// (stat chips, ranking metrics, live scores) so updates read as *movement*
+/// rather than a jump cut.
+class AnimatedCounter extends StatelessWidget {
+  final int value;
+  final TextStyle? style;
+  final Duration duration;
+  const AnimatedCounter({super.key, required this.value, this.style, this.duration = const Duration(milliseconds: 500)});
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: value.toDouble(), end: value.toDouble()),
+      duration: duration,
+      curve: Curves.easeOutCubic,
+      builder: (context, v, _) => Text('${v.round()}', style: style),
+    );
+  }
+}
+
 /// `.chip3` — the 3-up stat chips under the home hero.
 class StatChip extends StatelessWidget {
-  final String value;
+  final int value;
   final String label;
   const StatChip({super.key, required this.value, required this.label});
 
@@ -100,7 +121,7 @@ class StatChip extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(value, style: dispFont(size: 22, weight: FontWeight.w700, color: AppColors.ink)),
+            AnimatedCounter(value: value, style: dispFont(size: 22, weight: FontWeight.w700, color: AppColors.ink)),
             const SizedBox(height: 1),
             Text(label, style: bodyFont(size: 11.5, weight: FontWeight.w600, color: AppColors.mut)),
           ],
@@ -173,6 +194,76 @@ class EmptyState extends StatelessWidget {
           const SizedBox(height: 12),
           Text(message, textAlign: TextAlign.center, style: bodyFont(size: 14, weight: FontWeight.w600, color: AppColors.mut)),
         ],
+      ),
+    );
+  }
+}
+
+/// The app's one recurring `TextField`/`TextFormField` look: filled card
+/// background, a hairline border that turns accent-colored on focus. Every
+/// text input in the app should build its `decoration:` from this instead of
+/// repeating the three-`OutlineInputBorder` block inline.
+InputDecoration appFieldDecoration({
+  String? hintText,
+  EdgeInsetsGeometry contentPadding = const EdgeInsets.all(14),
+  Widget? prefixIcon,
+  Widget? suffixIcon,
+  Color? focusColor,
+  Color? fillColor,
+}) {
+  final border = OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: AppColors.line, width: 1.5));
+  return InputDecoration(
+    hintText: hintText,
+    filled: true,
+    fillColor: fillColor ?? AppColors.card,
+    contentPadding: contentPadding,
+    prefixIcon: prefixIcon,
+    suffixIcon: suffixIcon,
+    border: border,
+    enabledBorder: border,
+    focusedBorder: border.copyWith(borderSide: BorderSide(color: focusColor ?? AppColors.accent, width: 1.5)),
+  );
+}
+
+/// Shared "emoji box + title/subtitle column + trailing add icon" row used
+/// by both the game-library and other-groups game browsers (see
+/// `game_library_browser.dart`/`other_groups_game_browser.dart`) — those two
+/// only ever differed in what goes in [title]/[subtitle], never in the
+/// surrounding card chrome.
+class GameTileRow extends StatelessWidget {
+  final String emoji;
+  final Widget title;
+  final Widget subtitle;
+  final VoidCallback onTap;
+  const GameTileRow({super.key, required this.emoji, required this.title, required this.subtitle, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(13)),
+              child: Text(emoji, style: const TextStyle(fontSize: 22)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [title, subtitle],
+              ),
+            ),
+            Icon(Icons.add_circle_rounded, color: AppColors.accent, size: 26),
+          ],
+        ),
       ),
     );
   }

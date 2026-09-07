@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/app_user.dart';
 import '../theme/app_theme.dart';
 import 'avatar.dart';
+import 'common.dart';
 
 /// `.mrow` — compact rank row used in the home mini-ranking (top 3 only,
 /// wins as the single metric).
@@ -33,7 +34,7 @@ class MiniRankRow extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text('$wins', style: dispFont(size: 16, weight: FontWeight.w700, color: AppColors.ink)),
+                AnimatedCounter(value: wins, style: dispFont(size: 16, weight: FontWeight.w700, color: AppColors.ink)),
                 Text('victoires', style: bodyFont(size: 11, weight: FontWeight.w600, color: AppColors.mut)),
               ],
             ),
