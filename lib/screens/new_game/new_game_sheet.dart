@@ -4,11 +4,14 @@ import 'package:provider/provider.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
+import '../tournaments/tournament_detail_screen.dart';
 import 'game_library_browser.dart';
+import 'kind_choice_step.dart';
 import 'other_groups_game_browser.dart';
 import 'step1_game.dart';
 import 'step2_players.dart';
 import 'step3_scores.dart';
+import 'tournament_format_step.dart';
 
 /// Presents the new-game/scoring sheet and cleans up after it closes,
 /// regardless of how it closed (saved, backed out, or cancelled — see
@@ -95,16 +98,30 @@ class NewGameSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
-    final titles = {1: 'Quel jeu ?', 2: 'Qui joue ?', 3: 'Les scores'};
+    final tournamentFlow = app.isTournamentFlow;
+    // Same 4-step shell for both kinds (see AppState.canProceed) — only
+    // step 2/3/4's content (and, for a plain match, the scores step's
+    // best-of-N prefix) differs.
+    final titles = tournamentFlow
+        ? {1: 'Partie ou tournoi ?', 2: 'Format du tournoi', 3: 'Quel jeu ?', 4: 'Qui participe ?'}
+        : {1: 'Partie ou tournoi ?', 2: 'Quel jeu ?', 3: 'Qui joue ?', 4: 'Les scores'};
     // "Manche" is already used for a round within a single match (Président
     // hands, points-per-round…) — a best-of-N leg is a whole separate match,
     // so it's labelled "Partie" to avoid clashing with that vocabulary.
     final seriesPrefix = app.draft.bestOf > 1 ? 'Partie ${app.draft.seriesLegIndex}/${app.draft.bestOf} — ' : '';
-    final subs = {
-      1: 'Choisissez la partie',
-      2: app.draft.mode == 'team' ? 'Répartissez les équipes' : 'Sélectionnez les joueurs',
-      3: '$seriesPrefix${app.draft.unit == 'wins' ? 'Manches gagnées par chacun' : 'Entrez les points de chacun'}',
-    };
+    final subs = tournamentFlow
+        ? {
+            1: 'Une partie, ou tout un bracket ?',
+            2: 'Élimination simple, double, ou poules',
+            3: 'Choisissez le jeu du tournoi',
+            4: app.draft.mode == 'team' ? 'Répartissez les équipes' : 'Sélectionnez les participants',
+          }
+        : {
+            1: 'Une partie, ou tout un bracket ?',
+            2: 'Choisissez la partie',
+            3: app.draft.mode == 'team' ? 'Répartissez les équipes' : 'Sélectionnez les joueurs',
+            4: '$seriesPrefix${app.draft.unit == 'wins' ? 'Manches gagnées par chacun' : 'Entrez les points de chacun'}',
+          };
     final title = app.browsingLibrary
         ? 'Bibliothèque de jeux'
         : (app.browsingOtherGroups
@@ -115,7 +132,11 @@ class NewGameSheet extends StatelessWidget {
         : (app.browsingOtherGroups
             ? 'Réutilisez un jeu existant'
             : (app.creatingGame ? (app.isEditingGame ? 'Ajustez ses paramètres' : 'Ajoutez-le à votre catalogue') : subs[app.step]!));
-    final showBack = app.browsingLibrary || app.browsingOtherGroups || app.creatingGame || app.step > 1;
+    // Scoring/correcting one specific bracket match (see
+    // AppState.isEditingTournamentMatch): the game and players are fixed by
+    // the bracket, not something to step back through — a plain close
+    // button, never a back arrow.
+    final showBack = !app.isEditingTournamentMatch && (app.browsingLibrary || app.browsingOtherGroups || app.creatingGame || app.step > 1);
 
     return DraggableScrollableSheet(
       initialChildSize: 0.9,
@@ -160,15 +181,19 @@ class NewGameSheet extends StatelessWidget {
                         ],
                       ),
                     ),
-                    if (!app.creatingGame && !app.browsingLibrary && !app.browsingOtherGroups)
+                    if (!app.creatingGame && !app.browsingLibrary && !app.browsingOtherGroups && !app.isEditingTournamentMatch)
                       Row(
                         children: [
-                          for (var i = 1; i <= 3; i++)
+                          for (var i = 1; i <= 4; i++)
                             AnimatedContainer(
                               duration: const Duration(milliseconds: 260),
                               curve: Curves.easeOutCubic,
                               margin: const EdgeInsets.only(left: 5),
-                              width: app.step >= i ? 18 : 7,
+                              // Only the current step is the wide pill — a
+                              // passed step shrinks back down to a plain dot
+                              // (but stays accent-colored, unlike an
+                              // upcoming one) instead of staying a wide bar.
+                              width: app.step == i ? 18 : 7,
                               height: 7,
                               decoration: BoxDecoration(
                                 color: app.step >= i ? AppColors.accent : AppColors.line,
@@ -180,7 +205,7 @@ class NewGameSheet extends StatelessWidget {
                   ],
                 ),
               ),
-              if (app.step == 3 && !app.creatingGame && !app.isOnline)
+              if (!tournamentFlow && app.step == 4 && !app.creatingGame && !app.isOnline)
                 Container(
                   margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -211,7 +236,13 @@ class NewGameSheet extends StatelessWidget {
                     ),
                     child: KeyedSubtree(
                       key: ValueKey(
-                        app.browsingLibrary ? 'lib' : app.browsingOtherGroups ? 'other' : app.creatingGame ? 'create' : 'step${app.step}',
+                        app.browsingLibrary
+                            ? 'lib'
+                            : app.browsingOtherGroups
+                                ? 'other'
+                                : app.creatingGame
+                                    ? 'create'
+                                    : 'step${app.step}-${tournamentFlow ? 't' : 'g'}',
                       ),
                       child: app.browsingLibrary
                           ? const GameLibraryBrowser()
@@ -219,11 +250,19 @@ class NewGameSheet extends StatelessWidget {
                               ? const OtherGroupsGameBrowser()
                               : app.creatingGame
                                   ? const CreateGameForm()
-                                  : switch (app.step) {
-                                      1 => const Step1Game(),
-                                      2 => const Step2Players(),
-                                      _ => const Step3Scores(),
-                                    },
+                                  : app.step == 1
+                                      ? const KindChoiceStep()
+                                      : tournamentFlow
+                                          ? switch (app.step) {
+                                              2 => const TournamentFormatStep(),
+                                              3 => const Step1Game(),
+                                              _ => const Step2Players(),
+                                            }
+                                          : switch (app.step) {
+                                              2 => const Step1Game(),
+                                              3 => const Step2Players(),
+                                              _ => const Step3Scores(),
+                                            },
                     ),
                   ),
                 ),
@@ -243,18 +282,26 @@ class NewGameSheet extends StatelessWidget {
                       PrimaryButton(
                         label: app.creatingGame
                             ? (app.isEditingGame ? 'Enregistrer les modifications' : 'Créer le jeu')
-                            : (app.step != 3
-                                ? 'Continuer'
-                                : (app.draft.bestOf <= 1
-                                    ? 'Enregistrer la partie'
-                                    : (app.draft.seriesLegIndex >= app.draft.bestOf
-                                        ? 'Enregistrer la dernière partie'
-                                        : 'Enregistrer la partie ${app.draft.seriesLegIndex}/${app.draft.bestOf}'))),
+                            : (tournamentFlow && app.step == 4)
+                                ? 'Créer le tournoi'
+                                : (!tournamentFlow && app.step == 4)
+                                    ? (app.draft.bestOf <= 1
+                                        ? 'Enregistrer la partie'
+                                        : (app.draft.seriesLegIndex >= app.draft.bestOf
+                                            ? 'Enregistrer la dernière partie'
+                                            : 'Enregistrer la partie ${app.draft.seriesLegIndex}/${app.draft.bestOf}'))
+                                    : 'Continuer',
                         loading: app.busy || app.savingMatch,
                         onPressed: app.canProceed
                             ? () async {
                                 await app.primaryAction();
                                 if (!context.mounted) return;
+                                final createdTournament = app.takeJustCreatedTournament();
+                                if (createdTournament != null) {
+                                  Navigator.of(context).pop();
+                                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => TournamentDetailScreen(tournamentId: createdTournament.id)));
+                                  return;
+                                }
                                 if (!app.sheetOpen) {
                                   Navigator.of(context).pop();
                                 } else {

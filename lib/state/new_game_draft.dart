@@ -1,5 +1,6 @@
 import '../models/game.dart';
 import '../models/match.dart';
+import '../models/tournament.dart';
 
 /// Mutable state for the 3-step "new game" sheet — mirrors the prototype's
 /// `state.draft`.
@@ -51,6 +52,20 @@ class NewGameDraft {
   /// [teamScoreMode] is 'global'.
   Map<String, int> teamPoints;
 
+  /// What the sheet's first step is building — a single match ('game', the
+  /// default) or a whole bracket ('tournament'). Null until the first step
+  /// is actually answered, forcing a deliberate choice (see
+  /// `AppState.canProceed`) rather than silently defaulting. See
+  /// `AppState.isTournamentFlow`, which everything downstream branches on.
+  String? creationKind;
+
+  /// Tournament-mode-only settings, chosen on the dedicated format step
+  /// shown right after picking "Tournoi" — irrelevant (and untouched) for a
+  /// plain match.
+  TournamentFormat tournamentFormat;
+  int tournamentGroupsCount;
+  int tournamentQualifiersPerGroup;
+
   NewGameDraft({
     this.gameId,
     this.mode = 'ffa',
@@ -70,6 +85,10 @@ class NewGameDraft {
     this.seriesDecidedPromptDismissed = false,
     this.teamScoreMode = 'perPlayer',
     Map<String, int>? teamPoints,
+    this.creationKind,
+    this.tournamentFormat = TournamentFormat.singleElimination,
+    this.tournamentGroupsCount = 2,
+    this.tournamentQualifiersPerGroup = 2,
   })  : playerIds = playerIds ?? [],
         team = team ?? {},
         points = points ?? {},
@@ -151,6 +170,12 @@ class PendingLocalDraft {
   /// to decide whether [liveSessionId] is still good to reuse.
   final DateTime? liveSessionHeldAt;
 
+  /// Set when this draft was scoring one specific tournament bracket match
+  /// (see `AppState.startTournamentMatch`) — carried through so resuming it
+  /// after an app kill still advances the right bracket node once saved.
+  final String? tournamentId;
+  final String? tournamentMatchId;
+
   const PendingLocalDraft({
     required this.rootGroupId,
     required this.groupId,
@@ -158,6 +183,8 @@ class PendingLocalDraft {
     required this.updatedAt,
     this.liveSessionId,
     this.liveSessionHeldAt,
+    this.tournamentId,
+    this.tournamentMatchId,
   });
 }
 

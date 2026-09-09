@@ -64,6 +64,7 @@ const _tom = AppUser(uid: 'tom', email: 'tom@test.fr', displayName: 'Tom', color
     groupsRepo: groups,
     gamesRepo: games,
     matchesRepo: matches,
+    tournamentsRepo: FakeTournamentsRepository(),
     usersRepo: users,
     guestsRepo: FakeGuestsRepository(),
     gameLibraryRepo: FakeGameLibraryRepository(),
@@ -160,6 +161,14 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+
+    // First step: "Partie simple" or "Tournoi" — pick the plain match, then
+    // continue to the game picker.
+    expect(find.text('Partie simple'), findsOneWidget);
+    await tester.tap(find.text('Partie simple'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continuer'));
     await tester.pumpAndSettle();
 
     // The ranking tab's game filter chips stay mounted underneath (IndexedStack),
@@ -265,6 +274,7 @@ void main() {
       groupsRepo: groups,
       gamesRepo: games,
       matchesRepo: matches,
+      tournamentsRepo: FakeTournamentsRepository(),
       usersRepo: users,
       guestsRepo: FakeGuestsRepository(),
       gameLibraryRepo: FakeGameLibraryRepository(),
@@ -292,5 +302,58 @@ void main() {
 
     expect(find.text('Partie 1'), findsWidgets);
     expect(find.text('Partie 2'), findsWidgets);
+  });
+
+  testWidgets('creating a tournament via the FAB wizard reaches its bracket screen', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+
+    // Step 1: "Partie simple" ou "Tournoi" — pick the tournament branch.
+    await tester.tap(find.text('Tournoi'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continuer'));
+    await tester.pumpAndSettle();
+
+    // Step 2: format — "Élimination simple" is the default, just continue.
+    expect(find.text('Élimination simple'), findsOneWidget);
+    await tester.tap(find.text('Continuer'));
+    await tester.pumpAndSettle();
+
+    // Step 3: game picker, reused as-is from the plain-match flow. "Catan"
+    // legitimately appears twice — the ranking tab's game filter chips stay
+    // mounted underneath (IndexedStack) — so target the picker's card,
+    // which (being inside the sheet's Overlay entry) is last in hit-test order.
+    await tester.tap(find.text('Catan').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continuer'));
+    await tester.pumpAndSettle();
+
+    // Step 4: participants, also reused as-is — same "already mounted
+    // underneath" caveat for player names shown elsewhere on the home tab.
+    await tester.tap(find.text('Léa').last);
+    await tester.tap(find.text('Tom').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Créer le tournoi'));
+    await tester.pumpAndSettle();
+
+    // Lands on the bracket screen instead of a scores step.
+    expect(find.text('Créer le tournoi'), findsNothing);
+    expect(find.text('Élimination simple'), findsWidgets);
+    expect(find.textContaining('Catan'), findsWidgets);
+
+    // Flush AppState.showToast's auto-dismiss timer so it doesn't outlive
+    // the test (the binding asserts no pending timers at teardown).
+    await tester.pump(const Duration(milliseconds: 2700));
   });
 }

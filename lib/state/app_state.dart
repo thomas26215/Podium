@@ -11,14 +11,17 @@ import '../models/app_user.dart';
 import '../models/game.dart';
 import '../models/group.dart';
 import '../models/group_invite_code.dart';
+import '../logic/tournament_bracket.dart';
 import '../models/match.dart';
 import '../models/saved_account.dart';
+import '../models/tournament.dart';
 import '../repositories/auth_repository.dart';
 import '../repositories/game_library_repository.dart';
 import '../repositories/games_repository.dart';
 import '../repositories/groups_repository.dart';
 import '../repositories/guests_repository.dart';
 import '../repositories/matches_repository.dart';
+import '../repositories/tournaments_repository.dart';
 import '../repositories/users_repository.dart';
 import '../services/notifications_service.dart';
 import '../theme/app_theme.dart';
@@ -47,6 +50,7 @@ class AppState extends ChangeNotifier {
   final GroupsRepository groupsRepo;
   final GamesRepository gamesRepo;
   final MatchesRepository matchesRepo;
+  final TournamentsRepository tournamentsRepo;
   final UsersRepository usersRepo;
   final GuestsRepository guestsRepo;
   final GameLibraryRepository gameLibraryRepo;
@@ -57,6 +61,7 @@ class AppState extends ChangeNotifier {
     required this.groupsRepo,
     required this.gamesRepo,
     required this.matchesRepo,
+    required this.tournamentsRepo,
     required this.usersRepo,
     required this.guestsRepo,
     required this.gameLibraryRepo,
@@ -179,8 +184,28 @@ class AppState extends ChangeNotifier {
   StreamSubscription? _matchesSub;
 
   // ---- live sessions (matches currently being scored, scoped to currentRootId) ----
-  List<LiveMatchSession> liveSessions = [];
   StreamSubscription? _liveSessionsSub;
+  // Unfiltered snapshot from Firestore — [liveSessions] filters this against
+  // [liveSessionStaleAfter] fresh on every read (a getter, not a field
+  // re-filtered only when a new snapshot arrives) precisely because a
+  // session nobody is updating anymore never triggers a new snapshot on its
+  // own: a one-time filter computed only inside the `.listen` callback would
+  // leave it sitting in the list forever past its actual staleness cutoff —
+  // including while offline, where no snapshot can arrive at all to force a
+  // re-check. A getter needs nothing more than the normal rebuild traffic
+  // any running app already has to eventually reflect a session crossing
+  // that cutoff, without needing a dedicated polling `Timer` (which would
+  // also outlive `AppState` in tests, since `ChangeNotifierProvider.value`
+  // deliberately never disposes an externally-owned notifier).
+  List<LiveMatchSession> _rawLiveSessions = [];
+  List<LiveMatchSession> get liveSessions {
+    final now = DateTime.now();
+    return _rawLiveSessions.where((s) => now.difference(s.updatedAt) < liveSessionStaleAfter).toList();
+  }
+
+  // ---- tournaments (scoped to currentRootId) ----
+  List<Tournament> tournaments = [];
+  StreamSubscription? _tournamentsSub;
 
   // Flips to true the moment each subscription's first snapshot arrives for
   // the current group — Firestore can take a moment after sign-in/switching
@@ -189,14 +214,17 @@ class AppState extends ChangeNotifier {
   bool gamesLoaded = false;
   bool matchesLoaded = false;
   bool liveSessionsLoaded = false;
+  bool tournamentsLoaded = false;
   static const groupDataTotalCount = 3;
   int get groupDataFetchedCount => (gamesLoaded ? 1 : 0) + (matchesLoaded ? 1 : 0) + (liveSessionsLoaded ? 1 : 0);
   bool get groupDataFullyLoaded => groupDataFetchedCount == groupDataTotalCount;
 
   // A live session doc is considered abandoned (app crashed/killed mid-score
   // without a chance to clean up) once it hasn't been touched in this long —
-  // hidden client-side rather than left showing "en cours" forever.
-  static const _liveSessionStaleAfter = Duration(hours: 4);
+  // hidden client-side rather than left showing "en cours" forever. Public
+  // so `LiveMatchScreen` can show it next to how long a held session has
+  // already been offline (see [LiveMatchSession.updatedAt]).
+  static const liveSessionStaleAfter = Duration(minutes: 5);
 
   // ---- nav / view state ----
   AppTab tab = AppTab.home;
@@ -241,6 +269,13 @@ class AppState extends ChangeNotifier {
   int? _editingMatchSeriesGame;
   int? _editingMatchSeriesLength;
 
+  // Set by startTournamentMatch() while the scores step is filling in the
+  // result of one specific bracket node — read back by saveGame() to tag the
+  // saved GameMatch (see GameMatch.tournamentId/tournamentMatchId) and by
+  // _recordTournamentResult() to advance the bracket once it's saved.
+  String? _activeTournamentId;
+  String? _activeTournamentMatchId;
+
   // Id of the live session this device started for the match currently
   // being scored (null if none was started — e.g. offline, or resuming an
   // already-saved match). Guards the "match started" push/live doc so it
@@ -268,15 +303,21 @@ class AppState extends ChangeNotifier {
   // already-saved match as a local draft.
   bool _justSaved = false;
 
+  // Set by [_finishTournamentCreation] on success — consumed by
+  // `NewGameSheet` (see [takeJustCreatedTournament]) to navigate to the new
+  // bracket instead of just closing.
+  Tournament? _justCreatedTournament;
+
   // ---- connectivity (drives whether the live session mirrors to Firebase) ----
   bool isOnline = true;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
 
   // ---- local draft persistence (survives an app kill mid-match) ----
   static const _localDraftKey = 'local_draft_v1';
-  // Forgiving compared to _liveSessionStaleAfter (4h) — this is only ever
-  // shown to the one person who abandoned it, on their own device, so
-  // there's little harm in still offering it the next day.
+  // Much more forgiving than liveSessionStaleAfter (5 min) — this is only
+  // ever shown to the one person who abandoned it, on their own device, so
+  // there's little harm in still offering it the next day, unlike a stale
+  // "live" broadcast the whole group can see.
   static const _localDraftStaleAfter = Duration(hours: 24);
   PendingLocalDraft? pendingLocalDraft;
 
@@ -304,6 +345,7 @@ class AppState extends ChangeNotifier {
     _gamesSub?.cancel();
     _matchesSub?.cancel();
     _liveSessionsSub?.cancel();
+    _tournamentsSub?.cancel();
     _toastTimer?.cancel();
     _liveUpdateDebounce?.cancel();
     _liveSessionHoldTimer?.cancel();
@@ -320,15 +362,18 @@ class AppState extends ChangeNotifier {
     _gamesSub?.cancel();
     _matchesSub?.cancel();
     _liveSessionsSub?.cancel();
+    _tournamentsSub?.cancel();
     _currentUserSub?.cancel();
     groups = [];
     games = [];
     matches = [];
-    liveSessions = [];
+    _rawLiveSessions = [];
+    tournaments = [];
     friends = [];
     gamesLoaded = false;
     matchesLoaded = false;
     liveSessionsLoaded = false;
+    tournamentsLoaded = false;
     currentGroupId = null;
     if (user != null) {
       _memberCache[user.uid] = user;
@@ -548,13 +593,16 @@ class AppState extends ChangeNotifier {
     _gamesSub?.cancel();
     _matchesSub?.cancel();
     _liveSessionsSub?.cancel();
+    _tournamentsSub?.cancel();
     gamesLoaded = false;
     matchesLoaded = false;
     liveSessionsLoaded = false;
+    tournamentsLoaded = false;
     if (root == null) {
       games = [];
       matches = [];
-      liveSessions = [];
+      _rawLiveSessions = [];
+      tournaments = [];
       return;
     }
     _gamesSub = gamesRepo.watchGames(root).listen((gs) {
@@ -573,10 +621,14 @@ class AppState extends ChangeNotifier {
       matchesLoaded = true;
       notifyListeners();
     });
+    _tournamentsSub = tournamentsRepo.watchTournaments(root, getAllGroupIds(root)).listen((ts) {
+      tournaments = ts;
+      tournamentsLoaded = true;
+      notifyListeners();
+    });
     _liveSessionsSub = matchesRepo.watchLiveSessions(root, getAllGroupIds(root)).listen((ss) {
       liveSessionsLoaded = true;
-      final now = DateTime.now();
-      liveSessions = ss.where((s) => now.difference(s.updatedAt) < _liveSessionStaleAfter).toList();
+      _rawLiveSessions = ss;
       notifyListeners();
     });
   }
@@ -1108,6 +1160,14 @@ class AppState extends ChangeNotifier {
     return matches.where((m) => ids.contains(m.groupId)).toList();
   }
 
+  /// Tournaments within the currently-viewed group's own subtree — same
+  /// drill-down rule as [viewMatches].
+  List<Tournament> get viewTournaments {
+    if (currentGroupId == null) return const [];
+    final ids = getAllGroupIds(currentGroupId!).toSet();
+    return tournaments.where((t) => ids.contains(t.groupId)).toList();
+  }
+
   List<String> get viewPlayerIds => currentGroupId == null ? const [] : getGroupMemberIds(currentGroupId!);
 
   List<AppUser> get viewPlayers => viewPlayerIds.map(playerById).whereType<AppUser>().toList();
@@ -1331,9 +1391,12 @@ class AppState extends ChangeNotifier {
     _editingMatchSeriesGame = null;
     _editingMatchSeriesLength = null;
     _editingGameId = null;
+    _activeTournamentId = null;
+    _activeTournamentMatchId = null;
     _liveSessionId = null;
     _draftHasProgress = false;
     _justSaved = false;
+    _justCreatedTournament = null;
     notifyListeners();
   }
 
@@ -1342,12 +1405,16 @@ class AppState extends ChangeNotifier {
   /// A match left mid-score without being saved is kept as a resumable local
   /// draft (already backed up on disk by `_persistDraftLocally`) and offered
   /// right back on the home screen instead of only resurfacing at the next
-  /// sign-in; anything else (saved, or never actually scored) clears it.
+  /// sign-in; anything else (saved, or never actually scored) clears it. A
+  /// tournament match (`_activeTournamentId != null`) is never offered this
+  /// way — same reasoning as `_startLiveSessionIfNeeded` not broadcasting it
+  /// live: the bracket screen is already the place to pick it back up,
+  /// tapping the same match again there.
   void closeSheet() {
     sheetOpen = false;
     final root = currentRootId;
     final groupId = currentGroupId;
-    if (!_justSaved && _editingMatchId == null && _draftHasProgress && root != null && groupId != null) {
+    if (!_justSaved && _editingMatchId == null && _activeTournamentId == null && _draftHasProgress && root != null && groupId != null) {
       // Left mid-score without saving — hold the live session (grace
       // window) rather than ending it outright, and offer the draft back
       // right away instead of only at the next sign-in.
@@ -1359,6 +1426,8 @@ class AppState extends ChangeNotifier {
         updatedAt: DateTime.now(),
         liveSessionId: _liveSessionId,
         liveSessionHeldAt: _liveSessionHeldAt,
+        tournamentId: _activeTournamentId,
+        tournamentMatchId: _activeTournamentMatchId,
       );
     } else {
       _endLiveSession();
@@ -1433,6 +1502,13 @@ class AppState extends ChangeNotifier {
     _editingMatchSeriesId = match.seriesId;
     _editingMatchSeriesGame = match.seriesGame;
     _editingMatchSeriesLength = match.seriesLength;
+    // Carries over from the match's own tags (see GameMatch.tournamentId) —
+    // not just whoever is calling resumeMatch — so a tournament-linked
+    // match re-syncs its bracket node on save (see
+    // AppState._recordTournamentResult) however it was reopened: tapping it
+    // on the bracket screen, or "Modifier" from its regular history card.
+    _activeTournamentId = match.tournamentId;
+    _activeTournamentMatchId = match.tournamentMatchId;
     _liveSessionId = null; // resuming never starts/re-fires a live session
 
     final playerIds = match.entries.map((e) => e.playerId).toList();
@@ -1466,7 +1542,7 @@ class AppState extends ChangeNotifier {
       timeline: List.of(match.timeline),
       rankOrder: rankOrder,
     );
-    step = 3;
+    step = 4;
     notifyListeners();
   }
 
@@ -1488,8 +1564,10 @@ class AppState extends ChangeNotifier {
     flowError = null;
     _editingMatchId = null;
     _editingMatchCreatedAt = null;
+    _activeTournamentId = pending.tournamentId;
+    _activeTournamentMatchId = pending.tournamentMatchId;
     draft = pending.draft;
-    step = 3;
+    step = 4;
     _draftHasProgress = true;
     _justSaved = false;
     _liveSessionHoldTimer?.cancel();
@@ -1542,9 +1620,11 @@ class AppState extends ChangeNotifier {
     } else if (step > 1) {
       // Leaving the scores step (even just stepping back to "Qui joue ?")
       // means the live session no longer reflects a screen anyone is
-      // actually looking at — end it. Advancing back to step 3 starts a
-      // fresh one via primaryAction/_startLiveSessionIfNeeded.
-      if (step == 3) _endLiveSession();
+      // actually looking at — end it. Advancing back to it starts a fresh
+      // one via primaryAction/_startLiveSessionIfNeeded. Only the "partie
+      // simple" flow ever reaches a scores step — a tournament's step 4 is
+      // "qui joue ?", not scores (see isTournamentFlow).
+      if (!isTournamentFlow && step == 4) _endLiveSession();
       step -= 1;
     } else {
       sheetOpen = false;
@@ -1560,7 +1640,7 @@ class AppState extends ChangeNotifier {
   /// does — and coming back to it resumes broadcasting.
   void handleAppLifecycleChange(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      if (sheetOpen && step == 3 && _editingMatchId == null) {
+      if (sheetOpen && !isTournamentFlow && step == 4 && _editingMatchId == null) {
         if (_liveSessionId != null) {
           // Still within the grace window (or never actually held) — pick
           // the same session back up rather than starting a new one.
@@ -1581,7 +1661,7 @@ class AppState extends ChangeNotifier {
     // Leaving the app doesn't end the session outright — see
     // _holdLiveSession — so a quick app-switch or a notification check
     // doesn't drop the match from spectators' view.
-    if (sheetOpen && step == 3) _holdLiveSession();
+    if (sheetOpen && !isTournamentFlow && step == 4) _holdLiveSession();
   }
 
   void startNewGame({String? parentGameId}) {
@@ -1816,6 +1896,42 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Whether the sheet is currently building a tournament rather than a
+  /// single match (see [NewGameDraft.creationKind]) — everything from the
+  /// step sequence to what the primary button does branches on this.
+  bool get isTournamentFlow => draft.creationKind == 'tournament';
+
+  /// True while the sheet is scoring or correcting one specific tournament
+  /// bracket match (see [startTournamentMatch], or [resumeMatch] reopening
+  /// an already-played one) — as opposed to [isTournamentFlow], which is
+  /// true while *building* a new tournament. The game and players are fixed
+  /// by the bracket node here, not something to step back and revisit, so
+  /// `NewGameSheet` uses this to show a plain close button instead of the
+  /// usual back-through-the-wizard-steps arrow.
+  bool get isEditingTournamentMatch => _activeTournamentId != null;
+
+  /// Answers the sheet's very first step: "Partie simple" or "Tournoi" —
+  /// see [isTournamentFlow].
+  void setCreationKind(String kind) {
+    draft.creationKind = kind;
+    notifyListeners();
+  }
+
+  void setTournamentFormat(TournamentFormat format) {
+    draft.tournamentFormat = format;
+    notifyListeners();
+  }
+
+  void setTournamentGroupsCount(int n) {
+    draft.tournamentGroupsCount = n;
+    notifyListeners();
+  }
+
+  void setTournamentQualifiersPerGroup(int n) {
+    draft.tournamentQualifiersPerGroup = n;
+    notifyListeners();
+  }
+
   void setMode(String mode) {
     draft.mode = mode;
     notifyListeners();
@@ -2037,7 +2153,11 @@ class AppState extends ChangeNotifier {
   void addRound(Map<String, int> roundDeltas) {
     for (final uid in draft.playerIds) {
       final delta = roundDeltas[uid] ?? 0;
-      final v = ((draft.points[uid] ?? 0) + delta).clamp(0, 1 << 30);
+      // Unlike bump/setPoints (quick mode, never negative), a round's
+      // cumulative total can legitimately go negative — e.g. Président's
+      // "trou du cul" role costs points round after round — so this only
+      // guards against an absurd runaway value, not zero.
+      final v = ((draft.points[uid] ?? 0) + delta).clamp(-(1 << 30), 1 << 30);
       draft.points[uid] = v;
       draft.timeline.add(TimelinePoint(playerId: uid, val: v, delta: delta, time: DateTime.now()));
     }
@@ -2223,12 +2343,22 @@ class AppState extends ChangeNotifier {
     return draft.playerIds.map((id) => draft.team[id] ?? 'A').toSet().length >= 2;
   }
 
+  /// The sheet's step sequence depends on [isTournamentFlow] — both paths
+  /// are 4 steps long (see `NewGameSheet`'s progress dots), just with
+  /// "quel jeu ?" and "qui joue ?" swapped for a format step in a
+  /// tournament:
+  ///   partie simple : 1 mode · 2 jeu    · 3 joueurs · 4 scores
+  ///   tournoi       : 1 mode · 2 format · 3 jeu     · 4 joueurs (→ crée le tournoi)
   bool get canProceed {
     if (browsingLibrary || browsingOtherGroups) return false;
     if (creatingGame) return gameForm.isValid;
-    if (step == 1) return draft.gameId != null;
-    if (step == 2) return draft.playerIds.length >= 2 && draftTeamsValid;
-    if (step == 3) {
+    if (step == 1) return draft.creationKind != null;
+    final tournamentFlow = isTournamentFlow;
+    final gameStep = tournamentFlow ? 3 : 2;
+    final playersStep = tournamentFlow ? 4 : 3;
+    if (step == gameStep) return draft.gameId != null;
+    if (step == playersStep) return draft.playerIds.length >= 2 && draftTeamsValid;
+    if (!tournamentFlow && step == 4) {
       final g = gameById(draft.gameId ?? '');
       // Both a CountType.winLoss game and the generic "Manches gagnées"
       // unit share the same round-by-round "one winner per manche" input
@@ -2254,13 +2384,59 @@ class AppState extends ChangeNotifier {
       await createGame();
       return;
     }
-    if (step == 3) {
+    final tournamentFlow = isTournamentFlow;
+    if (tournamentFlow && step == 4) {
+      await _finishTournamentCreation();
+      return;
+    }
+    if (!tournamentFlow && step == 4) {
       await saveGame();
       return;
     }
     step += 1;
-    if (step == 3) unawaited(_startLiveSessionIfNeeded());
+    if (!tournamentFlow && step == 4) unawaited(_startLiveSessionIfNeeded());
     notifyListeners();
+  }
+
+  /// Builds the tournament from the wizard's draft — format chosen on step
+  /// 2, game on step 3, participants/teams on step 4 (see
+  /// [isTournamentFlow]/[createTournament]) — the tournament-flow
+  /// counterpart of [saveGame]. On success, closes the sheet and stashes the
+  /// new tournament for `NewGameSheet` to navigate to (see
+  /// [takeJustCreatedTournament]) instead of just popping back to wherever
+  /// the sheet was opened from.
+  Future<void> _finishTournamentCreation() async {
+    if (draft.gameId == null || draft.playerIds.length < 2) return;
+    final entrantPlayerIds = draft.mode == 'team'
+        ? [
+            for (var i = 0; i < draft.teamCount; i++)
+              draft.playerIds.where((id) => (draft.team[id] ?? 'A') == String.fromCharCode(65 + i)).toList(),
+          ].where((team) => team.isNotEmpty).toList()
+        : [for (final id in draft.playerIds) [id]];
+    final saved = await createTournament(
+      name: '',
+      gameId: draft.gameId!,
+      format: draft.tournamentFormat,
+      entrantPlayerIds: entrantPlayerIds,
+      groupsCount: draft.tournamentGroupsCount,
+      qualifiersPerGroup: draft.tournamentQualifiersPerGroup,
+    );
+    if (saved != null) {
+      _justCreatedTournament = saved;
+      _justSaved = true;
+      sheetOpen = false;
+      notifyListeners();
+    }
+  }
+
+  /// Consumes the tournament just created via the sheet (see
+  /// [_finishTournamentCreation]) — `NewGameSheet` calls this right after
+  /// `primaryAction()` to know whether to navigate to the new bracket
+  /// instead of just closing.
+  Tournament? takeJustCreatedTournament() {
+    final t = _justCreatedTournament;
+    _justCreatedTournament = null;
+    return t;
   }
 
   /// Starts a live session for the match currently being scored — the
@@ -2272,7 +2448,12 @@ class AppState extends ChangeNotifier {
   /// backed by [_persistDraftLocally]). Best-effort otherwise: scoring must
   /// never be blocked or errored out by a failed start.
   Future<void> _startLiveSessionIfNeeded() async {
-    if (_editingMatchId != null || _liveSessionId != null || !isOnline) return;
+    // Tournament matches never broadcast as "live" (see AppState.
+    // startTournamentMatch) — the bracket screen already shows what's in
+    // progress, and surfacing them in the home screen's "Parties en
+    // direct"/spectator list too would just be confusing duplication for a
+    // match nobody outside the tournament necessarily cares to watch.
+    if (_editingMatchId != null || _activeTournamentId != null || _liveSessionId != null || !isOnline) return;
     final root = currentRootId;
     final groupId = currentGroupId;
     final uid = currentUser?.uid;
@@ -2361,7 +2542,7 @@ class AppState extends ChangeNotifier {
     isOnline = nowOnline;
     notifyListeners();
     if (isOnline) {
-      if (sheetOpen && step == 3 && _editingMatchId == null && _liveSessionId == null) {
+      if (sheetOpen && !isTournamentFlow && step == 4 && _editingMatchId == null && _liveSessionId == null) {
         unawaited(_startLiveSessionIfNeeded());
       }
     } else if (_liveSessionId != null) {
@@ -2374,12 +2555,16 @@ class AppState extends ChangeNotifier {
   /// Writes the in-progress draft to device storage so it survives an app
   /// kill — the resumption safety net independent of connectivity. No-ops
   /// while resuming an already-saved match (`_editingMatchId != null`),
-  /// since that's already durably stored in Firestore.
+  /// since that's already durably stored in Firestore, and while scoring a
+  /// tournament match (`_activeTournamentId != null`) — never offered back
+  /// (see `closeSheet`), so there's nothing to gain from persisting it.
   Future<void> _persistDraftLocally() async {
     final uid = currentUser?.uid;
     final root = currentRootId;
     final groupId = currentGroupId;
-    if (uid == null || root == null || groupId == null || draft.gameId == null || _editingMatchId != null) return;
+    if (uid == null || root == null || groupId == null || draft.gameId == null || _editingMatchId != null || _activeTournamentId != null) {
+      return;
+    }
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
@@ -2391,6 +2576,8 @@ class AppState extends ChangeNotifier {
           'updatedAt': DateTime.now().millisecondsSinceEpoch,
           'liveSessionId': _liveSessionId,
           'liveSessionHeldAt': _liveSessionHeldAt?.millisecondsSinceEpoch,
+          'tournamentId': _activeTournamentId,
+          'tournamentMatchId': _activeTournamentMatchId,
           'draft': draft.toJson(),
         }),
       );
@@ -2409,8 +2596,9 @@ class AppState extends ChangeNotifier {
   /// Looks for a match left on this device by [uid] and offers it back as
   /// [pendingLocalDraft] — called at sign-in. Leaves entries belonging to a
   /// different uid untouched (a shared device might have another account's
-  /// unfinished match) and drops ones stale enough nobody would recognize
-  /// them anymore.
+  /// unfinished match), drops ones stale enough nobody would recognize them
+  /// anymore, and — defensively, `_persistDraftLocally` no longer writes
+  /// these at all — never offers back a tournament match (see `closeSheet`).
   Future<void> _loadPendingLocalDraft(String uid) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -2418,6 +2606,10 @@ class AppState extends ChangeNotifier {
       if (raw == null) return;
       final data = jsonDecode(raw) as Map<String, dynamic>;
       if (data['uid'] != uid) return;
+      if (data['tournamentId'] != null) {
+        await prefs.remove(_localDraftKey);
+        return;
+      }
       final updatedAt = DateTime.fromMillisecondsSinceEpoch((data['updatedAt'] as num?)?.toInt() ?? 0);
       if (DateTime.now().difference(updatedAt) > _localDraftStaleAfter) {
         await prefs.remove(_localDraftKey);
@@ -2431,6 +2623,8 @@ class AppState extends ChangeNotifier {
         updatedAt: updatedAt,
         liveSessionId: data['liveSessionId'] as String?,
         liveSessionHeldAt: heldAtMs != null ? DateTime.fromMillisecondsSinceEpoch(heldAtMs) : null,
+        tournamentId: data['tournamentId'] as String?,
+        tournamentMatchId: data['tournamentMatchId'] as String?,
       );
       notifyListeners();
     } catch (_) {
@@ -2541,13 +2735,22 @@ class AppState extends ChangeNotifier {
       seriesId: _editingMatchId != null ? _editingMatchSeriesId : (isNewSeries ? draft.seriesId : null),
       seriesGame: _editingMatchId != null ? _editingMatchSeriesGame : (isNewSeries ? draft.seriesLegIndex : null),
       seriesLength: _editingMatchId != null ? _editingMatchSeriesLength : (isNewSeries ? draft.bestOf : null),
+      tournamentId: _activeTournamentId,
+      tournamentMatchId: _activeTournamentMatchId,
     );
     try {
       if (_editingMatchId != null) {
         await matchesRepo.updateMatch(root, match);
-        showToast('Partie mise à jour ! Classement mis à jour.');
+        String? tournamentWarning;
+        if (_activeTournamentId != null) {
+          tournamentWarning = await _recordTournamentResult(match);
+        }
+        showToast(tournamentWarning == null ? 'Partie mise à jour ! Classement mis à jour.' : 'Partie mise à jour, mais $tournamentWarning.');
       } else {
-        await matchesRepo.addMatch(root, match);
+        final saved = await matchesRepo.addMatch(root, match);
+        if (_activeTournamentId != null) {
+          await _recordTournamentResult(saved);
+        }
         if (isNewSeries && !isFinalLeg) {
           showToast('Partie ${draft.seriesLegIndex} enregistrée — gagnée par ${legWinnerLabel(match)}. Partie suivante !');
         } else {
@@ -2560,6 +2763,8 @@ class AppState extends ChangeNotifier {
         _editingMatchSeriesId = null;
         _editingMatchSeriesGame = null;
         _editingMatchSeriesLength = null;
+        _activeTournamentId = null;
+        _activeTournamentMatchId = null;
         _justSaved = true;
         // Ended right here rather than left to closeSheet() (which only runs
         // once the sheet's closing animation resolves) — a spectator
@@ -2649,5 +2854,213 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     }
     return ok;
+  }
+
+  // ============================== TOURNAMENTS ==============================
+
+  /// Whether the signed-in user can delete `tournament` — mirrors
+  /// [canDeleteMatch]: the root community's owner, or the owner of the
+  /// specific subgroup it was created in.
+  bool canDeleteTournament(Tournament tournament) {
+    final uid = currentUser?.uid;
+    if (uid == null) return false;
+    final root = currentRootId;
+    if (root != null && groupById(root)?.ownerId == uid) return true;
+    return groupById(tournament.groupId)?.ownerId == uid;
+  }
+
+  /// Deletes `tournament` and every match recorded against one of its
+  /// bracket nodes (see [GameMatch.tournamentId]) — a full cascade, so a
+  /// removed tournament never lingers in the history as orphaned "tournoi
+  /// supprimé" entries (see `_TournamentMatchCard`'s fallback, which only
+  /// exists for data that predates this cascade). Matches are removed
+  /// before the tournament document itself so an interrupted deletion
+  /// leaves, at worst, a tournament with dangling match links rather than
+  /// stray tournament-tagged matches with nothing to point back to.
+  Future<bool> deleteTournament(Tournament tournament) async {
+    final root = currentRootId;
+    if (root == null || !canDeleteTournament(tournament)) return false;
+    busy = true;
+    flowError = null;
+    notifyListeners();
+    var ok = false;
+    try {
+      final linkedMatches = matches.where((m) => m.tournamentId == tournament.id).toList();
+      for (final m in linkedMatches) {
+        await matchesRepo.deleteMatch(root, m.id);
+      }
+      await tournamentsRepo.deleteTournament(root, tournament.id);
+      showToast('Tournoi et ses parties supprimés.');
+      ok = true;
+    } catch (e) {
+      flowError = e.toString();
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+    return ok;
+  }
+
+  /// Creates a new tournament: wraps `entrantPlayerIds` (already grouped
+  /// into team-sized chunks by the caller — see [_finishTournamentCreation])
+  /// into [TournamentEntrant]s in the given seed order, builds the initial
+  /// bracket for `format` (see `lib/logic/tournament_bracket.dart`), and
+  /// persists it.
+  Future<Tournament?> createTournament({
+    required String name,
+    required String gameId,
+    required TournamentFormat format,
+    required List<List<String>> entrantPlayerIds,
+    int groupsCount = 1,
+    int qualifiersPerGroup = 2,
+  }) async {
+    final root = currentRootId;
+    final groupId = currentGroupId;
+    if (root == null || groupId == null || entrantPlayerIds.length < 2) return null;
+    if (_rejectIfGroupClosed(groupId)) return null;
+    final entrants = [for (final (i, ids) in entrantPlayerIds.indexed) TournamentEntrant(id: 'e$i', playerIds: ids)];
+    final entrantIds = entrants.map((e) => e.id).toList();
+    final isGroups = format == TournamentFormat.groupsThenElimination;
+    final matches = switch (format) {
+      TournamentFormat.singleElimination => buildSingleElimination(entrantIds),
+      TournamentFormat.doubleElimination => buildDoubleElimination(entrantIds),
+      TournamentFormat.groupsThenElimination => buildGroupStage(entrantIds, groupsCount),
+    };
+    final tournament = Tournament(
+      id: '',
+      groupId: groupId,
+      gameId: gameId,
+      name: name.trim().isEmpty ? (gameById(gameId)?.name ?? 'Tournoi') : name.trim(),
+      format: format,
+      entrants: entrants,
+      matches: matches,
+      groupsCount: isGroups ? groupsCount : 0,
+      qualifiersPerGroup: isGroups ? qualifiersPerGroup : 0,
+      createdAt: DateTime.now(),
+      createdByUid: currentUser?.uid,
+    );
+    busy = true;
+    flowError = null;
+    notifyListeners();
+    Tournament? saved;
+    try {
+      saved = await tournamentsRepo.addTournament(root, tournament);
+      showToast('Tournoi créé !');
+    } catch (e) {
+      flowError = e.toString();
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+    return saved;
+  }
+
+  /// Opens the new-game sheet already locked onto one bracket match's two
+  /// entrants — the bridge from a tap on `TournamentDetailScreen` into the
+  /// existing (non-tournament — [isTournamentFlow] stays false, this is
+  /// scoring a match, not building a bracket) score-entry flow. The
+  /// players/teams are fixed by the bracket rather than chosen by hand, so
+  /// this jumps straight to the scores step (step 4 — "qui joue ?" would
+  /// have nothing left to decide). See [saveGame]/[_recordTournamentResult]
+  /// for how the result flows back onto the bracket once saved.
+  void startTournamentMatch(Tournament tournament, BracketMatch match) {
+    final entrantA = tournament.entrantById(match.entrantAId);
+    final entrantB = tournament.entrantById(match.entrantBId);
+    if (entrantA == null || entrantB == null) return;
+    openSheet();
+    if (currentGroupId != tournament.groupId) {
+      currentGroupId = tournament.groupId;
+      _resubscribeGroupData();
+    }
+    _activeTournamentId = tournament.id;
+    _activeTournamentMatchId = match.id;
+    pickGame(tournament.gameId);
+    final isTeam = entrantA.playerIds.length > 1 || entrantB.playerIds.length > 1;
+    draft.mode = isTeam ? 'team' : 'ffa';
+    draft.teamCount = 2;
+    draft.playerIds = [...entrantA.playerIds, ...entrantB.playerIds];
+    if (isTeam) {
+      draft.team = {
+        for (final id in entrantA.playerIds) id: 'A',
+        for (final id in entrantB.playerIds) id: 'B',
+      };
+    }
+    draft.points = {for (final id in draft.playerIds) id: 0};
+    draft.rankOrder = List.of(draft.playerIds);
+    step = 4;
+    notifyListeners();
+    unawaited(_startLiveSessionIfNeeded());
+  }
+
+  /// Opens the new-game sheet already answered "Tournoi" on step 1 — the
+  /// entry point for the "+" in the home screen's "Tournois" section and
+  /// `TournamentsListScreen`'s FAB, both of which already know the intent
+  /// (no need to ask again). Lands on step 2 (the format step) rather than
+  /// step 1.
+  void startTournamentCreationFlow() {
+    openSheet();
+    draft.creationKind = 'tournament';
+    step = 2;
+    notifyListeners();
+  }
+
+  /// Advances the bracket once a tournament-linked match is saved (see
+  /// [saveGame]/[startTournamentMatch]): resolves which entrant won from the
+  /// real [GameMatch.winnerIds] result, then delegates the actual
+  /// advance/loser-drop bookkeeping to [advanceResult].
+  /// Returns a warning to fold into the caller's own save toast if the
+  /// correction left part of the bracket stale (see [correctResult]) — null
+  /// on a clean save, which is always the case the first time a match is
+  /// recorded (only a correction can leave a stale downstream match).
+  Future<String?> _recordTournamentResult(GameMatch saved) async {
+    final root = currentRootId;
+    final tournamentId = _activeTournamentId;
+    final matchId = _activeTournamentMatchId;
+    if (root == null || tournamentId == null || matchId == null) return null;
+    final tournament = tournaments.where((t) => t.id == tournamentId).firstOrNull;
+    final bracketMatch = tournament?.matchById(matchId);
+    if (tournament == null || bracketMatch == null) return null;
+    final entrantA = tournament.entrantById(bracketMatch.entrantAId);
+    final entrantB = tournament.entrantById(bracketMatch.entrantBId);
+    if (entrantA == null || entrantB == null) return null;
+    final winnerIds = saved.winnerIds().toSet();
+    final winnerEntrantId = entrantA.playerIds.any(winnerIds.contains) ? entrantA.id : entrantB.id;
+    final result = correctResult(tournament, matchId: matchId, winnerEntrantId: winnerEntrantId, gameMatchId: saved.id);
+    try {
+      await tournamentsRepo.updateTournament(root, result.tournament);
+    } catch (_) {
+      // Best-effort — the match itself is already safely saved either way;
+      // worst case the bracket just doesn't reflect this until a retry.
+    }
+    return result.staleMatchIds.isEmpty
+        ? null
+        : 'un tour déjà joué avec l\'ancien résultat n\'a pas pu être corrigé automatiquement — vérifiez le bracket';
+  }
+
+  /// For a [TournamentFormat.groupsThenElimination] tournament whose group
+  /// stage is done (see [groupStageComplete]): ranks each group (see
+  /// [computeGroupStandings]), takes [Tournament.qualifiersPerGroup] from
+  /// each, and appends the elimination bracket built from them.
+  Future<void> generateEliminationStage(Tournament tournament) async {
+    final root = currentRootId;
+    if (root == null || !groupStageComplete(tournament)) return;
+    final qualifiers = [
+      for (var g = 0; g < tournament.groupsCount; g++)
+        computeGroupStandings(tournament: tournament, groupIndex: g, playedMatches: matches)
+            .take(tournament.qualifiersPerGroup)
+            .map((s) => s.entrantId)
+            .toList(),
+    ];
+    final updated = tournament.copyWith(matches: [...tournament.matches, ...buildEliminationFromStandings(qualifiers)]);
+    busy = true;
+    notifyListeners();
+    try {
+      await tournamentsRepo.updateTournament(root, updated);
+    } catch (e) {
+      flowError = e.toString();
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
   }
 }
