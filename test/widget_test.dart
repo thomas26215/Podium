@@ -32,10 +32,7 @@ const _tom = AppUser(uid: 'tom', email: 'tom@test.fr', displayName: 'Tom', color
     name: 'Les Bandits',
     emoji: '🃏',
     emojiBg: 0xFFFFE9E1,
-    parentId: null,
     memberIds: const ['lea', 'tom'],
-    subGroupIds: const [],
-    allMemberIds: const ['lea', 'tom'],
     ownerId: 'lea',
   );
   final groups = FakeGroupsRepository(seedGroups: {'bandits': group}, users: users);
@@ -207,22 +204,19 @@ void main() {
       name: 'Les Bandits',
       emoji: '🃏',
       emojiBg: 0xFFFFE9E1,
-      parentId: null,
       memberIds: const ['lea', 'tom'],
-      subGroupIds: const [],
-      allMemberIds: const ['lea', 'tom'],
       ownerId: 'lea',
     );
     final groups = FakeGroupsRepository(seedGroups: {'bandits': group}, users: users);
 
-    final catan = Game(
+    final catan = Game.simple(
       id: 'catan',
       name: 'Catan',
       emoji: '🎲',
       category: 'Société',
       countType: CountType.highWins,
     );
-    final uno = Game(
+    final uno = Game.simple(
       id: 'uno',
       name: 'Uno',
       emoji: '🃏',

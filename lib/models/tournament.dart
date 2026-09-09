@@ -167,6 +167,12 @@ class Tournament {
   final String id;
   final String groupId;
   final String gameId;
+
+  /// Which of the game's [GameRule]s this tournament is scored under — fixed
+  /// once at creation (see `AppState.createTournament`) so every bracket
+  /// match reuses the same rule (`AppState.startTournamentMatch`). Null for
+  /// a game that only has its one default rule.
+  final String? ruleId;
   final String name;
   final TournamentFormat format;
   final List<TournamentEntrant> entrants;
@@ -185,6 +191,7 @@ class Tournament {
     required this.id,
     required this.groupId,
     required this.gameId,
+    this.ruleId,
     required this.name,
     required this.format,
     required this.entrants,
@@ -207,6 +214,7 @@ class Tournament {
         id: id,
         groupId: groupId,
         gameId: gameId,
+        ruleId: ruleId,
         name: name,
         format: format,
         entrants: entrants,
@@ -222,6 +230,7 @@ class Tournament {
   Map<String, dynamic> toMap() => {
         'groupId': groupId,
         'gameId': gameId,
+        if (ruleId != null) 'ruleId': ruleId,
         'name': name,
         'format': tournamentFormatToString(format),
         'entrants': entrants.map((e) => e.toMap()).toList(),
@@ -238,6 +247,7 @@ class Tournament {
         id: id,
         groupId: (data['groupId'] as String?) ?? '',
         gameId: (data['gameId'] as String?) ?? '',
+        ruleId: data['ruleId'] as String?,
         name: (data['name'] as String?) ?? 'Tournoi',
         format: tournamentFormatFromString((data['format'] as String?) ?? 'single'),
         entrants: ((data['entrants'] as List?) ?? const [])

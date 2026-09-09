@@ -108,39 +108,14 @@ class FakeGroupsRepository implements GroupsRepository {
   @override
   Stream<List<Group>> watchMyGroups(String uid) {
     Future.microtask(_emit);
-    return _controller.stream.map((all) => all.where((g) => _visibleTo(g, uid, all)).toList());
-  }
-
-  bool _visibleTo(Group g, String uid, List<Group> all) {
-    if (g.memberIds.contains(uid)) return true;
-    if (g.isRoot) {
-      return g.subGroupIds.any((sid) {
-        final sg = all.where((x) => x.id == sid);
-        return sg.isNotEmpty && sg.first.memberIds.contains(uid);
-      });
-    }
-    final parent = all.where((x) => x.id == g.parentId);
-    return parent.isNotEmpty && parent.first.memberIds.contains(uid);
+    return _controller.stream.map((all) => all.where((g) => g.memberIds.contains(uid)).toList());
   }
 
   @override
   Future<Group> createGroup({required String name, required String emoji, required int emojiBg, required String ownerId, bool temporary = false}) async {
     final id = 'g${groups.length + 1}';
-    final group = Group(id: id, name: name, emoji: emoji, emojiBg: emojiBg, parentId: null, memberIds: [ownerId], subGroupIds: const [], allMemberIds: [ownerId], ownerId: ownerId, temporary: temporary);
+    final group = Group(id: id, name: name, emoji: emoji, emojiBg: emojiBg, memberIds: [ownerId], ownerId: ownerId, temporary: temporary);
     groups[id] = group;
-    _emit();
-    return group;
-  }
-
-  @override
-  Future<Group> createSubGroup({required String parentId, required String name, required String emoji, required int emojiBg, required String ownerId}) async {
-    final id = 'g${groups.length + 1}';
-    final group = Group(id: id, name: name, emoji: emoji, emojiBg: emojiBg, parentId: parentId, memberIds: [ownerId], subGroupIds: const [], allMemberIds: const [], ownerId: ownerId);
-    groups[id] = group;
-    final parent = groups[parentId];
-    if (parent != null) {
-      groups[parentId] = parent.copyWith(subGroupIds: [...parent.subGroupIds, id], allMemberIds: [...parent.allMemberIds, ownerId]);
-    }
     _emit();
     return group;
   }
@@ -164,45 +139,21 @@ class FakeGroupsRepository implements GroupsRepository {
 
   @override
   Future<void> deleteGroup(String groupId) async {
-    final g = groups[groupId];
-    if (g == null) return;
-    if (g.isRoot) {
-      for (final subId in g.subGroupIds) {
-        groups.remove(subId);
-      }
-      groups.remove(groupId);
-    } else {
-      groups.remove(groupId);
-      final parent = g.parentId != null ? groups[g.parentId] : null;
-      if (parent != null) {
-        final remainingSubIds = parent.subGroupIds.where((id) => id != groupId).toList();
-        final allMemberIds = <String>{
-          ...parent.memberIds,
-          for (final sid in remainingSubIds) ...?groups[sid]?.memberIds,
-        };
-        groups[parent.id] = parent.copyWith(subGroupIds: remainingSubIds, allMemberIds: allMemberIds.toList());
-      }
-    }
+    groups.remove(groupId);
     _emit();
   }
 
   @override
-  Future<void> joinGroup({required String groupId, required String rootId, required String uid}) async {
-    final root0 = groups[rootId];
-    if (root0 == null) throw InviteException('Groupe introuvable.');
-    if (root0.closed) throw InviteException('Ce groupe est clos et n\'accepte plus de nouveaux membres.');
+  Future<void> joinGroup({required String groupId, required String uid}) async {
     final g = groups[groupId];
-    if (g == null) return;
+    if (g == null) throw InviteException('Groupe introuvable.');
+    if (g.closed) throw InviteException('Ce groupe est clos et n\'accepte plus de nouveaux membres.');
     final expiresAt = g.inviteExpiresAt;
     if (expiresAt != null && DateTime.now().isAfter(expiresAt)) {
       throw InviteException("Ce code d'invitation a expiré — demandez-en un nouveau.");
     }
     if (!g.memberIds.contains(uid)) {
       groups[groupId] = g.copyWith(memberIds: [...g.memberIds, uid]);
-    }
-    final root = groups[rootId];
-    if (root != null && !root.allMemberIds.contains(uid)) {
-      groups[rootId] = root.copyWith(allMemberIds: [...root.allMemberIds, uid]);
     }
     _emit();
   }
@@ -211,37 +162,21 @@ class FakeGroupsRepository implements GroupsRepository {
   Future<void> deleteAllUserData(String uid) async {
     final owned = groups.values.where((g) => g.ownerId == uid).toList();
     for (final g in owned) {
-      if (!groups.containsKey(g.id)) continue;
-      await deleteGroup(g.id);
+      groups.remove(g.id);
     }
     for (final id in groups.keys.toList()) {
       final g = groups[id];
       if (g == null || g.ownerId == uid) continue;
-      groups[id] = g.copyWith(
-        memberIds: g.memberIds.where((m) => m != uid).toList(),
-        allMemberIds: g.allMemberIds.where((m) => m != uid).toList(),
-      );
+      groups[id] = g.copyWith(memberIds: g.memberIds.where((m) => m != uid).toList());
     }
     _emit();
   }
 
   @override
-  Future<void> reassignMember({required String rootId, required String oldUid, required String newUid}) async {
-    final root = groups[rootId];
-    if (root == null) return;
-    for (final id in [rootId, ...root.subGroupIds]) {
-      final g = groups[id];
-      if (g == null || !g.memberIds.contains(oldUid)) continue;
-      groups[id] = g.copyWith(memberIds: [...g.memberIds.where((m) => m != oldUid), newUid]);
-    }
-    final refreshedRoot = groups[rootId];
-    if (refreshedRoot != null) {
-      final allIds = <String>{
-        ...refreshedRoot.memberIds,
-        for (final sid in refreshedRoot.subGroupIds) ...?groups[sid]?.memberIds,
-      };
-      groups[rootId] = refreshedRoot.copyWith(allMemberIds: allIds.toList());
-    }
+  Future<void> reassignMember({required String groupId, required String oldUid, required String newUid}) async {
+    final g = groups[groupId];
+    if (g == null || !g.memberIds.contains(oldUid)) return;
+    groups[groupId] = g.copyWith(memberIds: [...g.memberIds.where((m) => m != oldUid), newUid]);
     _emit();
   }
 
@@ -286,15 +221,7 @@ class FakeGamesRepository implements GamesRepository {
     required String name,
     required String emoji,
     required String category,
-    required CountType countType,
-    int? pointLimit,
-    List<String>? topRoles,
-    List<String>? bottomRoles,
-    List<int>? topPoints,
-    List<int>? bottomPoints,
-    bool multiRound = false,
-    String? parentGameId,
-    List<GameScoreField>? scoreFields,
+    required List<GameRule> rules,
   }) async {
     final list = byGroup.putIfAbsent(rootGroupId, () => []);
     final game = Game(
@@ -302,15 +229,7 @@ class FakeGamesRepository implements GamesRepository {
       name: name,
       emoji: emoji,
       category: category,
-      countType: countType,
-      pointLimit: pointLimit,
-      topRoles: topRoles,
-      bottomRoles: bottomRoles,
-      topPoints: topPoints,
-      bottomPoints: bottomPoints,
-      multiRound: multiRound,
-      parentGameId: parentGameId,
-      scoreFields: scoreFields,
+      rules: rules,
     );
     list.add(game);
     _ctrl(rootGroupId).add(list);
@@ -325,14 +244,7 @@ class FakeGamesRepository implements GamesRepository {
       name: source.name,
       emoji: source.emoji,
       category: source.category,
-      countType: source.countType,
-      pointLimit: source.pointLimit,
-      topRoles: source.topRoles,
-      bottomRoles: source.bottomRoles,
-      topPoints: source.topPoints,
-      bottomPoints: source.bottomPoints,
-      multiRound: source.multiRound,
-      scoreFields: source.scoreFields,
+      rules: source.rules,
     );
     list.add(game);
     _ctrl(rootGroupId).add(list);

@@ -201,12 +201,15 @@ class MatchDetailScreen extends StatelessWidget {
     );
   }
 
+  bool get _isWinLoss => game.resolveRule(match.ruleId).isWinLoss;
+
   Widget _ffaCard() {
     if (match.hasScoreBreakdown) {
       return _detailedBreakdownCard();
     }
     final winners = _winners;
-    final sorted = [...match.entries]..sort((a, b) => game.lowWins ? a.points.compareTo(b.points) : b.points.compareTo(a.points));
+    final isWinLoss = _isWinLoss;
+    final sorted = [...match.entries]..sort((a, b) => match.lowWins ? a.points.compareTo(b.points) : b.points.compareTo(a.points));
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
       decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
@@ -228,9 +231,9 @@ class MatchDetailScreen extends StatelessWidget {
                     margin: const EdgeInsets.only(right: 8),
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-                    child: Text(game.isWinLoss ? 'VICTOIRE' : '1ER', style: bodyFont(size: 10, weight: FontWeight.w800, color: AppColors.green, letterSpacing: 0.3)),
+                    child: Text(isWinLoss ? 'VICTOIRE' : '1ER', style: bodyFont(size: 10, weight: FontWeight.w800, color: AppColors.green, letterSpacing: 0.3)),
                   ),
-                if (game.isWinLoss)
+                if (isWinLoss)
                   (win ? const SizedBox.shrink() : Text('Défaite', style: bodyFont(size: 12.5, weight: FontWeight.w700, color: AppColors.mut)))
                 else if (e.role != null)
                   Text(e.role!, style: bodyFont(size: 13.5, weight: FontWeight.w800, color: AppColors.ink2))
@@ -246,7 +249,7 @@ class MatchDetailScreen extends StatelessWidget {
 
   Widget _detailedBreakdownCard() {
     final fields = match.scoreFields ?? const [];
-    final sorted = [...match.entries]..sort((a, b) => game.lowWins ? a.points.compareTo(b.points) : b.points.compareTo(a.points));
+    final sorted = [...match.entries]..sort((a, b) => match.lowWins ? a.points.compareTo(b.points) : b.points.compareTo(a.points));
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),

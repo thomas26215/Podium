@@ -5,15 +5,13 @@
 /// inviter, who is already a member and can read it.
 class GroupInviteCode {
   final String groupId;
-  final String rootId;
   final String name;
   final String emoji;
 
-  const GroupInviteCode({required this.groupId, required this.rootId, required this.name, required this.emoji});
+  const GroupInviteCode({required this.groupId, required this.name, required this.emoji});
 
   String encode() => Uri(scheme: 'podium', host: 'join', queryParameters: {
         'g': groupId,
-        'r': rootId,
         'n': name,
         'e': emoji,
       }).toString();
@@ -23,9 +21,8 @@ class GroupInviteCode {
       final uri = Uri.parse(raw.trim());
       if (uri.scheme != 'podium' || uri.host != 'join') return null;
       final g = uri.queryParameters['g'];
-      final r = uri.queryParameters['r'];
-      if (g == null || g.isEmpty || r == null || r.isEmpty) return null;
-      return GroupInviteCode(groupId: g, rootId: r, name: uri.queryParameters['n'] ?? 'Groupe', emoji: uri.queryParameters['e'] ?? '🎲');
+      if (g == null || g.isEmpty) return null;
+      return GroupInviteCode(groupId: g, name: uri.queryParameters['n'] ?? 'Groupe', emoji: uri.queryParameters['e'] ?? '🎲');
     } catch (_) {
       return null;
     }

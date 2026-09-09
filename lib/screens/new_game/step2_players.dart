@@ -15,10 +15,10 @@ class Step2Players extends StatelessWidget {
     final app = context.watch<AppState>();
     final d = app.draft;
     final players = app.viewPlayers;
-    final game = app.gameById(d.gameId ?? '');
-    // Ranks and win/loss games are always solo scoring — no team split to
-    // offer (see AppState.pickGame, which forces mode back to 'ffa' for them).
-    final soloOnly = (game?.isRanks ?? false) || (game?.isWinLoss ?? false);
+    final rule = app.draftRule;
+    // Ranks and win/loss rules are always solo scoring — no team split to
+    // offer (see AppState._applyRule, which forces mode back to 'ffa' for them).
+    final soloOnly = (rule?.isRanks ?? false) || (rule?.isWinLoss ?? false);
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));

@@ -31,6 +31,13 @@ import 'player_row.dart';
 /// Which of the 5 tabs is showing.
 enum AppTab { home, ranking, history, profile, groups }
 
+/// What a given position in the new-game sheet's step sequence is currently
+/// showing — see [AppState.stepSequence]. The sequence's length (and which
+/// kinds appear) varies with [AppState.isTournamentFlow] and whether the
+/// picked game has more than one rule, so `step` (a plain 1-based index)
+/// alone doesn't say what's on screen.
+enum WizardStepKind { kind, tournamentFormat, game, rule, players, scores }
+
 /// A game found in one of the user's *other* root groups, paired with the
 /// group it came from so the browser UI can label it — see
 /// [AppState.startBrowsingOtherGroups].
@@ -175,7 +182,6 @@ class AppState extends ChangeNotifier {
   String? currentGroupId;
   final Map<String, AppUser> _memberCache = {};
   StreamSubscription? _groupsSub;
-  final Set<String> expandedGroups = {};
 
   // ---- games / matches (scoped to currentRootId) ----
   List<Game> games = [];
@@ -209,14 +215,18 @@ class AppState extends ChangeNotifier {
 
   // Flips to true the moment each subscription's first snapshot arrives for
   // the current group — Firestore can take a moment after sign-in/switching
-  // groups, so the UI shows "X/3 récupérées" in the meantime instead of
+  // groups, so the UI shows "X/4 récupérées" in the meantime instead of
   // silently looking empty (see groupDataFetchedCount/groupDataFullyLoaded).
+  // HomeScreen hides its whole data-dependent body (stat counts, "dernières
+  // parties", tournaments…) behind [groupDataFullyLoaded] rather than
+  // rendering it with zero/empty placeholders that would otherwise pop to
+  // their real values a beat later.
   bool gamesLoaded = false;
   bool matchesLoaded = false;
   bool liveSessionsLoaded = false;
   bool tournamentsLoaded = false;
-  static const groupDataTotalCount = 3;
-  int get groupDataFetchedCount => (gamesLoaded ? 1 : 0) + (matchesLoaded ? 1 : 0) + (liveSessionsLoaded ? 1 : 0);
+  static const groupDataTotalCount = 4;
+  int get groupDataFetchedCount => (gamesLoaded ? 1 : 0) + (matchesLoaded ? 1 : 0) + (liveSessionsLoaded ? 1 : 0) + (tournamentsLoaded ? 1 : 0);
   bool get groupDataFullyLoaded => groupDataFetchedCount == groupDataTotalCount;
 
   // A live session doc is considered abandoned (app crashed/killed mid-score
@@ -498,8 +508,7 @@ class AppState extends ChangeNotifier {
     groups = gs;
     groupsLoading = false;
     if (currentGroupId == null || groups.every((g) => g.id != currentGroupId)) {
-      final roots = groups.where((g) => g.isRoot).toList();
-      currentGroupId = roots.isNotEmpty ? roots.first.id : (groups.isNotEmpty ? groups.first.id : null);
+      currentGroupId = groups.isNotEmpty ? groups.first.id : null;
     }
     unawaited(_ensureMembersLoaded());
     _resubscribeGroupData();
@@ -518,47 +527,20 @@ class AppState extends ChangeNotifier {
 
   Group? groupById(String id) => _findGroup(id);
 
-  /// Walk up parentId chain to find the top-level community this group
-  /// belongs to — that's the Firestore doc that owns the games/matches
-  /// subcollections.
-  String? get currentRootId {
-    var g = currentGroup;
-    final seen = <String>{};
-    while (g != null && g.parentId != null && seen.add(g.id)) {
-      g = _findGroup(g.parentId!);
-    }
-    return g?.id;
-  }
+  /// The Firestore doc that owns the games/matches subcollections for the
+  /// currently selected group.
+  String? get currentRootId => currentGroupId;
 
-  List<String> getAllGroupIds(String groupId) {
-    final g = _findGroup(groupId);
-    if (g == null) return [];
-    final result = <String>[groupId];
-    for (final sub in g.subGroupIds) {
-      result.addAll(getAllGroupIds(sub));
-    }
-    return result;
-  }
+  List<String> getAllGroupIds(String groupId) => [groupId];
 
-  /// A group's own roster plus everything layered in by its subgroups
-  /// (recursively) — subgroups only store the *additional* players they
-  /// bring, so this reconstructs the full effective roster.
-  List<String> getGroupMemberIds(String groupId) {
-    final g = _findGroup(groupId);
-    if (g == null) return [];
-    final ids = <String>{...g.memberIds};
-    for (final sub in g.subGroupIds) {
-      ids.addAll(getGroupMemberIds(sub));
-    }
-    return ids.toList();
-  }
+  List<String> getGroupMemberIds(String groupId) => _findGroup(groupId)?.memberIds ?? [];
 
-  // Per-group match tallies for the groups list (see GroupsScreen), keyed by
-  // group id (root or subgroup). `matches` itself only ever holds the
-  // CURRENTLY selected root's matches (see _resubscribeGroupData below) —
-  // deliberately, to avoid pulling every group's whole history just because
-  // it's rendered somewhere — so a screen listing every group the user
-  // belongs to needs its own one-time tally instead of reusing `matches`.
+  // Per-group match tallies for the groups list (see GroupsScreen). `matches`
+  // itself only ever holds the CURRENTLY selected group's matches (see
+  // _resubscribeGroupData below) — deliberately, to avoid pulling every
+  // group's whole history just because it's rendered somewhere — so a screen
+  // listing every group the user belongs to needs its own one-time tally
+  // instead of reusing `matches`.
   final Map<String, int> _groupPartyCounts = {};
   int groupPartyCount(String groupId) => _groupPartyCounts[groupId] ?? 0;
 
@@ -576,14 +558,7 @@ class AppState extends ChangeNotifier {
   /// groups screen is opened (a match played elsewhere since the last
   /// refresh would otherwise look stale there).
   Future<void> refreshGroupPartyCounts() async {
-    final roots = groups.where((g) => g.isRoot).toList();
-    final futures = <Future<void>>[];
-    for (final root in roots) {
-      futures.add(_refreshOneGroupPartyCount(root.id, root.id, getAllGroupIds(root.id)));
-      for (final subId in root.subGroupIds) {
-        futures.add(_refreshOneGroupPartyCount(root.id, subId, [subId]));
-      }
-    }
+    final futures = <Future<void>>[for (final g in groups) _refreshOneGroupPartyCount(g.id, g.id, [g.id])];
     await Future.wait(futures);
     notifyListeners();
   }
@@ -669,11 +644,6 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void toggleGroupExpand(String groupId) {
-    if (!expandedGroups.remove(groupId)) expandedGroups.add(groupId);
-    notifyListeners();
-  }
-
   Future<void> createGroup({required String name, required String emoji, required int emojiBg, bool temporary = false}) async {
     final uid = currentUser?.uid;
     if (uid == null || name.trim().isEmpty) return;
@@ -685,24 +655,6 @@ class AppState extends ChangeNotifier {
       await gamesRepo.seedDefaultCatalog(group.id);
       currentGroupId = group.id;
       tab = AppTab.home;
-    } catch (e) {
-      flowError = e.toString();
-    } finally {
-      busy = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> createSubGroup({required String parentId, required String name, required String emoji, required int emojiBg}) async {
-    final uid = currentUser?.uid;
-    if (uid == null || name.trim().isEmpty) return;
-    if (_rejectIfGroupClosed(parentId)) return;
-    busy = true;
-    flowError = null;
-    notifyListeners();
-    try {
-      await groupsRepo.createSubGroup(parentId: parentId, name: name.trim(), emoji: emoji, emojiBg: emojiBg, ownerId: uid);
-      expandedGroups.add(parentId);
     } catch (e) {
       flowError = e.toString();
     } finally {
@@ -787,14 +739,7 @@ class AppState extends ChangeNotifier {
     return ok;
   }
 
-  /// Whether `group` (root or subgroup) is currently closed — a subgroup's
-  /// status always follows its root's, since subgroups don't carry their own
-  /// [Group.closed] (only a root can be closed/reopened, see [setGroupClosed]).
-  bool isGroupClosed(Group group) {
-    if (group.isRoot) return group.closed;
-    final parent = group.parentId != null ? groupById(group.parentId!) : null;
-    return parent?.closed ?? false;
-  }
+  bool isGroupClosed(Group group) => group.closed;
 
   bool isGroupIdClosed(String groupId) {
     final g = groupById(groupId);
@@ -803,15 +748,14 @@ class AppState extends ChangeNotifier {
 
   bool get currentGroupClosed => currentGroup != null && isGroupClosed(currentGroup!);
 
-  /// Only a root community's own owner can close/reopen it — mirrors
+  /// Only a group's own owner can close/reopen it — mirrors
   /// [canManageGameCatalog] (same "who's in charge of the season" scope).
   bool canCloseGroup(Group group) {
     final uid = currentUser?.uid;
-    if (uid == null || !group.isRoot) return false;
-    return group.ownerId == uid;
+    return uid != null && group.ownerId == uid;
   }
 
-  /// Closes (or reopens) a ROOT group — see [Group.closed]. A closed group
+  /// Closes (or reopens) a group — see [Group.closed]. A closed group
   /// stays fully visible (history, rankings) but rejects any new activity;
   /// nothing is deleted, and it can be reopened any time.
   Future<bool> setGroupClosed(String rootGroupId, bool closed) async {
@@ -853,17 +797,10 @@ class AppState extends ChangeNotifier {
     return true;
   }
 
-  /// Whether the signed-in user is allowed to delete `group`: its own owner,
-  /// or (for a subgroup) the owner of its root community.
+  /// Whether the signed-in user is allowed to delete `group`: its own owner.
   bool canDeleteGroup(Group group) {
     final uid = currentUser?.uid;
-    if (uid == null) return false;
-    if (group.ownerId == uid) return true;
-    if (group.parentId != null) {
-      final parent = groupById(group.parentId!);
-      if (parent != null && parent.ownerId == uid) return true;
-    }
-    return false;
+    return uid != null && group.ownerId == uid;
   }
 
   Future<bool> deleteGroup(String groupId) async {
@@ -884,18 +821,17 @@ class AppState extends ChangeNotifier {
     return ok;
   }
 
-  /// Hands `oldUid`'s slot in `rootGroupId`'s whole tree over to whichever
-  /// account `newEmail` belongs to: every group in the tree that lists
-  /// `oldUid` as a member gets `newEmail`'s account instead, and every past
-  /// match referencing `oldUid` is rewritten to reference the new account —
-  /// e.g. someone was originally invited/scored under the wrong address.
+  /// Hands `oldUid`'s slot in `rootGroupId` over to whichever account
+  /// `newEmail` belongs to: the group's member list gets `newEmail`'s account
+  /// instead, and every past match referencing `oldUid` is rewritten to
+  /// reference the new account — e.g. someone was originally invited/scored
+  /// under the wrong address.
   ///
   /// A guest (see [isGuestId]/[knownGuests]) is handled differently: since
   /// its whole point is being the same shared identity across every group
   /// it was added to, getting a real account replaces it everywhere it's a
-  /// member — every root community visible to the caller, not just
-  /// `rootGroupId` — instead of leaving disconnected guest copies behind in
-  /// the others.
+  /// member — every group visible to the caller, not just `rootGroupId` —
+  /// instead of leaving disconnected guest copies behind in the others.
   Future<bool> reassignMember({required String rootGroupId, required String oldUid, required String newEmail}) async {
     if (!isGuestId(oldUid)) {
       if (_rejectIfGroupClosed(rootGroupId)) return false;
@@ -914,7 +850,7 @@ class AppState extends ChangeNotifier {
         if (getGroupMemberIds(rootGroupId).contains(newUser.uid)) {
           throw Exception('Ce compte est déjà membre du groupe.');
         }
-        await groupsRepo.reassignMember(rootId: rootGroupId, oldUid: oldUid, newUid: newUser.uid);
+        await groupsRepo.reassignMember(groupId: rootGroupId, oldUid: oldUid, newUid: newUser.uid);
         await matchesRepo.reassignPlayer(rootGroupId: rootGroupId, oldPlayerId: oldUid, newPlayerId: newUser.uid);
         _memberCache[newUser.uid] = newUser;
         ok = true;
@@ -937,17 +873,17 @@ class AppState extends ChangeNotifier {
       if (newUser == null) {
         throw Exception('Aucun compte trouvé avec cet e-mail.');
       }
-      final roots = groups.where((g) => g.isRoot && getGroupMemberIds(g.id).contains(oldUid)).toList();
+      final targets = groups.where((g) => getGroupMemberIds(g.id).contains(oldUid)).toList();
       var touched = 0;
       var skippedClosed = 0;
-      for (final root in roots) {
-        if (isGroupClosed(root)) {
+      for (final g in targets) {
+        if (isGroupClosed(g)) {
           skippedClosed++;
           continue;
         }
-        if (getGroupMemberIds(root.id).contains(newUser.uid)) continue;
-        await groupsRepo.reassignMember(rootId: root.id, oldUid: oldUid, newUid: newUser.uid);
-        await matchesRepo.reassignPlayer(rootGroupId: root.id, oldPlayerId: oldUid, newPlayerId: newUser.uid);
+        if (getGroupMemberIds(g.id).contains(newUser.uid)) continue;
+        await groupsRepo.reassignMember(groupId: g.id, oldUid: oldUid, newUid: newUser.uid);
+        await matchesRepo.reassignPlayer(rootGroupId: g.id, oldPlayerId: oldUid, newPlayerId: newUser.uid);
         touched++;
       }
       if (touched == 0) {
@@ -982,15 +918,6 @@ class AppState extends ChangeNotifier {
     final root = currentRootId;
     if (root == null) return false;
     if (_rejectIfGroupClosed(root)) return false;
-    if (variantsOf(gameId).isNotEmpty) {
-      // Deleting the parent would silently orphan its variants (they'd keep
-      // pointing at a gameId that no longer exists and vanish from the
-      // picker, since they're not top-level) — require deleting the
-      // variants first instead of guessing what the user wants.
-      flowError = "Supprimez d'abord ses variantes avant de supprimer ce jeu.";
-      notifyListeners();
-      return false;
-    }
     busy = true;
     flowError = null;
     notifyListeners();
@@ -1053,7 +980,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     var ok = false;
     try {
-      await groupsRepo.joinGroup(groupId: invite.groupId, rootId: invite.rootId, uid: uid);
+      await groupsRepo.joinGroup(groupId: invite.groupId, uid: uid);
       ok = true;
       selectGroup(invite.groupId);
       showToast('Vous avez rejoint ${invite.name}.');
@@ -1150,18 +1077,14 @@ class AppState extends ChangeNotifier {
 
   // ============================== VIEW SCOPE ==============================
 
-  /// Matches within the currently-viewed group's own subtree (not
-  /// necessarily the whole root) — a drill-down into a subgroup only
-  /// counts that subgroup and its descendants, matching the prototype's
-  /// `getGroupMatches`.
+  /// Matches recorded in the currently-viewed group.
   List<GameMatch> get viewMatches {
     if (currentGroupId == null) return const [];
     final ids = getAllGroupIds(currentGroupId!).toSet();
     return matches.where((m) => ids.contains(m.groupId)).toList();
   }
 
-  /// Tournaments within the currently-viewed group's own subtree — same
-  /// drill-down rule as [viewMatches].
+  /// Tournaments recorded in the currently-viewed group.
   List<Tournament> get viewTournaments {
     if (currentGroupId == null) return const [];
     final ids = getAllGroupIds(currentGroupId!).toSet();
@@ -1187,12 +1110,6 @@ class AppState extends ChangeNotifier {
     }
     return null;
   }
-
-  /// Games shown as their own card in the picker grid — variants are
-  /// grouped under their parent instead (see [variantsOf]).
-  List<Game> get topLevelGames => games.where((g) => g.parentGameId == null).toList();
-
-  List<Game> variantsOf(String gameId) => games.where((g) => g.parentGameId == gameId).toList();
 
   // ============================== STANDINGS ==============================
 
@@ -1520,18 +1437,20 @@ class AppState extends ChangeNotifier {
     // sane starting point for the next round otherwise.
     final rankOrder = [...playerIds]..sort((a, b) => (points[b] ?? 0).compareTo(points[a] ?? 0));
 
-    // The match may have been recorded as round-synced under a game
-    // definition that has since had "Manches multiples" turned off — the
-    // input-mode picker wouldn't offer that option anymore, so fall back to
-    // the closest still-available mode instead of leaving the UI stuck
-    // showing a mode selector that doesn't match the rendered body.
+    // The match may have been recorded under a rule that's since had
+    // "Manches multiples" turned off — the input-mode picker wouldn't offer
+    // that option anymore, so fall back to the closest still-available mode
+    // instead of leaving the UI stuck showing a mode selector that doesn't
+    // match the rendered body.
+    final rule = game.resolveRule(match.ruleId);
     var inputMode = match.resolvedInputMode;
-    if (inputMode == 'rounds' && !game.multiRound) {
+    if (inputMode == 'rounds' && !rule.multiRound) {
       inputMode = 'quick';
     }
 
     draft = NewGameDraft(
       gameId: match.gameId,
+      ruleId: match.ruleId,
       mode: match.mode,
       unit: match.unit,
       teamCount: teamCount,
@@ -1542,7 +1461,9 @@ class AppState extends ChangeNotifier {
       timeline: List.of(match.timeline),
       rankOrder: rankOrder,
     );
-    step = 4;
+    // Only a plain match ever gets resumed this way (isTournamentFlow stays
+    // false) — jump straight to its last step, "scores".
+    step = stepSequence.length;
     notifyListeners();
   }
 
@@ -1622,9 +1543,9 @@ class AppState extends ChangeNotifier {
       // means the live session no longer reflects a screen anyone is
       // actually looking at — end it. Advancing back to it starts a fresh
       // one via primaryAction/_startLiveSessionIfNeeded. Only the "partie
-      // simple" flow ever reaches a scores step — a tournament's step 4 is
-      // "qui joue ?", not scores (see isTournamentFlow).
-      if (!isTournamentFlow && step == 4) _endLiveSession();
+      // simple" flow ever reaches a scores step — a tournament's last step
+      // is "qui joue ?", not scores (see isTournamentFlow).
+      if (currentStepKind == WizardStepKind.scores) _endLiveSession();
       step -= 1;
     } else {
       sheetOpen = false;
@@ -1664,16 +1585,18 @@ class AppState extends ChangeNotifier {
     if (sheetOpen && !isTournamentFlow && step == 4) _holdLiveSession();
   }
 
-  void startNewGame({String? parentGameId}) {
+  void startNewGame() {
     creatingGame = true;
     _editingGameId = null;
-    gameForm = GameFormDraft.initial(parentGameId: parentGameId);
+    gameForm = GameFormDraft.initial();
     notifyListeners();
   }
 
   /// Opens the same form as [startNewGame], pre-filled with an existing
-  /// game's settings — saving overwrites it in place instead of creating a
-  /// new doc (see [createGame]).
+  /// game's settings (identity + every one of its rules) — saving overwrites
+  /// it in place instead of creating a new doc (see [createGame]). Also how
+  /// a new rule gets added to an existing game: this same form's "+ Ajouter
+  /// une règle" just appends a blank [GameRuleFormDraft].
   void startEditingGame(Game game) {
     creatingGame = true;
     _editingGameId = game.id;
@@ -1681,13 +1604,7 @@ class AppState extends ChangeNotifier {
       name: game.name,
       emoji: game.emoji,
       category: game.category,
-      countType: game.countType,
-      pointLimit: game.pointLimit?.toString() ?? '',
-      topRoles: (game.topRoles == null || game.topRoles!.isEmpty) ? null : List.of(game.topRoles!),
-      bottomRoles: (game.bottomRoles == null || game.bottomRoles!.isEmpty) ? null : List.of(game.bottomRoles!),
-      scoreFields: (game.scoreFields == null || game.scoreFields!.isEmpty) ? null : List.of(game.scoreFields!),
-      multiRound: game.multiRound,
-      parentGameId: game.parentGameId,
+      rules: game.rules.map(GameRuleFormDraft.fromRule).toList(),
     );
     notifyListeners();
   }
@@ -1732,9 +1649,12 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     try {
       final game = await gamesRepo.importGame(root, libraryGame);
+      // Not `pickGame(game.id)`: the watchGames stream may not have caught
+      // up with this just-created doc yet, so `gameById` could still miss
+      // it — apply its (already known) default rule directly instead.
       draft.gameId = game.id;
-      draft.unit = game.defaultUnit;
-      draft.inputMode = 'quick';
+      draft.ruleId = null;
+      if (!game.hasMultipleRules) _applyRule(game.defaultRule);
       browsingLibrary = false;
       showToast('« ${game.name} » ajouté à votre catalogue.');
     } catch (e) {
@@ -1756,7 +1676,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     try {
       final currentRoot = currentRootId;
-      final otherRoots = groups.where((g) => g.isRoot && g.id != currentRoot).toList();
+      final otherRoots = groups.where((g) => g.id != currentRoot).toList();
       final results = <OtherGroupGame>[];
       for (final root in otherRoots) {
         final games = await gamesRepo.fetchGames(root.id);
@@ -1793,9 +1713,10 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     try {
       final game = await gamesRepo.importGame(root, source.game);
+      // See importLibraryGame for why this doesn't just call pickGame.
       draft.gameId = game.id;
-      draft.unit = game.defaultUnit;
-      draft.inputMode = 'quick';
+      draft.ruleId = null;
+      if (!game.hasMultipleRules) _applyRule(game.defaultRule);
       browsingOtherGroups = false;
       showToast('« ${game.name} » ajouté à votre catalogue.');
     } catch (e) {
@@ -1811,6 +1732,33 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Builds a persisted [GameRule] from one of the form's editable blocks —
+  /// shared by [createGame]'s new-game and edit-in-place paths.
+  GameRule _ruleFromForm(GameRuleFormDraft f) {
+    final isRanks = f.countType == CountType.ranks;
+    final isPointGame = f.countType == CountType.highWins || f.countType == CountType.lowWins;
+    // No numeric score at all for a rounds-won tally, a ranks-based
+    // classement, or a plain win/loss mark — a point limit only makes sense
+    // when there's actually a running point total.
+    final noPointLimit = f.countType == CountType.wins || isRanks || f.countType == CountType.winLoss;
+    final scoreFields = isPointGame
+        ? f.scoreFields.where((field) => field.label.trim().isNotEmpty).map((field) => field.copyWith(label: field.label.trim())).toList()
+        : null;
+    final multiRound = scoreFields != null && scoreFields.isNotEmpty ? false : f.multiRound;
+    return GameRule(
+      id: f.id,
+      name: f.name.trim(),
+      countType: f.countType,
+      pointLimit: noPointLimit ? null : f.parsedPointLimit,
+      topRoles: isRanks ? f.cleanTopRoles : null,
+      bottomRoles: isRanks ? f.cleanBottomRoles : null,
+      topPoints: isRanks ? f.derivedTopPoints : null,
+      bottomPoints: isRanks ? f.derivedBottomPoints : null,
+      multiRound: multiRound,
+      scoreFields: scoreFields,
+    );
+  }
+
   Future<void> createGame() async {
     final root = currentRootId;
     if (root == null || !gameForm.isValid) return;
@@ -1819,16 +1767,7 @@ class AppState extends ChangeNotifier {
     flowError = null;
     notifyListeners();
     try {
-      final isRanks = gameForm.countType == CountType.ranks;
-      final isPointGame = gameForm.countType == CountType.highWins || gameForm.countType == CountType.lowWins;
-      // No numeric score at all for a rounds-won tally, a ranks-based
-      // classement, or a plain win/loss mark — a point limit only makes
-      // sense when there's actually a running point total.
-      final noPointLimit = gameForm.countType == CountType.wins || isRanks || gameForm.countType == CountType.winLoss;
-      final scoreFields = isPointGame
-          ? gameForm.scoreFields.where((field) => field.label.trim().isNotEmpty).map((field) => field.copyWith(label: field.label.trim())).toList()
-          : null;
-      final multiRound = scoreFields != null && scoreFields.isNotEmpty ? false : gameForm.multiRound;
+      final rules = gameForm.rules.map(_ruleFromForm).toList();
       final Game game;
       if (_editingGameId != null) {
         game = Game(
@@ -1836,15 +1775,7 @@ class AppState extends ChangeNotifier {
           name: gameForm.name.trim(),
           emoji: gameForm.emoji,
           category: gameForm.category,
-          countType: gameForm.countType,
-          pointLimit: noPointLimit ? null : gameForm.parsedPointLimit,
-          topRoles: isRanks ? gameForm.cleanTopRoles : null,
-          bottomRoles: isRanks ? gameForm.cleanBottomRoles : null,
-          topPoints: isRanks ? gameForm.derivedTopPoints : null,
-          bottomPoints: isRanks ? gameForm.derivedBottomPoints : null,
-          multiRound: multiRound,
-          parentGameId: gameForm.parentGameId,
-          scoreFields: scoreFields,
+          rules: rules,
         );
         await gamesRepo.updateGame(root, game);
         showToast('Jeu mis à jour.');
@@ -1855,21 +1786,19 @@ class AppState extends ChangeNotifier {
           name: gameForm.name.trim(),
           emoji: gameForm.emoji,
           category: gameForm.category,
-          countType: gameForm.countType,
-          pointLimit: noPointLimit ? null : gameForm.parsedPointLimit,
-          topRoles: isRanks ? gameForm.cleanTopRoles : null,
-          bottomRoles: isRanks ? gameForm.cleanBottomRoles : null,
-          topPoints: isRanks ? gameForm.derivedTopPoints : null,
-          bottomPoints: isRanks ? gameForm.derivedBottomPoints : null,
-          multiRound: multiRound,
-          parentGameId: gameForm.parentGameId,
-          scoreFields: scoreFields,
+          rules: rules,
         );
       }
+      // Not `pickGame(game.id)`: the watchGames stream may not have caught
+      // up with this just-created/edited doc yet, so `gameById` could still
+      // miss it — apply its (already known) default rule directly instead.
       draft.gameId = game.id;
-      draft.unit = game.defaultUnit;
-      draft.inputMode = 'quick';
-      _syncDetailedScores();
+      draft.ruleId = null;
+      if (!game.hasMultipleRules) {
+        _applyRule(game.defaultRule);
+      } else {
+        _syncDetailedScores();
+      }
       creatingGame = false;
     } catch (e) {
       flowError = e.toString();
@@ -1879,20 +1808,45 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// The rule actually in effect for the draft's current game — resolves
+  /// [NewGameDraft.ruleId] against the picked game's rules, falling back to
+  /// its one default rule when nothing's been explicitly chosen (a game
+  /// with just one rule never shows the "Quelle règle ?" step at all).
+  GameRule? get draftRule => gameById(draft.gameId ?? '')?.resolveRule(draft.ruleId);
+
+  /// Applies a rule's config to the draft — shared by [pickGame] (when the
+  /// game has only one rule, so there's nothing to ask) and [pickRule]
+  /// (once the "Quelle règle ?" step answers it).
+  void _applyRule(GameRule? rule) {
+    draft.unit = rule?.defaultUnit ?? 'points';
+    // Reset the input mode so a stale 'rounds' choice from a previous
+    // multi-round rule can't leak into one that doesn't support it (its
+    // option wouldn't even be shown).
+    draft.inputMode = 'quick';
+    // Ranks and win/loss rules are always solo scoring — force it so a
+    // stale 'team' choice from a previously-picked rule can't leak in
+    // (their step-2 UI never shows the mode/team pickers to change it back).
+    if (rule != null && (rule.isRanks || rule.isWinLoss)) draft.mode = 'ffa';
+    draft.scoreBreakdown.clear();
+    _syncDetailedScores();
+  }
+
   void pickGame(String id) {
     final g = gameById(id);
     draft.gameId = id;
-    draft.unit = g?.defaultUnit ?? 'points';
-    // Reset the input mode so a stale 'rounds' choice from a previous
-    // multi-round game selection can't leak into a game that doesn't
-    // support it (its option wouldn't even be shown).
-    draft.inputMode = 'quick';
-    // Ranks and win/loss games are always solo scoring — force it so a
-    // stale 'team' choice from a previously-picked game can't leak in
-    // (their step-2 UI never shows the mode/team pickers to change it back).
-    if (g != null && (g.isRanks || g.isWinLoss)) draft.mode = 'ffa';
-    draft.scoreBreakdown.clear();
-    _syncDetailedScores();
+    draft.ruleId = null;
+    // A game with several rules defers _applyRule until pickRule answers
+    // the dedicated step — nothing to apply yet.
+    if (g != null && !g.hasMultipleRules) _applyRule(g.defaultRule);
+    notifyListeners();
+  }
+
+  /// Answers the "Quelle règle ?" step, shown right after "Quel jeu ?" only
+  /// when the picked game has more than one rule (see [Game.hasMultipleRules]).
+  void pickRule(String ruleId) {
+    final g = gameById(draft.gameId ?? '');
+    draft.ruleId = ruleId;
+    _applyRule(g?.ruleById(ruleId));
     notifyListeners();
   }
 
@@ -1900,6 +1854,41 @@ class AppState extends ChangeNotifier {
   /// single match (see [NewGameDraft.creationKind]) — everything from the
   /// step sequence to what the primary button does branches on this.
   bool get isTournamentFlow => draft.creationKind == 'tournament';
+
+  /// What each 1-based `step` index currently means — a plain match is
+  /// `kind · game · [rule] · players · scores`, a tournament is `kind ·
+  /// tournamentFormat · game · [rule] · players`. `rule` only appears once a
+  /// game is picked and it actually has more than one (see
+  /// [Game.hasMultipleRules]), exactly like the old variant-picker sheet
+  /// only ever appeared for a game that had variants. [NewGameSheet]'s
+  /// titles/subtitles/progress dots and [canProceed]/[primaryAction]/
+  /// [sheetBack] all key off this instead of hard-coded step numbers, so the
+  /// sheet doesn't need separate bookkeeping for "does this game need a
+  /// rule step".
+  List<WizardStepKind> get stepSequence {
+    final needsRuleStep = gameById(draft.gameId ?? '')?.hasMultipleRules ?? false;
+    if (isTournamentFlow) {
+      return [
+        WizardStepKind.kind,
+        WizardStepKind.tournamentFormat,
+        WizardStepKind.game,
+        if (needsRuleStep) WizardStepKind.rule,
+        WizardStepKind.players,
+      ];
+    }
+    return [
+      WizardStepKind.kind,
+      WizardStepKind.game,
+      if (needsRuleStep) WizardStepKind.rule,
+      WizardStepKind.players,
+      WizardStepKind.scores,
+    ];
+  }
+
+  int get totalSteps => stepSequence.length;
+
+  /// The kind of step currently on screen — `step` is 1-based.
+  WizardStepKind get currentStepKind => stepSequence[(step - 1).clamp(0, stepSequence.length - 1)];
 
   /// True while the sheet is scoring or correcting one specific tournament
   /// bracket match (see [startTournamentMatch], or [resumeMatch] reopening
@@ -1966,8 +1955,8 @@ class AppState extends ChangeNotifier {
   /// input, and the score board resets — the two don't share a meaningful
   /// running total.
   void setUnit(String u) {
-    final game = gameById(draft.gameId ?? '');
-    if (game != null && u != game.defaultUnit) return;
+    final rule = draftRule;
+    if (rule != null && u != rule.defaultUnit) return;
     if (draft.unit == u) return;
     draft.unit = u;
     draft.inputMode = u == 'wins' ? 'rounds' : 'quick';
@@ -2028,15 +2017,15 @@ class AppState extends ChangeNotifier {
       draft.team.putIfAbsent(uid, () => 'A');
       draft.points.putIfAbsent(uid, () => 0);
       draft.rankOrder.add(uid);
-      final g = gameById(draft.gameId ?? '');
-      if (g != null && g.hasScoreFields) {
-        draft.scoreBreakdown[uid] = {for (final field in g.scoreFields!) field.id: 0};
+      final rule = draftRule;
+      if (rule != null && rule.hasScoreFields) {
+        draft.scoreBreakdown[uid] = {for (final field in rule.scoreFields!) field.id: 0};
       }
     }
     notifyListeners();
   }
 
-  List<GameScoreField> get draftScoreFields => gameById(draft.gameId ?? '')?.scoreFields ?? const [];
+  List<GameScoreField> get draftScoreFields => draftRule?.scoreFields ?? const [];
 
   void _syncDetailedScores() {
     final fields = draftScoreFields;
@@ -2198,13 +2187,13 @@ class AppState extends ChangeNotifier {
 
   /// Submits the current [NewGameDraft.rankOrder] as one round of a
   /// multi-round ranks game (e.g. a Président hand): converts the ranking
-  /// into per-player points via [Game.rankPoints] and accumulates them
+  /// into per-player points via [GameRule.rankPoints] and accumulates them
   /// through [addRound], exactly like the plain "rounds" points mode.
   void submitRankRound() {
-    final game = gameById(draft.gameId ?? '');
-    if (game == null || draft.rankOrder.isEmpty) return;
+    final rule = draftRule;
+    if (rule == null || draft.rankOrder.isEmpty) return;
     final deltas = <String, int>{
-      for (final (i, uid) in draft.rankOrder.indexed) uid: game.rankPoints(i, draft.rankOrder.length),
+      for (final (i, uid) in draft.rankOrder.indexed) uid: rule.rankPoints(i, draft.rankOrder.length),
     };
     addRound(deltas);
   }
@@ -2231,7 +2220,7 @@ class AppState extends ChangeNotifier {
       });
       return draft.playerIds.where((id) => (draft.team[id] ?? 'A') == bestTeam).toList();
     }
-    final low = draft.unit == 'wins' ? false : (gameById(draft.gameId ?? '')?.lowWins ?? false);
+    final low = draft.unit == 'wins' ? false : (draftRule?.lowWins ?? false);
     String? bestId;
     var best = low ? 1 << 30 : -(1 << 30);
     for (final id in draft.playerIds) {
@@ -2343,40 +2332,42 @@ class AppState extends ChangeNotifier {
     return draft.playerIds.map((id) => draft.team[id] ?? 'A').toSet().length >= 2;
   }
 
-  /// The sheet's step sequence depends on [isTournamentFlow] — both paths
-  /// are 4 steps long (see `NewGameSheet`'s progress dots), just with
-  /// "quel jeu ?" and "qui joue ?" swapped for a format step in a
-  /// tournament:
-  ///   partie simple : 1 mode · 2 jeu    · 3 joueurs · 4 scores
-  ///   tournoi       : 1 mode · 2 format · 3 jeu     · 4 joueurs (→ crée le tournoi)
+  /// The sheet's step sequence — see [stepSequence] for what each position
+  /// means and how it varies between a plain match and a tournament, and
+  /// with whether the picked game has more than one rule.
   bool get canProceed {
     if (browsingLibrary || browsingOtherGroups) return false;
     if (creatingGame) return gameForm.isValid;
-    if (step == 1) return draft.creationKind != null;
-    final tournamentFlow = isTournamentFlow;
-    final gameStep = tournamentFlow ? 3 : 2;
-    final playersStep = tournamentFlow ? 4 : 3;
-    if (step == gameStep) return draft.gameId != null;
-    if (step == playersStep) return draft.playerIds.length >= 2 && draftTeamsValid;
-    if (!tournamentFlow && step == 4) {
-      final g = gameById(draft.gameId ?? '');
-      // Both a CountType.winLoss game and the generic "Manches gagnées"
-      // unit share the same round-by-round "one winner per manche" input
-      // (see _WinLossRoundsInput) and the same guard against saving a
-      // nonsensical all-zero tally.
-      if (g?.isWinLoss == true || draft.unit == 'wins') {
-        // Round-based: each round is already validated before it can be
-        // submitted (see the "Valider la manche" button) — just require at
-        // least one to have actually been played.
-        if (draft.inputMode == 'rounds') return draftRounds.isNotEmpty;
-        // Single manche (winLoss only — "Manches gagnées" always forces
-        // rounds mode, see setUnit): at least one player must be marked
-        // "Victoire", or every score sits at 0 and winnerIds() would
-        // nonsensically call it a tie between everyone.
-        return draft.points.values.any((v) => v > 0);
-      }
+    switch (currentStepKind) {
+      case WizardStepKind.kind:
+        return draft.creationKind != null;
+      case WizardStepKind.game:
+        return draft.gameId != null;
+      case WizardStepKind.rule:
+        return draft.ruleId != null;
+      case WizardStepKind.players:
+        return draft.playerIds.length >= 2 && draftTeamsValid;
+      case WizardStepKind.scores:
+        final rule = draftRule;
+        // Both a CountType.winLoss rule and the generic "Manches gagnées"
+        // unit share the same round-by-round "one winner per manche" input
+        // (see _WinLossRoundsInput) and the same guard against saving a
+        // nonsensical all-zero tally.
+        if (rule?.isWinLoss == true || draft.unit == 'wins') {
+          // Round-based: each round is already validated before it can be
+          // submitted (see the "Valider la manche" button) — just require at
+          // least one to have actually been played.
+          if (draft.inputMode == 'rounds') return draftRounds.isNotEmpty;
+          // Single manche (winLoss only — "Manches gagnées" always forces
+          // rounds mode, see setUnit): at least one player must be marked
+          // "Victoire", or every score sits at 0 and winnerIds() would
+          // nonsensically call it a tie between everyone.
+          return draft.points.values.any((v) => v > 0);
+        }
+        return true;
+      case WizardStepKind.tournamentFormat:
+        return true;
     }
-    return true;
   }
 
   Future<void> primaryAction() async {
@@ -2385,16 +2376,16 @@ class AppState extends ChangeNotifier {
       return;
     }
     final tournamentFlow = isTournamentFlow;
-    if (tournamentFlow && step == 4) {
+    if (tournamentFlow && step == totalSteps) {
       await _finishTournamentCreation();
       return;
     }
-    if (!tournamentFlow && step == 4) {
+    if (!tournamentFlow && step == totalSteps) {
       await saveGame();
       return;
     }
     step += 1;
-    if (!tournamentFlow && step == 4) unawaited(_startLiveSessionIfNeeded());
+    if (!tournamentFlow && currentStepKind == WizardStepKind.scores) unawaited(_startLiveSessionIfNeeded());
     notifyListeners();
   }
 
@@ -2416,6 +2407,7 @@ class AppState extends ChangeNotifier {
     final saved = await createTournament(
       name: '',
       gameId: draft.gameId!,
+      ruleId: draft.ruleId,
       format: draft.tournamentFormat,
       entrantPlayerIds: entrantPlayerIds,
       groupsCount: draft.tournamentGroupsCount,
@@ -2468,7 +2460,7 @@ class AppState extends ChangeNotifier {
         startedByName: currentUser?.displayName ?? 'Un joueur',
         mode: draft.mode,
         unit: draft.unit,
-        lowWins: gameById(gameId)?.lowWins ?? false,
+        lowWins: draftRule?.lowWins ?? false,
       );
       // Sync the scores already on the board right away — matters most when
       // this fires on reconnect mid-match, where waiting for the next score
@@ -2638,14 +2630,14 @@ class AppState extends ChangeNotifier {
   /// reused here so the live session mid-game reflects the exact same
   /// scores the saved match will end up with.
   List<MatchEntry> _currentDraftEntries() {
-    final g = gameById(draft.gameId ?? '');
-    if (g?.isRanks == true && draft.inputMode == 'rounds') {
+    final rule = draftRule;
+    if (rule?.isRanks == true && draft.inputMode == 'rounds') {
       return [for (final id in draft.playerIds) MatchEntry(playerId: id, points: draft.points[id] ?? 0)];
     }
-    if (g?.isRanks == true) {
+    if (rule?.isRanks == true) {
       return [
         for (final (i, id) in draft.rankOrder.indexed)
-          MatchEntry(playerId: id, points: g!.rankPoints(i, draft.rankOrder.length), role: g.rankRole(i, draft.rankOrder.length)),
+          MatchEntry(playerId: id, points: rule!.rankPoints(i, draft.rankOrder.length), role: rule.rankRole(i, draft.rankOrder.length)),
       ];
     }
     if (draft.mode == 'team' && draft.teamScoreMode == 'global' && draft.inputMode == 'quick') {
@@ -2710,7 +2702,7 @@ class AppState extends ChangeNotifier {
     savingMatch = true;
     flowError = null;
     notifyListeners();
-    final g = gameById(draft.gameId!);
+    final rule = draftRule;
     final entries = _currentDraftEntries();
     final now = DateTime.now();
     // Backdated (draft.playedAt set) keeps that calendar day but still uses
@@ -2725,11 +2717,12 @@ class AppState extends ChangeNotifier {
       groupId: groupId,
       mode: draft.mode,
       unit: draft.unit,
-      lowWins: (g?.isRanks == true || g?.isWinLoss == true) ? false : (draft.unit == 'wins' ? false : (g?.lowWins ?? false)),
+      lowWins: (rule?.isRanks == true || rule?.isWinLoss == true) ? false : (draft.unit == 'wins' ? false : (rule?.lowWins ?? false)),
       entries: entries,
       timeline: draft.timeline,
       createdAt: createdAt,
-      scoreFields: g?.scoreFields,
+      scoreFields: rule?.scoreFields,
+      ruleId: draft.ruleId,
       inputMode: draft.inputMode,
       createdByUid: currentUser?.uid,
       seriesId: _editingMatchId != null ? _editingMatchSeriesId : (isNewSeries ? draft.seriesId : null),
@@ -2796,15 +2789,10 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  /// Whether the signed-in user can delete `match`: the root community's
-  /// owner, or (mirrors [canDeleteGroup]) the owner of the specific
-  /// subgroup it was recorded in.
+  /// Whether the signed-in user can delete `match`: the group's owner.
   bool canDeleteMatch(GameMatch match) {
     final uid = currentUser?.uid;
-    if (uid == null) return false;
-    final root = currentRootId;
-    if (root != null && groupById(root)?.ownerId == uid) return true;
-    return groupById(match.groupId)?.ownerId == uid;
+    return uid != null && groupById(match.groupId)?.ownerId == uid;
   }
 
   /// Permanently deletes a single recorded match — one leg of a "best of N"
@@ -2859,14 +2847,10 @@ class AppState extends ChangeNotifier {
   // ============================== TOURNAMENTS ==============================
 
   /// Whether the signed-in user can delete `tournament` — mirrors
-  /// [canDeleteMatch]: the root community's owner, or the owner of the
-  /// specific subgroup it was created in.
+  /// [canDeleteMatch]: the group's owner.
   bool canDeleteTournament(Tournament tournament) {
     final uid = currentUser?.uid;
-    if (uid == null) return false;
-    final root = currentRootId;
-    if (root != null && groupById(root)?.ownerId == uid) return true;
-    return groupById(tournament.groupId)?.ownerId == uid;
+    return uid != null && groupById(tournament.groupId)?.ownerId == uid;
   }
 
   /// Deletes `tournament` and every match recorded against one of its
@@ -2909,6 +2893,7 @@ class AppState extends ChangeNotifier {
   Future<Tournament?> createTournament({
     required String name,
     required String gameId,
+    String? ruleId,
     required TournamentFormat format,
     required List<List<String>> entrantPlayerIds,
     int groupsCount = 1,
@@ -2930,6 +2915,7 @@ class AppState extends ChangeNotifier {
       id: '',
       groupId: groupId,
       gameId: gameId,
+      ruleId: ruleId,
       name: name.trim().isEmpty ? (gameById(gameId)?.name ?? 'Tournoi') : name.trim(),
       format: format,
       entrants: entrants,
@@ -2975,6 +2961,7 @@ class AppState extends ChangeNotifier {
     _activeTournamentId = tournament.id;
     _activeTournamentMatchId = match.id;
     pickGame(tournament.gameId);
+    if (tournament.ruleId != null) pickRule(tournament.ruleId!);
     final isTeam = entrantA.playerIds.length > 1 || entrantB.playerIds.length > 1;
     draft.mode = isTeam ? 'team' : 'ffa';
     draft.teamCount = 2;
@@ -2987,7 +2974,10 @@ class AppState extends ChangeNotifier {
     }
     draft.points = {for (final id in draft.playerIds) id: 0};
     draft.rankOrder = List.of(draft.playerIds);
-    step = 4;
+    // Non-tournament-flow sheet (isTournamentFlow stays false — see class
+    // doc above) scoring one bracket match: jump straight to its last step,
+    // "scores".
+    step = stepSequence.length;
     notifyListeners();
     unawaited(_startLiveSessionIfNeeded());
   }

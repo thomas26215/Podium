@@ -60,8 +60,8 @@ exports.onMatchSessionCreated = onDocumentCreated("groups/{rootId}/matchSessions
   if (!rootSnap.exists) return;
 
   const gameName = gameSnap.exists ? gameSnap.data().name : "une partie";
-  const allMemberIds = rootSnap.data().allMemberIds || [];
-  const tokens = await tokensFor(allMemberIds, session.startedBy);
+  const memberIds = rootSnap.data().memberIds || [];
+  const tokens = await tokensFor(memberIds, session.startedBy);
   if (tokens.length === 0) return;
 
   await sendToTokens(tokens, {
@@ -96,15 +96,15 @@ exports.onMatchCreated = onDocumentCreated("groups/{rootId}/matches/{matchId}", 
     ? `${winnerNames.join(", ")} ${winnerNames.length > 1 ? "ont" : "a"} gagné la partie de ${gameName} !`
     : `La partie de ${gameName} est terminée.`;
 
-  const allMemberIds = rootSnap.data().allMemberIds || [];
-  const tokens = await tokensFor(allMemberIds, match.createdByUid);
+  const memberIds = rootSnap.data().memberIds || [];
+  const tokens = await tokensFor(memberIds, match.createdByUid);
   if (tokens.length === 0) return;
 
   await sendToTokens(tokens, { title: "Partie terminée", body });
   logger.info(`match-finished push sent for ${gameName} in root ${rootId} to ${tokens.length} device(s)`);
 });
 
-// Fires whenever a group's (root or subgroup) roster changes — pushes
+// Fires whenever a group's roster changes — pushes
 // "vous avez été ajouté à X" to whichever account(s) are newly listed in
 // `memberIds`. Covers every way someone ends up in a group uniformly (added
 // by e-mail, added straight by uid from the inviter's friends list, or a

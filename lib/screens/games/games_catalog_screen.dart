@@ -16,7 +16,7 @@ class GamesCatalogScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
-    final games = app.topLevelGames;
+    final games = app.games;
     return Scaffold(
       backgroundColor: AppColors.bg,
       appBar: AppBar(
@@ -37,7 +37,6 @@ class GamesCatalogScreen extends StatelessWidget {
                   delay: Duration(milliseconds: i * 40),
                   child: _GameRow(
                     game: g,
-                    variantCount: app.variantsOf(g.id).length,
                     onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => GameDetailScreen(game: g))),
                     onLongPress: () => showGameActionsSheet(context, app, g),
                   ),
@@ -50,19 +49,18 @@ class GamesCatalogScreen extends StatelessWidget {
 
 class _GameRow extends StatelessWidget {
   final Game game;
-  final int variantCount;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
-  const _GameRow({required this.game, required this.variantCount, required this.onTap, required this.onLongPress});
+  const _GameRow({required this.game, required this.onTap, required this.onLongPress});
 
   @override
   Widget build(BuildContext context) {
-    final ruleCount = game.ruleSections.length;
+    final reminderCount = game.ruleSections.length;
     final bits = <String>[
       game.category,
-      if (game.pointLimit != null) '${game.pointLimit} pts max',
-      if (variantCount > 0) '$variantCount variante${variantCount > 1 ? 's' : ''}',
-      if (ruleCount > 0) '$ruleCount catégorie${ruleCount > 1 ? 's' : ''} de règles',
+      if (game.defaultRule.pointLimit != null) '${game.defaultRule.pointLimit} pts max',
+      if (game.hasMultipleRules) '${game.rules.length} règles',
+      if (reminderCount > 0) '$reminderCount catégorie${reminderCount > 1 ? 's' : ''} d\'aide-mémoire',
     ];
     return Pressable(
       onTap: onTap,

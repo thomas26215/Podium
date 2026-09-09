@@ -240,7 +240,6 @@ class _InviteDialogState extends State<InviteDialog> {
                               child: QrImageView(
                                 data: GroupInviteCode(
                                   groupId: group.id,
-                                  rootId: group.isRoot ? group.id : (group.parentId ?? group.id),
                                   name: group.name,
                                   emoji: group.emoji,
                                 ).encode(),

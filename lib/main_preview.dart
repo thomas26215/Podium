@@ -41,10 +41,7 @@ void main() {
     name: 'Les Bandits',
     emoji: '🃏',
     emojiBg: 0xFFFFE9E1,
-    parentId: null,
     memberIds: const ['tom', 'karim'],
-    subGroupIds: const ['bandits-work', 'bandits-ext'],
-    allMemberIds: const ['tom', 'karim', 'lea', 'nina', 'sofia'],
     ownerId: 'tom',
   );
   final work = Group(
@@ -52,10 +49,7 @@ void main() {
     name: 'Bureau',
     emoji: '💼',
     emojiBg: 0xFFE7EBFF,
-    parentId: 'bandits',
-    memberIds: const ['lea', 'nina'],
-    subGroupIds: const [],
-    allMemberIds: const [],
+    memberIds: const ['tom', 'lea', 'nina'],
     ownerId: 'tom',
   );
   final ext = Group(
@@ -63,15 +57,16 @@ void main() {
     name: 'Ext. soirée',
     emoji: '🌙',
     emojiBg: 0xFFFFE9D6,
-    parentId: 'bandits',
-    memberIds: const ['sofia'],
-    subGroupIds: const [],
-    allMemberIds: const [],
+    memberIds: const ['tom', 'sofia'],
     ownerId: 'tom',
   );
   final groups = FakeGroupsRepository(seedGroups: {'bandits': root, 'bandits-work': work, 'bandits-ext': ext}, users: users);
 
-  final games = FakeGamesRepository(seed: {'bandits': List.of(kDefaultGames)});
+  final games = FakeGamesRepository(seed: {
+    'bandits': List.of(kDefaultGames),
+    'bandits-work': List.of(kDefaultGames),
+    'bandits-ext': List.of(kDefaultGames),
+  });
 
   GameMatch m(String id, String gameId, String groupId, List<MatchEntry> entries, {String mode = 'ffa', Duration ago = Duration.zero}) {
     return GameMatch(
@@ -90,8 +85,12 @@ void main() {
   final matches = FakeMatchesRepository(seed: {
     'bandits': [
       m('m1', 'catan', 'bandits', const [MatchEntry(playerId: 'tom', points: 10), MatchEntry(playerId: 'karim', points: 8)]),
-      m('m2', 'skyjo', 'bandits-work', const [MatchEntry(playerId: 'lea', points: 24), MatchEntry(playerId: 'nina', points: 45)]),
       m('m3', 'mk', 'bandits', const [MatchEntry(playerId: 'karim', points: 60), MatchEntry(playerId: 'tom', points: 45)], ago: const Duration(days: 3)),
+    ],
+    'bandits-work': [
+      m('m2', 'skyjo', 'bandits-work', const [MatchEntry(playerId: 'lea', points: 24), MatchEntry(playerId: 'nina', points: 45)]),
+    ],
+    'bandits-ext': [
       m('m6', 'petanque', 'bandits-ext', const [MatchEntry(playerId: 'tom', points: 13, teamId: 'A'), MatchEntry(playerId: 'sofia', points: 13, teamId: 'A'), MatchEntry(playerId: 'karim', points: 9, teamId: 'B')], mode: 'team', ago: const Duration(days: 23)),
     ],
   });

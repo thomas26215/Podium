@@ -4,14 +4,14 @@ import '../models/game.dart';
 
 /// The starter catalog every new root group gets, matching the prototype's
 /// seed data so a fresh group isn't staring at an empty game grid.
-const List<Game> kDefaultGames = [
-  Game(id: 'catan', name: 'Catan', emoji: '🎲', category: 'Société', countType: CountType.highWins),
-  Game(id: 'uno', name: 'Uno', emoji: '🃏', category: 'Cartes', countType: CountType.highWins),
-  Game(id: 'skyjo', name: 'Skyjo', emoji: '🂠', category: 'Cartes', countType: CountType.lowWins),
-  Game(id: 'mk', name: 'Mario Kart', emoji: '🏎️', category: 'Jeu vidéo', countType: CountType.highWins),
-  Game(id: 'petanque', name: 'Pétanque', emoji: '🎯', category: 'Sport', countType: CountType.highWins),
-  Game(id: 'timesup', name: "Time's Up", emoji: '⏱️', category: 'Société', countType: CountType.highWins),
-  Game(id: 'president', name: 'Président', emoji: '🎩', category: 'Cartes', countType: CountType.wins),
+final List<Game> kDefaultGames = [
+  Game.simple(id: 'catan', name: 'Catan', emoji: '🎲', category: 'Société', countType: CountType.highWins),
+  Game.simple(id: 'uno', name: 'Uno', emoji: '🃏', category: 'Cartes', countType: CountType.highWins),
+  Game.simple(id: 'skyjo', name: 'Skyjo', emoji: '🂠', category: 'Cartes', countType: CountType.lowWins),
+  Game.simple(id: 'mk', name: 'Mario Kart', emoji: '🏎️', category: 'Jeu vidéo', countType: CountType.highWins),
+  Game.simple(id: 'petanque', name: 'Pétanque', emoji: '🎯', category: 'Sport', countType: CountType.highWins),
+  Game.simple(id: 'timesup', name: "Time's Up", emoji: '⏱️', category: 'Société', countType: CountType.highWins),
+  Game.simple(id: 'president', name: 'Président', emoji: '🎩', category: 'Cartes', countType: CountType.wins),
 ];
 
 abstract class GamesRepository {
@@ -26,15 +26,7 @@ abstract class GamesRepository {
     required String name,
     required String emoji,
     required String category,
-    required CountType countType,
-    int? pointLimit,
-    List<String>? topRoles,
-    List<String>? bottomRoles,
-    List<int>? topPoints,
-    List<int>? bottomPoints,
-    bool multiRound = false,
-    String? parentGameId,
-    List<GameScoreField>? scoreFields,
+    required List<GameRule> rules,
   });
 
   /// Copies a game definition (typically from the online library) into this
@@ -50,8 +42,7 @@ abstract class GamesRepository {
   Future<void> seedDefaultCatalog(String rootGroupId);
 
   /// Removes a game from the catalog and deletes every match recorded for
-  /// it anywhere in the root's tree (a game is shared by the whole
-  /// community, so this isn't scoped to a single subgroup).
+  /// it in this group.
   Future<void> deleteGame(String rootGroupId, String gameId);
 }
 
@@ -79,15 +70,7 @@ class FirebaseGamesRepository implements GamesRepository {
     required String name,
     required String emoji,
     required String category,
-    required CountType countType,
-    int? pointLimit,
-    List<String>? topRoles,
-    List<String>? bottomRoles,
-    List<int>? topPoints,
-    List<int>? bottomPoints,
-    bool multiRound = false,
-    String? parentGameId,
-    List<GameScoreField>? scoreFields,
+    required List<GameRule> rules,
   }) async {
     final ref = _col(rootGroupId).doc();
     final game = Game(
@@ -95,15 +78,7 @@ class FirebaseGamesRepository implements GamesRepository {
       name: name,
       emoji: emoji,
       category: category,
-      countType: countType,
-      pointLimit: pointLimit,
-      topRoles: topRoles,
-      bottomRoles: bottomRoles,
-      topPoints: topPoints,
-      bottomPoints: bottomPoints,
-      multiRound: multiRound,
-      parentGameId: parentGameId,
-      scoreFields: scoreFields,
+      rules: rules,
     );
     await ref.set(game.toMap());
     return game;
@@ -117,14 +92,7 @@ class FirebaseGamesRepository implements GamesRepository {
       name: source.name,
       emoji: source.emoji,
       category: source.category,
-      countType: source.countType,
-      pointLimit: source.pointLimit,
-      topRoles: source.topRoles,
-      bottomRoles: source.bottomRoles,
-      topPoints: source.topPoints,
-      bottomPoints: source.bottomPoints,
-      multiRound: source.multiRound,
-      scoreFields: source.scoreFields,
+      rules: source.rules,
     );
     await ref.set(game.toMap());
     return game;

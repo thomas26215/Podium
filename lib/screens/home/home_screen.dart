@@ -87,18 +87,6 @@ class HomeScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          // Every section below is wrapped in a KeyedSubtree with a stable
-          // key — not decorative. Right after arriving on the home screen,
-          // the loading indicator right below disappears (groupDataFullyLoaded
-          // flips true) and "Parties en direct"/"Partie non terminée" can pop
-          // in a beat later as their own streams finish loading — each of
-          // those is an insertion/removal *above* the dashboard content, and
-          // without a key, Column reconciles an unkeyed list purely by index:
-          // once something above shifts, everything after it is treated as a
-          // brand-new subtree instead of the same one moving down, tearing
-          // down (and restarting from scratch) every FadeSlideIn/
-          // AnimatedCounter already mid-animation. A stable key anchors each
-          // section's identity regardless of what its siblings do.
           if (app.currentGroupClosed)
             KeyedSubtree(
               key: const ValueKey('closed-banner'),
@@ -126,91 +114,98 @@ class HomeScreen extends StatelessWidget {
                 ],
               ),
             ),
+          // Nothing data-dependent below renders with zero/empty placeholder
+          // values while still loading — the whole body waits for
+          // groupDataFullyLoaded and appears together once real numbers are
+          // in, instead of a stat chip flashing "0" then popping to its real
+          // count a beat later.
           if (!app.groupDataFullyLoaded)
-            KeyedSubtree(
-              key: const ValueKey('loading-indicator'),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: 13,
-                        height: 13,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.mut),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${app.groupDataFetchedCount}/${AppState.groupDataTotalCount} données récupérées…',
-                        style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                ],
-              ),
-            ),
-          if (app.pendingLocalDraft != null)
-            KeyedSubtree(
-              key: const ValueKey('pending-draft'),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SectionHeader(title: 'Partie non terminée', actionLabel: 'Ignorer', onAction: app.discardLocalDraft),
-                  _PendingDraftBanner(app: app),
-                  const SizedBox(height: 18),
-                ],
-              ),
-            ),
-          if (app.liveSessions.isNotEmpty)
-            KeyedSubtree(
-              key: const ValueKey('live-sessions'),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SectionHeader(title: 'Parties en direct'),
-                  SizedBox(
-                    height: 128,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: app.liveSessions.length,
-                      separatorBuilder: (_, _) => const SizedBox(width: 10),
-                      itemBuilder: (_, i) {
-                        final session = app.liveSessions[i];
-                        return LiveMatchCard(
-                          session: session,
-                          game: app.gameById(session.gameId),
-                          appState: app,
-                          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => LiveMatchScreen(sessionId: session.id))),
-                        );
-                      },
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 48),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(strokeWidth: 2, color: AppColors.mut),
+                    const SizedBox(height: 12),
+                    Text(
+                      '${app.groupDataFetchedCount}/${AppState.groupDataTotalCount} données récupérées…',
+                      style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
                     ),
-                  ),
-                  const SizedBox(height: 18),
-                ],
+                  ],
+                ),
               ),
-            ),
-          KeyedSubtree(
-            key: const ValueKey('dashboard'),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: app.dashboardStyle == DashboardStyle.simple ? _simpleSections(app, winRows) : _completeSections(app, stats, winRows),
-            ),
-          ),
-          if (app.viewTournaments.any((t) => !t.isCompleted))
+            )
+          else ...[
+            // Every section below is wrapped in a KeyedSubtree with a stable
+            // key — not decorative. "Parties en direct"/"Partie non terminée"
+            // can each pop in or out later (e.g. a live session starting or
+            // ending) independently of one another, which shifts list
+            // indices; without a key, Column reconciles purely by index, so
+            // a shift anywhere would tear down (and restart from scratch)
+            // every FadeSlideIn/AnimatedCounter after it that's mid-
+            // animation. A stable key anchors each section's identity
+            // regardless of what its siblings do.
+            if (app.pendingLocalDraft != null)
+              KeyedSubtree(
+                key: const ValueKey('pending-draft'),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SectionHeader(title: 'Partie non terminée', actionLabel: 'Ignorer', onAction: app.discardLocalDraft),
+                    _PendingDraftBanner(app: app),
+                    const SizedBox(height: 18),
+                  ],
+                ),
+              ),
+            if (app.liveSessions.isNotEmpty)
+              KeyedSubtree(
+                key: const ValueKey('live-sessions'),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SectionHeader(title: 'Parties en direct'),
+                    SizedBox(
+                      height: 128,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: app.liveSessions.length,
+                        separatorBuilder: (_, _) => const SizedBox(width: 10),
+                        itemBuilder: (_, i) {
+                          final session = app.liveSessions[i];
+                          return LiveMatchCard(
+                            session: session,
+                            game: app.gameById(session.gameId),
+                            appState: app,
+                            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => LiveMatchScreen(sessionId: session.id))),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                  ],
+                ),
+              ),
             KeyedSubtree(
-              key: const ValueKey('tournaments-section'),
+              key: const ValueKey('dashboard'),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: _tournamentsSection(context, app),
+                children: app.dashboardStyle == DashboardStyle.simple ? _simpleSections(app, winRows) : _completeSections(app, stats, winRows),
               ),
             ),
+            if (app.viewTournaments.any((t) => !t.isCompleted))
+              KeyedSubtree(
+                key: const ValueKey('tournaments-section'),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: _tournamentsSection(context, app),
+                ),
+              ),
+          ],
         ],
       ),
     );

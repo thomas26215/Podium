@@ -61,9 +61,10 @@ class ChooserOption extends StatelessWidget {
   }
 }
 
-/// Long-press (or "manage") menu on a game: edit its settings, browse/edit
-/// its rules, add a variant, or (root owner only) delete it — shared between
-/// the new-game picker and the standalone games catalog.
+/// Long-press (or "manage") menu on a game: edit its settings (including
+/// adding/removing scoring rules), browse/edit its rules reminders, or
+/// (root owner only) delete it — shared between the new-game picker and the
+/// standalone games catalog.
 Future<void> showGameActionsSheet(BuildContext context, AppState app, Game game) async {
   // A closed group is frozen against catalog changes (see AppState.setGroupClosed)
   // — only offer read-only actions there.
@@ -84,7 +85,7 @@ Future<void> showGameActionsSheet(BuildContext context, AppState app, Game game)
             ChooserOption(
               icon: Icons.tune_rounded,
               title: 'Modifier les paramètres',
-              subtitle: 'Comptage, limite de points, rôles, manches multiples…',
+              subtitle: 'Comptage, limite de points, rôles, manches multiples — et plusieurs règles possibles.',
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 _openGameForm(context, app, () => app.startEditingGame(game));
@@ -94,25 +95,13 @@ Future<void> showGameActionsSheet(BuildContext context, AppState app, Game game)
           ],
           ChooserOption(
             icon: Icons.menu_book_rounded,
-            title: 'Règles du jeu',
+            title: 'Aide-mémoire',
             subtitle: 'Ajoutez des rappels de règles, classés par catégorie — sans effet sur les scores.',
             onTap: () {
               Navigator.of(sheetContext).pop();
               Navigator.of(context).push(MaterialPageRoute(builder: (_) => GameRulesScreen(game: game)));
             },
           ),
-          if (!game.isVariant && !closed) ...[
-            const SizedBox(height: 10),
-            ChooserOption(
-              icon: Icons.call_split_rounded,
-              title: 'Ajouter une variante',
-              subtitle: 'Un jeu à part entière (ses propres règles), regroupé avec « ${game.name} » dans la liste.',
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                _openGameForm(context, app, () => app.startNewGame(parentGameId: game.id));
-              },
-            ),
-          ],
           if (app.canManageGameCatalog && !closed) ...[
             const SizedBox(height: 10),
             ChooserOption(

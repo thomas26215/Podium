@@ -16,8 +16,8 @@ import '../../widgets/segmented_control.dart';
 /// maps each position to the game's named role (and its points, under the
 /// hood) via [Game.rankRole]/[Game.rankPoints].
 class _RanksScoreList extends StatelessWidget {
-  final Game game;
-  const _RanksScoreList({required this.game});
+  final GameRule rule;
+  const _RanksScoreList({required this.rule});
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +32,7 @@ class _RanksScoreList extends StatelessWidget {
           Builder(builder: (_) {
             final p = app.playerById(uid);
             if (p == null) return const SizedBox.shrink();
-            final role = game.rankRole(i, order.length);
+            final role = rule.rankRole(i, order.length);
             return AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               curve: Curves.easeOutCubic,
@@ -93,8 +93,8 @@ Widget _rankStepperButton(IconData icon, VoidCallback? onTap) {
 /// accumulate via [AppState.submitRankRound]), then review past rounds and
 /// the cumulative score-evolution chart — same review UI as [_RoundsScoreInput].
 class _RanksRoundsInput extends StatelessWidget {
-  final Game game;
-  const _RanksRoundsInput({required this.game});
+  final GameRule rule;
+  const _RanksRoundsInput({required this.rule});
 
   @override
   Widget build(BuildContext context) {
@@ -112,7 +112,7 @@ class _RanksRoundsInput extends StatelessWidget {
           Builder(builder: (_) {
             final p = app.playerById(uid);
             if (p == null) return const SizedBox.shrink();
-            final role = game.rankRole(i, order.length);
+            final role = rule.rankRole(i, order.length);
             return Container(
               margin: const EdgeInsets.only(bottom: 9),
               padding: const EdgeInsets.all(12),
@@ -424,8 +424,8 @@ class _WinLossRoundsInputState extends State<_WinLossRoundsInput> {
 /// Each category contributes to the player's final total automatically,
 /// making end-of-game scoring explicit without duplicating the math.
 class _DetailedScoreInput extends StatefulWidget {
-  final Game game;
-  const _DetailedScoreInput({required this.game});
+  final GameRule rule;
+  const _DetailedScoreInput({required this.rule});
 
   @override
   State<_DetailedScoreInput> createState() => _DetailedScoreInputState();
@@ -453,7 +453,7 @@ class _DetailedScoreInputState extends State<_DetailedScoreInput> {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final d = app.draft;
-    final fields = widget.game.scoreFields ?? const [];
+    final fields = widget.rule.scoreFields ?? const [];
     final players = [for (final uid in d.playerIds) if (app.playerById(uid) != null) uid];
 
     if (fields.isEmpty || players.isEmpty) {
@@ -728,14 +728,14 @@ class Step3Scores extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final d = app.draft;
-    final game = app.gameById(d.gameId ?? '');
-    if (game?.isRanks == true) {
-      final useRounds = game!.multiRound && d.inputMode == 'rounds';
+    final rule = app.draftRule;
+    if (rule?.isRanks == true) {
+      final useRounds = rule!.multiRound && d.inputMode == 'rounds';
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (d.bestOf > 1) const _SeriesProgressBanner(),
-          if (game.multiRound) ...[
+          if (rule.multiRound) ...[
             SegmentedControl(
               labels: const ['Une manche', 'Plusieurs manches'],
               selectedIndex: useRounds ? 1 : 0,
@@ -744,17 +744,17 @@ class Step3Scores extends StatelessWidget {
             ),
             const SizedBox(height: 16),
           ],
-          useRounds ? _RanksRoundsInput(game: game) : _RanksScoreList(game: game),
+          useRounds ? _RanksRoundsInput(rule: rule) : _RanksScoreList(rule: rule),
         ],
       );
     }
-    if (game?.isWinLoss == true) {
-      final useRounds = game!.multiRound && d.inputMode == 'rounds';
+    if (rule?.isWinLoss == true) {
+      final useRounds = rule!.multiRound && d.inputMode == 'rounds';
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (d.bestOf > 1) const _SeriesProgressBanner(),
-          if (game.multiRound) ...[
+          if (rule.multiRound) ...[
             SegmentedControl(
               labels: const ['Une manche', 'Plusieurs manches'],
               selectedIndex: useRounds ? 1 : 0,
@@ -767,11 +767,11 @@ class Step3Scores extends StatelessWidget {
         ],
       );
     }
-    if (game?.hasScoreFields == true && !game!.isWinLoss && !game.isRanks && game.countType != CountType.wins) {
-      return _DetailedScoreInput(game: game);
+    if (rule?.hasScoreFields == true && !rule!.isWinLoss && !rule.isRanks && rule.countType != CountType.wins) {
+      return _DetailedScoreInput(rule: rule);
     }
     final leaderIds = app.draftLeaderIds;
-    final pointLimit = d.unit == 'wins' ? null : app.gameById(d.gameId ?? '')?.pointLimit;
+    final pointLimit = d.unit == 'wins' ? null : rule?.pointLimit;
     final unitLabel = d.unit == 'wins' ? 'Manches gagnées' : 'Points';
     final playersAtLimit = pointLimit == null
         ? const <String>[]
@@ -800,7 +800,7 @@ class Step3Scores extends StatelessWidget {
         // winner per manche — see AppState.setUnit/_WinLossRoundsInput), so
         // only the round-based choice applies there.
         if (d.unit != 'wins') ...[
-          if (game?.multiRound == true)
+          if (rule?.multiRound == true)
             SegmentedControl(
               labels: const ['Saisie rapide', 'Par manche'],
               selectedIndex: d.inputMode == 'rounds' ? 1 : 0,
@@ -850,7 +850,7 @@ class Step3Scores extends StatelessWidget {
               final p = app.playerById(uid);
               if (p == null) return const SizedBox.shrink();
               final isLead = leaderIds.contains(uid);
-              final low = d.unit == 'wins' ? false : (app.gameById(d.gameId ?? '')?.lowWins ?? false);
+              final low = d.unit == 'wins' ? false : (rule?.lowWins ?? false);
               final label = isLead ? (low ? '▼ EN TÊTE' : '▲ EN TÊTE') : (d.mode == 'team' ? 'Équipe ${d.team[uid] ?? 'A'}' : '');
               return AnimatedContainer(
                 duration: const Duration(milliseconds: 200),

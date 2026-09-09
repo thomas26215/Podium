@@ -52,7 +52,7 @@ class _LibraryGameTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final special = game.isRanks;
+    final special = game.defaultRule.isRanks;
     return GameTileRow(
       emoji: game.emoji,
       onTap: onTap,

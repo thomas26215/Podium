@@ -6,6 +6,12 @@ import '../models/tournament.dart';
 /// `state.draft`.
 class NewGameDraft {
   String? gameId;
+
+  /// Which of the game's [GameRule]s this match is scored under — null while
+  /// undecided (a game with several rules, none picked yet on the "Quelle
+  /// règle ?" step) or when the game only has its one default rule (see
+  /// `AppState.draftRule`/`Game.resolveRule`).
+  String? ruleId;
   String mode; // 'ffa' | 'team'
   String unit; // 'points' | 'wins'
   int teamCount;
@@ -68,6 +74,7 @@ class NewGameDraft {
 
   NewGameDraft({
     this.gameId,
+    this.ruleId,
     this.mode = 'ffa',
     this.unit = 'points',
     this.teamCount = 2,
@@ -104,6 +111,7 @@ class NewGameDraft {
   /// deliberately separate from `GameMatch.toMap`, which targets Firestore.
   Map<String, dynamic> toJson() => {
         'gameId': gameId,
+        'ruleId': ruleId,
         'mode': mode,
         'unit': unit,
         'teamCount': teamCount,
@@ -125,6 +133,7 @@ class NewGameDraft {
 
   factory NewGameDraft.fromJson(Map<String, dynamic> m) => NewGameDraft(
         gameId: m['gameId'] as String?,
+        ruleId: m['ruleId'] as String?,
         mode: m['mode'] as String? ?? 'ffa',
         unit: m['unit'] as String? ?? 'points',
         teamCount: (m['teamCount'] as num?)?.toInt() ?? 2,
@@ -188,11 +197,16 @@ class PendingLocalDraft {
   });
 }
 
-/// State for the "create a new game" mini-form nested inside step 1.
-class GameFormDraft {
+/// One editable rule within the "create/edit a game" form (see
+/// [GameFormDraft.rules]) — mirrors [GameRule] field-for-field, plus a
+/// [name] label and free-text/mutable-list fields suited to a form instead
+/// of the immutable persisted shape.
+class GameRuleFormDraft {
+  /// Carried over from [GameRule.id] when editing an existing rule so
+  /// matches/tournaments already scored under it keep pointing at the same
+  /// rule; freshly generated (see [newId]) for a brand new one.
+  final String id;
   String name;
-  String emoji;
-  String category;
   CountType countType;
   String pointLimit; // free-text field; parsed to int? on submit
 
@@ -203,34 +217,37 @@ class GameFormDraft {
   List<String> bottomRoles;
   List<GameScoreField> scoreFields;
 
-  /// Whether this game can be played over several rounds with scores
+  /// Whether this rule can be played over several rounds with scores
   /// accumulating — applies to every count type, not just ranks.
   bool multiRound;
 
-  /// Set while creating a variant of an existing game (see [Game.parentGameId])
-  /// — carried through to `AppState.createGame`. Not user-editable in the
-  /// form itself, just shown as a "Variante de X" label.
-  final String? parentGameId;
-
-  GameFormDraft({
-    this.name = '',
-    this.emoji = '🎲',
-    this.category = 'Société',
+  GameRuleFormDraft({
+    String? id,
+    this.name = 'Standard',
     this.countType = CountType.highWins,
     this.pointLimit = '',
     List<String>? topRoles,
     List<String>? bottomRoles,
     List<GameScoreField>? scoreFields,
     this.multiRound = false,
-    this.parentGameId,
-  })  : topRoles = topRoles ?? [''],
-      bottomRoles = bottomRoles ?? [''],
-      scoreFields = scoreFields ?? [];
+  })  : id = id ?? newId(),
+        topRoles = topRoles ?? [''],
+        bottomRoles = bottomRoles ?? [''],
+        scoreFields = scoreFields ?? [];
 
-  factory GameFormDraft.initial({String? parentGameId}) => GameFormDraft(parentGameId: parentGameId);
+  static String newId() => 'rule_${DateTime.now().microsecondsSinceEpoch}';
 
-  // Leaving every place name blank for CountType.ranks is valid — it's a
-  // plain "classement" with no named roles, scored purely by rank.
+  factory GameRuleFormDraft.fromRule(GameRule rule) => GameRuleFormDraft(
+        id: rule.id,
+        name: rule.name,
+        countType: rule.countType,
+        pointLimit: rule.pointLimit?.toString() ?? '',
+        topRoles: (rule.topRoles == null || rule.topRoles!.isEmpty) ? null : List.of(rule.topRoles!),
+        bottomRoles: (rule.bottomRoles == null || rule.bottomRoles!.isEmpty) ? null : List.of(rule.bottomRoles!),
+        scoreFields: (rule.scoreFields == null || rule.scoreFields!.isEmpty) ? null : List.of(rule.scoreFields!),
+        multiRound: rule.multiRound,
+      );
+
   bool get isValid => name.trim().isNotEmpty;
 
   int? get parsedPointLimit => int.tryParse(pointLimit.trim());
@@ -250,4 +267,28 @@ class GameFormDraft {
     final n = cleanBottomRoles.length;
     return List.generate(n, (i) => -(n - i));
   }
+}
+
+/// State for the "create a new game" mini-form nested inside step 1.
+class GameFormDraft {
+  String name;
+  String emoji;
+  String category;
+
+  /// One form block per [GameRule] the game will have — always at least
+  /// one. See `CreateGameForm`'s repeatable rule cards.
+  List<GameRuleFormDraft> rules;
+
+  GameFormDraft({
+    this.name = '',
+    this.emoji = '🎲',
+    this.category = 'Société',
+    List<GameRuleFormDraft>? rules,
+  }) : rules = rules ?? [GameRuleFormDraft()];
+
+  factory GameFormDraft.initial() => GameFormDraft();
+
+  // Leaving every place name blank for CountType.ranks is valid — it's a
+  // plain "classement" with no named roles, scored purely by rank.
+  bool get isValid => name.trim().isNotEmpty && rules.every((r) => r.isValid);
 }

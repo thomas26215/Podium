@@ -157,6 +157,13 @@ class GameMatch {
   final DateTime createdAt;
   final List<GameScoreField>? scoreFields;
 
+  /// Which of the game's [GameRule]s scored this match (see
+  /// `AppState.pickRule`) — null for matches recorded before rules existed,
+  /// or for a game that only ever had its one default rule. Lets
+  /// `AppState.resumeMatch` reopen the match under the same rule it was
+  /// originally scored with.
+  final String? ruleId;
+
   /// How the score was entered: 'quick' | 'live' | 'rounds' (or `null` for
   /// matches recorded before this field existed). Lets the history UI show
   /// the right detail view — the round-by-round table only for a genuinely
@@ -205,6 +212,7 @@ class GameMatch {
     required this.timeline,
     required this.createdAt,
     this.scoreFields,
+    this.ruleId,
     this.inputMode,
     this.createdByUid,
     this.seriesId,
@@ -246,6 +254,7 @@ class GameMatch {
         timeline: timeline,
         createdAt: createdAt,
         scoreFields: scoreFields,
+        ruleId: ruleId,
         inputMode: inputMode,
         createdByUid: createdByUid,
         seriesId: seriesId,
@@ -270,6 +279,7 @@ class GameMatch {
         timeline: timeline,
         createdAt: createdAt,
         scoreFields: scoreFields,
+        ruleId: ruleId,
         inputMode: inputMode,
         createdByUid: createdByUid,
         seriesId: seriesId,
@@ -289,6 +299,7 @@ class GameMatch {
         'entries': entries.map((e) => e.toMap()).toList(),
         'timeline': timeline.map((t) => t.toMap()).toList(),
         if (scoreFields != null && scoreFields!.isNotEmpty) 'scoreFields': scoreFields!.map((f) => f.toMap()).toList(),
+        if (ruleId != null) 'ruleId': ruleId,
         // A client-side timestamp rather than FieldValue.serverTimestamp() —
         // this is the moment the match was recorded as having been *played*
         // (see NewGameDraft.playedAt), which the player can backdate to
@@ -321,6 +332,7 @@ class GameMatch {
         scoreFields: ((data['scoreFields'] as List?) ?? const [])
           .map((e) => GameScoreField.fromMap(Map<String, dynamic>.from(e as Map)))
           .toList(),
+      ruleId: data['ruleId'] as String?,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       inputMode: data['inputMode'] as String?,
       createdByUid: data['createdByUid'] as String?,

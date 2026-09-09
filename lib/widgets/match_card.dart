@@ -45,7 +45,7 @@ String matchResultLine(Game game, GameMatch match, AppState appState) {
   // No score to show for a win/loss game — and with several winners at
   // once (routine for this count type, unlike a tie elsewhere), "Gagné
   // par" reads oddly for more than one name.
-  if (game.isWinLoss) return winnerNames.length > 1 ? '$names gagnent' : '$names gagne';
+  if (game.resolveRule(match.ruleId).isWinLoss) return winnerNames.length > 1 ? '$names gagnent' : '$names gagne';
   final entry = winners.length == 1 ? match.entries.where((e) => e.playerId == winners.first).firstOrNull : null;
   final scoreLabel = entry?.role ?? (entry != null ? '${entry.points} pts' : '');
   return 'Gagné par $names${scoreLabel.isNotEmpty ? ' · $scoreLabel' : ''}';

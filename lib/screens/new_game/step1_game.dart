@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/game.dart';
 import '../../state/app_state.dart';
+import '../../state/new_game_draft.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
 import 'game_actions_sheet.dart';
@@ -24,24 +25,27 @@ class Step1Game extends StatelessWidget {
           mainAxisSpacing: 10,
           childAspectRatio: 1.35,
           children: [
-            for (final g in app.topLevelGames)
+            for (final g in app.games)
               Builder(builder: (_) {
-                final variants = app.variantsOf(g.id);
-                final baseSub = g.pointLimit != null ? '${g.category} · ${g.pointLimit} pts max' : g.category;
-                final selected = app.draft.gameId == g.id || variants.any((v) => v.id == app.draft.gameId);
+                final baseSub = g.defaultRule.pointLimit != null ? '${g.category} · ${g.defaultRule.pointLimit} pts max' : g.category;
+                final selected = app.draft.gameId == g.id;
                 return _GameCard(
                   emoji: g.emoji,
                   name: g.name,
-                  sub: variants.isEmpty ? baseSub : '$baseSub · ${variants.length} variante${variants.length > 1 ? 's' : ''}',
+                  sub: g.hasMultipleRules ? '$baseSub · ${g.rules.length} règles' : baseSub,
                   selected: selected,
-                  onTap: () => variants.isEmpty ? app.pickGame(g.id) : _showVariantPicker(context, app, g, variants),
+                  // The wizard advances to a dedicated "Quelle règle ?" step
+                  // right after this one whenever the game has more than one
+                  // rule (see AppState.stepSequence) — nothing extra to do
+                  // here either way.
+                  onTap: () => app.pickGame(g.id),
                   onLongPress: () => showGameActionsSheet(context, app, g),
                 );
               }),
             _GameCard(emoji: '＋', name: 'Nouveau jeu', sub: 'Créer', selected: false, dashed: true, onTap: () => _showNewGameChooser(context, app)),
           ],
         ),
-        if (app.topLevelGames.isNotEmpty) ...[
+        if (app.games.isNotEmpty) ...[
           const SizedBox(height: 10),
           Text('Appui long sur un jeu pour le modifier ou le supprimer.', style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
         ],
@@ -51,7 +55,7 @@ class Step1Game extends StatelessWidget {
 }
 
 Future<void> _showNewGameChooser(BuildContext context, AppState app) async {
-  final hasOtherGroups = app.groups.any((g) => g.isRoot && g.id != app.currentRootId);
+  final hasOtherGroups = app.groups.any((g) => g.id != app.currentRootId);
   await showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,
@@ -101,101 +105,6 @@ Future<void> _showNewGameChooser(BuildContext context, AppState app) async {
   );
 }
 
-/// Shown when tapping a game that has variants — pick the base game or one
-/// of its variants, or add another variant.
-Future<void> _showVariantPicker(BuildContext context, AppState app, Game base, List<Game> variants) async {
-  await showModalBottomSheet(
-    context: context,
-    backgroundColor: Colors.transparent,
-    builder: (sheetContext) => Container(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
-      decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(base.name, style: dispFont(size: 18, weight: FontWeight.w700, color: AppColors.ink)),
-          const SizedBox(height: 4),
-          Text('Choisissez une variante.', style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)),
-          const SizedBox(height: 16),
-          _VariantOption(
-            game: base,
-            label: 'Jeu de base',
-            selected: app.draft.gameId == base.id,
-            onTap: () {
-              app.pickGame(base.id);
-              Navigator.of(sheetContext).pop();
-            },
-          ),
-          for (final v in variants) ...[
-            const SizedBox(height: 8),
-            _VariantOption(
-              game: v,
-              selected: app.draft.gameId == v.id,
-              onTap: () {
-                app.pickGame(v.id);
-                Navigator.of(sheetContext).pop();
-              },
-            ),
-          ],
-          const SizedBox(height: 14),
-          Pressable(
-            onTap: () {
-              Navigator.of(sheetContext).pop();
-              app.startNewGame(parentGameId: base.id);
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.md)),
-              child: Text('+ Ajouter une variante', style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.ink2)),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-class _VariantOption extends StatelessWidget {
-  final Game game;
-  final String? label;
-  final bool selected;
-  final VoidCallback onTap;
-  const _VariantOption({required this.game, this.label, required this.selected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Pressable(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.accentSoft : AppColors.card,
-          border: Border.all(color: selected ? AppColors.accent : AppColors.line, width: 1.5),
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-        ),
-        child: Row(
-          children: [
-            Text(game.emoji, style: const TextStyle(fontSize: 20)),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(game.name, style: bodyFont(size: 14.5, weight: FontWeight.w800, color: AppColors.ink)),
-                  if (label != null) Text(label!, style: bodyFont(size: 11.5, weight: FontWeight.w600, color: AppColors.mut)),
-                ],
-              ),
-            ),
-            if (selected) Icon(Icons.check_circle_rounded, color: AppColors.accent, size: 20),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _GameCard extends StatelessWidget {
   final String emoji;
@@ -243,25 +152,9 @@ class CreateGameForm extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final f = app.gameForm;
-    final parent = f.parentGameId != null ? app.gameById(f.parentGameId!) : null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (parent != null) ...[
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-            decoration: BoxDecoration(color: AppColors.accentSoft, borderRadius: BorderRadius.circular(AppRadius.md)),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.call_split_rounded, size: 15, color: AppColors.accent),
-                const SizedBox(width: 6),
-                Text('Variante de « ${parent.name} »', style: bodyFont(size: 12.5, weight: FontWeight.w700, color: AppColors.accent)),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-        ],
         _label('Nom du jeu'),
         const SizedBox(height: 9),
         TextFormField(
@@ -318,199 +211,350 @@ class CreateGameForm extends StatelessWidget {
               ),
           ],
         ),
-        const SizedBox(height: 18),
-        _label('Type de comptage'),
-        const SizedBox(height: 9),
-        _countOption(app, CountType.highWins, 'Points — le plus haut gagne', 'Catan, Time’s Up, Mario Kart…'),
-        _countOption(app, CountType.lowWins, 'Points — le plus bas gagne', 'Skyjo, golf, Uno cumulé…'),
-        _countOption(app, CountType.wins, 'Manches gagnées', 'Président, belote, ping-pong…'),
-        _countOption(app, CountType.ranks, 'Classement', 'Simple classement, ou avec des places nommées (Président…)'),
-        _countOption(app, CountType.winLoss, 'Victoire / défaite', 'Marquez qui a gagné et qui a perdu, sans compter de points — échecs, matchs 1 contre 1…'),
-        if (f.countType == CountType.highWins || f.countType == CountType.lowWins) ...[
-          const SizedBox(height: 18),
-          _label('Catégories de score'),
+        const SizedBox(height: 22),
+        if (f.rules.length == 1) ...[
+          _RuleFields(index: 0, rule: f.rules.single),
+          const SizedBox(height: 10),
+          Pressable(
+            onTap: () => app.setGameForm((f) => f..rules.add(GameRuleFormDraft(name: 'Règle 2'))),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.add_circle_outline_rounded, size: 16, color: AppColors.accent),
+                const SizedBox(width: 6),
+                Text('Ajouter une règle', style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.accent)),
+              ],
+            ),
+          ),
+        ] else ...[
+          _label('Règles'),
           const SizedBox(height: 8),
           Text(
-            'Ajoutez les rubriques à compter à la fin de la partie. Chaque champ reçoit sa couleur et le total est calculé automatiquement.',
+            'Chaque règle définit sa propre façon de compter — on choisira laquelle utiliser au moment de lancer une partie.',
             style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
           ),
           const SizedBox(height: 12),
-          if (f.scoreFields.isEmpty)
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.md)),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text('Ex. merveilles, pièces, guerre, science…', style: bodyFont(size: 13, weight: FontWeight.w600, color: AppColors.mut)),
-                  ),
-                  Pressable(
-                    onTap: () => app.setGameForm((draft) => draft
-                      ..scoreFields.add(_newScoreField(draft.scoreFields.length))
-                      ..multiRound = false),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(12)),
-                      child: Text('+ Ajouter', style: bodyFont(size: 13, weight: FontWeight.w700, color: Colors.white)),
-                    ),
-                  ),
-                ],
+          for (final (i, rule) in f.rules.indexed) ...[
+            if (i > 0) const SizedBox(height: 10),
+            _CollapsibleRuleCard(
+              key: ValueKey(rule.id),
+              index: i,
+              rule: rule,
+              initiallyExpanded: i == f.rules.length - 1,
+            ),
+          ],
+          const SizedBox(height: 10),
+          Pressable(
+            onTap: () => app.setGameForm((f) => f..rules.add(GameRuleFormDraft(name: 'Règle ${f.rules.length + 1}'))),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.md)),
+              child: Text('+ Ajouter une règle', style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.ink2)),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _label(String s) => Text(s, style: bodyFont(size: 12.5, weight: FontWeight.w800, color: AppColors.ink2));
+}
+
+/// Short one-line summary of a rule's counting config (e.g. "Points — le
+/// plus haut gagne · 100 pts max") — shown as the collapsed-card subtitle in
+/// [_CollapsibleRuleCard] (see `StepRule`'s own `_RuleOption._description`
+/// for the equivalent over a persisted [GameRule] rather than a form draft).
+String ruleSummaryLine(GameRuleFormDraft rule) {
+  final bits = <String>[
+    switch (rule.countType) {
+      CountType.highWins => 'Points — le plus haut gagne',
+      CountType.lowWins => 'Points — le plus bas gagne',
+      CountType.wins => 'Manches gagnées',
+      CountType.ranks => 'Classement',
+      CountType.winLoss => 'Victoire / défaite',
+    },
+    if (rule.parsedPointLimit != null) '${rule.parsedPointLimit} pts max',
+  ];
+  return bits.join(' · ');
+}
+
+/// A rule's card in multi-rule mode: a compact header (name, one-line
+/// summary, remove button, expand/collapse chevron) whose body — the same
+/// [_RuleFields] editor used in single-rule mode — only takes up space
+/// while expanded, so having several rules doesn't turn the form into one
+/// long wall of fields. Keyed by the rule's id (see [CreateGameForm]) so a
+/// newly-added rule opens expanded while the others keep whatever
+/// collapsed/expanded state the user left them in.
+class _CollapsibleRuleCard extends StatefulWidget {
+  final int index;
+  final GameRuleFormDraft rule;
+  final bool initiallyExpanded;
+  const _CollapsibleRuleCard({super.key, required this.index, required this.rule, required this.initiallyExpanded});
+
+  @override
+  State<_CollapsibleRuleCard> createState() => _CollapsibleRuleCardState();
+}
+
+class _CollapsibleRuleCardState extends State<_CollapsibleRuleCard> {
+  late bool _expanded = widget.initiallyExpanded;
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final f = widget.rule;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  initialValue: f.name,
+                  onChanged: (v) => app.setGameForm((f) => f..rules[widget.index].name = v),
+                  style: bodyFont(size: 14.5, weight: FontWeight.w800, color: AppColors.ink),
+                  decoration: appFieldDecoration(hintText: 'Nom de la règle', fillColor: AppColors.bg, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
+                ),
               ),
-            )
-          else
-            Column(
-              children: [
-                for (final (i, field) in f.scoreFields.indexed) ...[
-                  if (i > 0) const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: Color(field.color).withValues(alpha: 0.55), width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
-                    child: Row(
-                      children: [
-                        Pressable(
-                          onTap: () async {
-                            final picked = await _pickScoreFieldColor(context, field.color);
-                            if (picked == null) return;
-                            if (!context.mounted) return;
-                            app.setGameForm((draft) => draft..scoreFields[i] = field.copyWith(color: picked));
-                          },
-                          child: Container(
-                            width: 34,
-                            height: 34,
-                            decoration: BoxDecoration(color: Color(field.color), shape: BoxShape.circle, boxShadow: [BoxShadow(color: Color(field.color).withValues(alpha: 0.24), blurRadius: 10, offset: const Offset(0, 4))]),
-                            child: const Icon(Icons.palette_rounded, size: 16, color: Colors.white),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: TextFormField(
-                            initialValue: field.label,
-                            onChanged: (v) => app.setGameForm((draft) => draft..scoreFields[i] = field.copyWith(label: v)),
-                            style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink),
-                            decoration: appFieldDecoration(
-                              hintText: 'Ex. Science',
-                              fillColor: AppColors.bg,
-                              contentPadding: const EdgeInsets.all(12),
-                              focusColor: Color(field.color),
+              IconButton(
+                icon: Icon(Icons.delete_outline_rounded, size: 20, color: AppColors.mut),
+                onPressed: () => app.setGameForm((f) => f..rules.removeAt(widget.index)),
+              ),
+              IconButton(
+                icon: AnimatedRotation(
+                  duration: const Duration(milliseconds: 150),
+                  turns: _expanded ? 0.5 : 0,
+                  child: Icon(Icons.expand_more_rounded, size: 22, color: AppColors.ink2),
+                ),
+                onPressed: () => setState(() => _expanded = !_expanded),
+              ),
+            ],
+          ),
+          if (!_expanded)
+            Padding(
+              padding: const EdgeInsets.only(left: 4, top: 2),
+              child: Text(ruleSummaryLine(f), style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
+            ),
+          if (_expanded) ...[
+            const SizedBox(height: 10),
+            _RuleFields(index: widget.index, rule: f),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// One rule's scoring settings — comptage, catégories de score, rôles ou
+/// limite de points, manches multiples. Shared by [CreateGameForm]'s
+/// single-rule layout and each [_CollapsibleRuleCard]'s expanded body.
+class _RuleFields extends StatelessWidget {
+  final int index;
+  final GameRuleFormDraft rule;
+  const _RuleFields({required this.index, required this.rule});
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final f = rule;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+          _label('Type de comptage'),
+          const SizedBox(height: 9),
+          _countOption(app, CountType.highWins, 'Points — le plus haut gagne', 'Catan, Time’s Up, Mario Kart…'),
+          _countOption(app, CountType.lowWins, 'Points — le plus bas gagne', 'Skyjo, golf, Uno cumulé…'),
+          _countOption(app, CountType.wins, 'Manches gagnées', 'Président, belote, ping-pong…'),
+          _countOption(app, CountType.ranks, 'Classement', 'Simple classement, ou avec des places nommées (Président…)'),
+          _countOption(app, CountType.winLoss, 'Victoire / défaite', 'Marquez qui a gagné et qui a perdu, sans compter de points — échecs, matchs 1 contre 1…'),
+          if (f.countType == CountType.highWins || f.countType == CountType.lowWins) ...[
+            const SizedBox(height: 18),
+            _label('Catégories de score'),
+            const SizedBox(height: 8),
+            Text(
+              'Ajoutez les rubriques à compter à la fin de la partie. Chaque champ reçoit sa couleur et le total est calculé automatiquement.',
+              style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
+            ),
+            const SizedBox(height: 12),
+            if (f.scoreFields.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: AppColors.bg, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.md)),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text('Ex. merveilles, pièces, guerre, science…', style: bodyFont(size: 13, weight: FontWeight.w600, color: AppColors.mut)),
+                    ),
+                    Pressable(
+                      onTap: () => app.setGameForm((f) => f
+                        ..rules[index].scoreFields.add(_newScoreField(f.rules[index].scoreFields.length))
+                        ..rules[index].multiRound = false),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(12)),
+                        child: Text('+ Ajouter', style: bodyFont(size: 13, weight: FontWeight.w700, color: Colors.white)),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              Column(
+                children: [
+                  for (final (i, field) in f.scoreFields.indexed) ...[
+                    if (i > 0) const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(color: AppColors.bg, border: Border.all(color: Color(field.color).withValues(alpha: 0.55), width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+                      child: Row(
+                        children: [
+                          Pressable(
+                            onTap: () async {
+                              final picked = await _pickScoreFieldColor(context, field.color);
+                              if (picked == null) return;
+                              if (!context.mounted) return;
+                              app.setGameForm((f) => f..rules[index].scoreFields[i] = field.copyWith(color: picked));
+                            },
+                            child: Container(
+                              width: 34,
+                              height: 34,
+                              decoration: BoxDecoration(color: Color(field.color), shape: BoxShape.circle, boxShadow: [BoxShadow(color: Color(field.color).withValues(alpha: 0.24), blurRadius: 10, offset: const Offset(0, 4))]),
+                              child: const Icon(Icons.palette_rounded, size: 16, color: Colors.white),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: Icon(Icons.close, size: 18, color: AppColors.mut),
-                          onPressed: () => app.setGameForm((draft) => draft..scoreFields.removeAt(i)),
-                        ),
-                      ],
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: TextFormField(
+                              initialValue: field.label,
+                              onChanged: (v) => app.setGameForm((f) => f..rules[index].scoreFields[i] = field.copyWith(label: v)),
+                              style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink),
+                              decoration: appFieldDecoration(
+                                hintText: 'Ex. Science',
+                                fillColor: AppColors.card,
+                                contentPadding: const EdgeInsets.all(12),
+                                focusColor: Color(field.color),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: Icon(Icons.close, size: 18, color: AppColors.mut),
+                            onPressed: () => app.setGameForm((f) => f..rules[index].scoreFields.removeAt(i)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 10),
+                  Pressable(
+                    onTap: () => app.setGameForm((f) => f
+                      ..rules[index].scoreFields.add(_newScoreField(f.rules[index].scoreFields.length))
+                      ..rules[index].multiRound = false),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.md)),
+                      child: Text('+ Ajouter une catégorie', style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.ink2)),
                     ),
                   ),
                 ],
-                const SizedBox(height: 10),
-                Pressable(
-                  onTap: () => app.setGameForm((draft) => draft
-                    ..scoreFields.add(_newScoreField(draft.scoreFields.length))
-                    ..multiRound = false),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.md)),
-                    child: Text('+ Ajouter une catégorie', style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.ink2)),
-                  ),
-                ),
-              ],
+              ),
+          ],
+          if (f.countType == CountType.ranks) ...[
+            const SizedBox(height: 18),
+            Text(
+              'On classe les joueurs du 1er au dernier. Vous pouvez nommer certaines places (optionnel) en partant du haut et/ou du bas — les autres restent neutres. Laissez tout vide pour un simple classement, sans noms.',
+              style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
             ),
-        ],
-        if (f.countType == CountType.ranks) ...[
+            const SizedBox(height: 16),
+            _label('En partant de la 1ère place'),
+            const SizedBox(height: 9),
+            _roleList(
+              app,
+              f.topRoles,
+              labelFor: (i) => _ordinal(i + 1),
+              hintFor: (i) => i == 0 ? 'Ex. Président' : 'Ex. Vice-président',
+              onChange: (i, v) => app.setGameForm((f) => f..rules[index].topRoles[i] = v),
+              onRemove: (i) => app.setGameForm((f) => f..rules[index].topRoles.removeAt(i)),
+              onAdd: () => app.setGameForm((f) => f..rules[index].topRoles.add('')),
+            ),
+            const SizedBox(height: 16),
+            _label('En partant de la dernière place'),
+            const SizedBox(height: 9),
+            _roleList(
+              app,
+              f.bottomRoles,
+              labelFor: (i) => i == 0 ? 'Dernière' : (i == 1 ? 'Avant-dernière' : '${_ordinal(i + 1)} avant la fin'),
+              hintFor: (i) => i == 0 ? 'Ex. Trou du cul' : 'Ex. Vice-trou du cul',
+              onChange: (i, v) => app.setGameForm((f) => f..rules[index].bottomRoles[i] = v),
+              onRemove: (i) => app.setGameForm((f) => f..rules[index].bottomRoles.removeAt(i)),
+              onAdd: () => app.setGameForm((f) => f..rules[index].bottomRoles.add('')),
+            ),
+          ] else if (f.countType != CountType.wins && f.countType != CountType.winLoss) ...[
+            const SizedBox(height: 18),
+            _label('Limite de points (optionnel)'),
+            const SizedBox(height: 9),
+            TextFormField(
+              initialValue: f.pointLimit,
+              keyboardType: TextInputType.number,
+              onChanged: (v) => app.setGameForm((f) => f..rules[index].pointLimit = v),
+              style: bodyFont(size: 16, weight: FontWeight.w700, color: AppColors.ink),
+              decoration: appFieldDecoration(hintText: 'Ex. 100', fillColor: AppColors.bg),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text('La partie sera signalée comme terminée dès qu’un joueur atteint ce score.', style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
+            ),
+          ],
           const SizedBox(height: 18),
-          Text(
-            'On classe les joueurs du 1er au dernier. Vous pouvez nommer certaines places (optionnel) en partant du haut et/ou du bas — les autres restent neutres. Laissez tout vide pour un simple classement, sans noms.',
-            style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
-          ),
-          const SizedBox(height: 16),
-          _label('En partant de la 1ère place'),
-          const SizedBox(height: 9),
-          _roleList(
-            app,
-            f.topRoles,
-            labelFor: (i) => _ordinal(i + 1),
-            hintFor: (i) => i == 0 ? 'Ex. Président' : 'Ex. Vice-président',
-            onChange: (i, v) => app.setGameForm((f) => f..topRoles[i] = v),
-            onRemove: (i) => app.setGameForm((f) => f..topRoles.removeAt(i)),
-            onAdd: () => app.setGameForm((f) => f..topRoles.add('')),
-          ),
-          const SizedBox(height: 16),
-          _label('En partant de la dernière place'),
-          const SizedBox(height: 9),
-          _roleList(
-            app,
-            f.bottomRoles,
-            labelFor: (i) => i == 0 ? 'Dernière' : (i == 1 ? 'Avant-dernière' : '${_ordinal(i + 1)} avant la fin'),
-            hintFor: (i) => i == 0 ? 'Ex. Trou du cul' : 'Ex. Vice-trou du cul',
-            onChange: (i, v) => app.setGameForm((f) => f..bottomRoles[i] = v),
-            onRemove: (i) => app.setGameForm((f) => f..bottomRoles.removeAt(i)),
-            onAdd: () => app.setGameForm((f) => f..bottomRoles.add('')),
-          ),
-        ] else if (f.countType != CountType.wins && f.countType != CountType.winLoss) ...[
-          const SizedBox(height: 18),
-          _label('Limite de points (optionnel)'),
-          const SizedBox(height: 9),
-          TextFormField(
-            initialValue: f.pointLimit,
-            keyboardType: TextInputType.number,
-            onChanged: (v) => app.setGameForm((f) => f..pointLimit = v),
-            style: bodyFont(size: 16, weight: FontWeight.w700, color: AppColors.ink),
-            decoration: appFieldDecoration(hintText: 'Ex. 100'),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text('La partie sera signalée comme terminée dès qu’un joueur atteint ce score.', style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
-          ),
-        ],
-        const SizedBox(height: 18),
-        Pressable(
-          onTap: f.scoreFields.isNotEmpty ? null : () => app.setGameForm((f) => f..multiRound = !f.multiRound),
-          child: AnimatedOpacity(
-            duration: const Duration(milliseconds: 150),
-            opacity: f.scoreFields.isNotEmpty ? 0.45 : 1,
-            child: AnimatedContainer(
+          Pressable(
+            onTap: f.scoreFields.isNotEmpty ? null : () => app.setGameForm((f) => f..rules[index].multiRound = !f.rules[index].multiRound),
+            child: AnimatedOpacity(
               duration: const Duration(milliseconds: 150),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: f.multiRound ? AppColors.accentSoft : AppColors.card,
-                border: Border.all(color: f.multiRound ? AppColors.accent : AppColors.line, width: 1.5),
-                borderRadius: BorderRadius.circular(AppRadius.md),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Manches multiples', style: bodyFont(size: 14.5, weight: FontWeight.w800, color: AppColors.ink)),
-                        Text(
-                          f.scoreFields.isNotEmpty
-                              ? 'Ce champ est grisé car vous jouez avec catégories de score.'
-                              : (f.multiRound
-                                  ? 'Nombre de manches illimité — les scores se cumulent (ex. Président en plusieurs donnes, Skyjo en plusieurs tours).'
-                                  : 'Une seule manche décide de la partie.'),
-                          style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
-                        ),
-                      ],
+              opacity: f.scoreFields.isNotEmpty ? 0.45 : 1,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: f.multiRound ? AppColors.accentSoft : AppColors.bg,
+                  border: Border.all(color: f.multiRound ? AppColors.accent : AppColors.line, width: 1.5),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Manches multiples', style: bodyFont(size: 14.5, weight: FontWeight.w800, color: AppColors.ink)),
+                          Text(
+                            f.scoreFields.isNotEmpty
+                                ? 'Ce champ est grisé car vous jouez avec catégories de score.'
+                                : (f.multiRound
+                                    ? 'Nombre de manches illimité — les scores se cumulent (ex. Président en plusieurs donnes, Skyjo en plusieurs tours).'
+                                    : 'Une seule manche décide de la partie.'),
+                            style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  IgnorePointer(
-                    ignoring: f.scoreFields.isNotEmpty,
-                    child: Switch(
-                      value: f.multiRound,
-                      activeThumbColor: AppColors.accent,
-                      onChanged: (v) => app.setGameForm((f) => f..multiRound = v),
+                    IgnorePointer(
+                      ignoring: f.scoreFields.isNotEmpty,
+                      child: Switch(
+                        value: f.multiRound,
+                        activeThumbColor: AppColors.accent,
+                        onChanged: (v) => app.setGameForm((f) => f..rules[index].multiRound = v),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
     );
   }
 
@@ -518,9 +562,9 @@ class CreateGameForm extends StatelessWidget {
 
   String _ordinal(int n) => n == 1 ? '1ère' : '${n}e';
 
-  GameScoreField _newScoreField(int index) {
-    final color = GameScoreField.palette[index % GameScoreField.palette.length];
-    return GameScoreField(id: 'score_${DateTime.now().microsecondsSinceEpoch}_$index', label: '', color: color);
+  GameScoreField _newScoreField(int i) {
+    final color = GameScoreField.palette[i % GameScoreField.palette.length];
+    return GameScoreField(id: 'score_${DateTime.now().microsecondsSinceEpoch}_$i', label: '', color: color);
   }
 
   Widget _roleList(
@@ -574,15 +618,15 @@ class CreateGameForm extends StatelessWidget {
   }
 
   Widget _countOption(AppState app, CountType type, String title, String desc) {
-    final selected = app.gameForm.countType == type;
+    final selected = rule.countType == type;
     return Pressable(
-      onTap: () => app.setGameForm((f) => f..countType = type),
+      onTap: () => app.setGameForm((f) => f..rules[index].countType = type),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         decoration: BoxDecoration(
-          color: selected ? AppColors.accentSoft : AppColors.card,
+          color: selected ? AppColors.accentSoft : AppColors.bg,
           border: Border.all(color: selected ? AppColors.accent : AppColors.line, width: 1.5),
           borderRadius: BorderRadius.circular(AppRadius.md),
         ),

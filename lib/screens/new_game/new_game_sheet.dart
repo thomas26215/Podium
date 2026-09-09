@@ -11,7 +11,38 @@ import 'other_groups_game_browser.dart';
 import 'step1_game.dart';
 import 'step2_players.dart';
 import 'step3_scores.dart';
+import 'step_rule.dart';
 import 'tournament_format_step.dart';
+
+/// Title for whichever [WizardStepKind] is currently on screen — see
+/// [AppState.stepSequence] for how the sequence (and so which kinds appear)
+/// varies between a plain match and a tournament, and with the picked
+/// game's rule count.
+String _titleFor(AppState app, WizardStepKind kind) => switch (kind) {
+      WizardStepKind.kind => 'Partie ou tournoi ?',
+      WizardStepKind.tournamentFormat => 'Format du tournoi',
+      WizardStepKind.game => 'Quel jeu ?',
+      WizardStepKind.rule => 'Quelle règle ?',
+      WizardStepKind.players => app.isTournamentFlow ? 'Qui participe ?' : 'Qui joue ?',
+      WizardStepKind.scores => 'Les scores',
+    };
+
+String _subtitleFor(AppState app, WizardStepKind kind) {
+  // "Manche" is already used for a round within a single match (Président
+  // hands, points-per-round…) — a best-of-N leg is a whole separate match,
+  // so it's labelled "Partie" to avoid clashing with that vocabulary.
+  final seriesPrefix = app.draft.bestOf > 1 ? 'Partie ${app.draft.seriesLegIndex}/${app.draft.bestOf} — ' : '';
+  return switch (kind) {
+    WizardStepKind.kind => 'Une partie, ou tout un bracket ?',
+    WizardStepKind.tournamentFormat => 'Élimination simple, double, ou poules',
+    WizardStepKind.game => app.isTournamentFlow ? 'Choisissez le jeu du tournoi' : 'Choisissez la partie',
+    WizardStepKind.rule => 'Choisissez la règle à utiliser pour cette partie',
+    WizardStepKind.players => app.draft.mode == 'team'
+        ? 'Répartissez les équipes'
+        : (app.isTournamentFlow ? 'Sélectionnez les participants' : 'Sélectionnez les joueurs'),
+    WizardStepKind.scores => '$seriesPrefix${app.draft.unit == 'wins' ? 'Manches gagnées par chacun' : 'Entrez les points de chacun'}',
+  };
+}
 
 /// Presents the new-game/scoring sheet and cleans up after it closes,
 /// regardless of how it closed (saved, backed out, or cancelled — see
@@ -99,39 +130,16 @@ class NewGameSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final tournamentFlow = app.isTournamentFlow;
-    // Same 4-step shell for both kinds (see AppState.canProceed) — only
-    // step 2/3/4's content (and, for a plain match, the scores step's
-    // best-of-N prefix) differs.
-    final titles = tournamentFlow
-        ? {1: 'Partie ou tournoi ?', 2: 'Format du tournoi', 3: 'Quel jeu ?', 4: 'Qui participe ?'}
-        : {1: 'Partie ou tournoi ?', 2: 'Quel jeu ?', 3: 'Qui joue ?', 4: 'Les scores'};
-    // "Manche" is already used for a round within a single match (Président
-    // hands, points-per-round…) — a best-of-N leg is a whole separate match,
-    // so it's labelled "Partie" to avoid clashing with that vocabulary.
-    final seriesPrefix = app.draft.bestOf > 1 ? 'Partie ${app.draft.seriesLegIndex}/${app.draft.bestOf} — ' : '';
-    final subs = tournamentFlow
-        ? {
-            1: 'Une partie, ou tout un bracket ?',
-            2: 'Élimination simple, double, ou poules',
-            3: 'Choisissez le jeu du tournoi',
-            4: app.draft.mode == 'team' ? 'Répartissez les équipes' : 'Sélectionnez les participants',
-          }
-        : {
-            1: 'Une partie, ou tout un bracket ?',
-            2: 'Choisissez la partie',
-            3: app.draft.mode == 'team' ? 'Répartissez les équipes' : 'Sélectionnez les joueurs',
-            4: '$seriesPrefix${app.draft.unit == 'wins' ? 'Manches gagnées par chacun' : 'Entrez les points de chacun'}',
-          };
     final title = app.browsingLibrary
         ? 'Bibliothèque de jeux'
         : (app.browsingOtherGroups
             ? 'Vos autres groupes'
-            : (app.creatingGame ? (app.isEditingGame ? 'Modifier le jeu' : 'Nouveau jeu') : titles[app.step]!));
+            : (app.creatingGame ? (app.isEditingGame ? 'Modifier le jeu' : 'Nouveau jeu') : _titleFor(app, app.currentStepKind)));
     final subtitle = app.browsingLibrary
         ? 'Importez un jeu prêt à l\'emploi'
         : (app.browsingOtherGroups
             ? 'Réutilisez un jeu existant'
-            : (app.creatingGame ? (app.isEditingGame ? 'Ajustez ses paramètres' : 'Ajoutez-le à votre catalogue') : subs[app.step]!));
+            : (app.creatingGame ? (app.isEditingGame ? 'Ajustez ses paramètres' : 'Ajoutez-le à votre catalogue') : _subtitleFor(app, app.currentStepKind)));
     // Scoring/correcting one specific bracket match (see
     // AppState.isEditingTournamentMatch): the game and players are fixed by
     // the bracket, not something to step back through — a plain close
@@ -184,7 +192,7 @@ class NewGameSheet extends StatelessWidget {
                     if (!app.creatingGame && !app.browsingLibrary && !app.browsingOtherGroups && !app.isEditingTournamentMatch)
                       Row(
                         children: [
-                          for (var i = 1; i <= 4; i++)
+                          for (var i = 1; i <= app.totalSteps; i++)
                             AnimatedContainer(
                               duration: const Duration(milliseconds: 260),
                               curve: Curves.easeOutCubic,
@@ -205,7 +213,7 @@ class NewGameSheet extends StatelessWidget {
                   ],
                 ),
               ),
-              if (!tournamentFlow && app.step == 4 && !app.creatingGame && !app.isOnline)
+              if (!tournamentFlow && app.currentStepKind == WizardStepKind.scores && !app.creatingGame && !app.isOnline)
                 Container(
                   margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -250,19 +258,14 @@ class NewGameSheet extends StatelessWidget {
                               ? const OtherGroupsGameBrowser()
                               : app.creatingGame
                                   ? const CreateGameForm()
-                                  : app.step == 1
-                                      ? const KindChoiceStep()
-                                      : tournamentFlow
-                                          ? switch (app.step) {
-                                              2 => const TournamentFormatStep(),
-                                              3 => const Step1Game(),
-                                              _ => const Step2Players(),
-                                            }
-                                          : switch (app.step) {
-                                              2 => const Step1Game(),
-                                              3 => const Step2Players(),
-                                              _ => const Step3Scores(),
-                                            },
+                                  : switch (app.currentStepKind) {
+                                      WizardStepKind.kind => const KindChoiceStep(),
+                                      WizardStepKind.tournamentFormat => const TournamentFormatStep(),
+                                      WizardStepKind.game => const Step1Game(),
+                                      WizardStepKind.rule => const StepRule(),
+                                      WizardStepKind.players => const Step2Players(),
+                                      WizardStepKind.scores => const Step3Scores(),
+                                    },
                     ),
                   ),
                 ),
@@ -282,9 +285,9 @@ class NewGameSheet extends StatelessWidget {
                       PrimaryButton(
                         label: app.creatingGame
                             ? (app.isEditingGame ? 'Enregistrer les modifications' : 'Créer le jeu')
-                            : (tournamentFlow && app.step == 4)
+                            : (tournamentFlow && app.step == app.totalSteps)
                                 ? 'Créer le tournoi'
-                                : (!tournamentFlow && app.step == 4)
+                                : (!tournamentFlow && app.step == app.totalSteps)
                                     ? (app.draft.bestOf <= 1
                                         ? 'Enregistrer la partie'
                                         : (app.draft.seriesLegIndex >= app.draft.bestOf

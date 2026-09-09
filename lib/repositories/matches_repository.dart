@@ -3,8 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/match.dart';
 
 abstract class MatchesRepository {
-  /// All matches recorded in any of `groupIds` (a root group + its
-  /// subgroups), newest first.
+  /// All matches recorded in any of `groupIds`, newest first.
   Stream<List<GameMatch>> watchMatches(String rootGroupId, List<String> groupIds);
 
   /// One-time tally of matches recorded in any of `groupIds` — cheaper than
@@ -93,7 +92,7 @@ class FirebaseMatchesRepository implements MatchesRepository {
   Stream<List<GameMatch>> watchMatches(String rootGroupId, List<String> groupIds) {
     if (groupIds.isEmpty) return Stream.value(const []);
     // Firestore whereIn caps at 30 values, comfortably above any realistic
-    // group + subgroup fan-out for this app.
+    // fan-out for this app.
     return _col(rootGroupId)
         .where('groupId', whereIn: groupIds.take(30).toList())
         .orderBy('createdAt', descending: true)

@@ -9,14 +9,14 @@ import '../../widgets/common.dart';
 import '../new_game/game_actions_sheet.dart';
 import '../new_game/game_rules_screen.dart';
 
-/// Read-first view of a single game — its settings and, front and center,
-/// its rules reminders — with quick access to edit either, add a variant,
+/// Read-first view of a single game — its settings (one card per rule) and,
+/// front and center, its rules reminders — with quick access to edit either,
 /// or (root owner only) delete it via the app bar menu.
 class GameDetailScreen extends StatelessWidget {
   final Game game;
   const GameDetailScreen({super.key, required this.game});
 
-  String get _countDescription => switch (game.countType) {
+  static String _countDescription(GameRule rule) => switch (rule.countType) {
         CountType.highWins => 'Points — le plus haut gagne',
         CountType.lowWins => 'Points — le plus bas gagne',
         CountType.wins => 'Manches gagnées',
@@ -30,8 +30,6 @@ class GameDetailScreen extends StatelessWidget {
     // Keep showing the freshest copy (settings/rules might have just been
     // edited) instead of the one passed in when this screen was pushed.
     final current = app.gameById(game.id) ?? game;
-    final variants = app.variantsOf(current.id);
-    final parent = current.parentGameId != null ? app.gameById(current.parentGameId!) : null;
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -71,61 +69,52 @@ class GameDetailScreen extends StatelessWidget {
               ],
             ),
           ),
-          if (parent != null) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-              decoration: BoxDecoration(color: AppColors.accentSoft, borderRadius: BorderRadius.circular(AppRadius.md)),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.call_split_rounded, size: 15, color: AppColors.accent),
-                  const SizedBox(width: 6),
-                  Text('Variante de « ${parent.name} »', style: bodyFont(size: 12.5, weight: FontWeight.w700, color: AppColors.accent)),
-                ],
-              ),
-            ),
-          ],
           const SizedBox(height: 22),
-          SectionHeader(title: 'Comptage'),
-          FadeSlideIn(
-            delay: const Duration(milliseconds: 60),
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(_countDescription, style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink)),
-                  if (current.pointLimit != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text('Limite : ${current.pointLimit} points', style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)),
-                    ),
-                  if (current.multiRound)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text('Manches multiples activées', style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)),
-                    ),
-                  if (current.isRanks && ((current.topRoles?.isNotEmpty ?? false) || (current.bottomRoles?.isNotEmpty ?? false))) ...[
-                    const SizedBox(height: 8),
-                    for (final r in current.topRoles ?? const <String>[])
-                      Text('•  $r', style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.ink2)),
-                    for (final r in current.bottomRoles ?? const <String>[])
-                      Text('•  $r', style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.ink2)),
+          SectionHeader(title: current.hasMultipleRules ? 'Règles de score' : 'Règle de score'),
+          for (final (i, rule) in current.rules.indexed)
+            FadeSlideIn(
+              delay: Duration(milliseconds: 60 + i * 40),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (current.hasMultipleRules) ...[
+                      Text(rule.name, style: bodyFont(size: 13, weight: FontWeight.w800, color: AppColors.accent)),
+                      const SizedBox(height: 4),
+                    ],
+                    Text(_countDescription(rule), style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink)),
+                    if (rule.pointLimit != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text('Limite : ${rule.pointLimit} points', style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)),
+                      ),
+                    if (rule.multiRound)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text('Manches multiples activées', style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)),
+                      ),
+                    if (rule.isRanks && ((rule.topRoles?.isNotEmpty ?? false) || (rule.bottomRoles?.isNotEmpty ?? false))) ...[
+                      const SizedBox(height: 8),
+                      for (final r in rule.topRoles ?? const <String>[])
+                        Text('•  $r', style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.ink2)),
+                      for (final r in rule.bottomRoles ?? const <String>[])
+                        Text('•  $r', style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.ink2)),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 12),
           SectionHeader(
-            title: 'Règles',
+            title: 'Aide-mémoire',
             actionLabel: 'Modifier',
             onAction: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => GameRulesScreen(game: current))),
           ),
           if (current.ruleSections.isEmpty)
-            EmptyState(emoji: '📖', message: "Aucune règle enregistrée pour l'instant.")
+            EmptyState(emoji: '📖', message: "Aucun aide-mémoire enregistré pour l'instant.")
           else
             for (final (i, section) in current.ruleSections.indexed)
               FadeSlideIn(
@@ -154,29 +143,6 @@ class GameDetailScreen extends StatelessWidget {
                   ),
                 ),
               ),
-          if (variants.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            SectionHeader(title: 'Variantes'),
-            for (final v in variants)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Pressable(
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => GameDetailScreen(game: v))),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
-                    child: Row(
-                      children: [
-                        Text(v.emoji, style: const TextStyle(fontSize: 20)),
-                        const SizedBox(width: 10),
-                        Expanded(child: Text(v.name, style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink))),
-                        Icon(Icons.chevron_right_rounded, color: AppColors.mut),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-          ],
         ],
       ),
     );

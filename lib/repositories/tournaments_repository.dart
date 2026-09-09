@@ -3,8 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/tournament.dart';
 
 abstract class TournamentsRepository {
-  /// All tournaments recorded in any of `groupIds` (a root group + its
-  /// subgroups), newest first.
+  /// All tournaments recorded in any of `groupIds`, newest first.
   Stream<List<Tournament>> watchTournaments(String rootGroupId, List<String> groupIds);
 
   /// Persists `tournament` (its `id` is ignored — the repository assigns
