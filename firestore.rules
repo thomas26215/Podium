@@ -17,6 +17,12 @@ rules_version = '2';
 //   groups/{rootId}/matches/{matchId}  recorded matches, lives under the ROOT doc
 //                                       only; each match's own `groupId` field says
 //                                       which root/subgroup it was actually played in
+//   groups/{rootId}/tournaments/{id}   a bracket (single/double elimination or
+//                                       groups+elimination), lives under the ROOT
+//                                       doc only; its own `groupId` field says which
+//                                       root/subgroup it was created in — the whole
+//                                       bracket (every match node) lives embedded in
+//                                       this one document
 //
 // Root groups carry an `allMemberIds` field: the union of the root's own
 // members plus every member of every subgroup underneath it (kept in sync
@@ -180,6 +186,21 @@ match /databases/{database}/documents {
       allow create, update: if signedIn() && isCommunityMember(rootDoc(groupId).data) && !isClosed(rootDoc(groupId).data);
       // The root owner can delete any match in the tree; a subgroup owner
       // can delete matches recorded specifically under their own subgroup.
+      allow delete: if signedIn() && (
+        isRootOwner(groupId)
+        || get(/databases/$(database)/documents/groups/$(resource.data.groupId)).data.ownerId == request.auth.uid
+      );
+    }
+
+    match /tournaments/{tournamentId} {
+      allow read: if signedIn() && isCommunityMember(rootDoc(groupId).data);
+      // Whole-document rewrites (see `TournamentsRepository.updateTournament`)
+      // cover both creating a tournament and recording every match result
+      // against its bracket — same trust model as matches. Blocked once the
+      // root is closed (see isClosed()).
+      allow create, update: if signedIn() && isCommunityMember(rootDoc(groupId).data) && !isClosed(rootDoc(groupId).data);
+      // Same delete rule as matches: the root owner, or the owner of the
+      // subgroup the tournament was created in.
       allow delete: if signedIn() && (
         isRootOwner(groupId)
         || get(/databases/$(database)/documents/groups/$(resource.data.groupId)).data.ownerId == request.auth.uid

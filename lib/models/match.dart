@@ -185,6 +185,15 @@ class GameMatch {
   /// left looking "En cours" forever (see `SeriesMatchCard`).
   final bool seriesEndedEarly;
 
+  /// Set when this match was played as one node of a tournament bracket (see
+  /// `lib/models/tournament.dart`) — [tournamentMatchId] is the id of the
+  /// specific `BracketMatch` it settled. Purely descriptive (lets the
+  /// history UI show a "Tournoi" badge); the actual bracket-advancement
+  /// bookkeeping lives on the `Tournament` document itself, updated by
+  /// `AppState._recordTournamentResult`.
+  final String? tournamentId;
+  final String? tournamentMatchId;
+
   const GameMatch({
     required this.id,
     required this.gameId,
@@ -202,6 +211,8 @@ class GameMatch {
     this.seriesGame,
     this.seriesLength,
     this.seriesEndedEarly = false,
+    this.tournamentId,
+    this.tournamentMatchId,
   });
 
   bool get isTeam => mode == 'team';
@@ -241,6 +252,8 @@ class GameMatch {
         seriesGame: seriesGame,
         seriesLength: seriesLength,
         seriesEndedEarly: seriesEndedEarly,
+        tournamentId: tournamentId,
+        tournamentMatchId: tournamentMatchId,
       );
 
   /// Used to flag already-saved legs when a "best of N" series is cut short
@@ -263,6 +276,8 @@ class GameMatch {
         seriesGame: seriesGame,
         seriesLength: seriesLength,
         seriesEndedEarly: seriesEndedEarly ?? this.seriesEndedEarly,
+        tournamentId: tournamentId,
+        tournamentMatchId: tournamentMatchId,
       );
 
   Map<String, dynamic> toMap() => {
@@ -285,6 +300,8 @@ class GameMatch {
         if (seriesGame != null) 'seriesGame': seriesGame,
         if (seriesLength != null) 'seriesLength': seriesLength,
         if (seriesEndedEarly) 'seriesEndedEarly': seriesEndedEarly,
+        if (tournamentId != null) 'tournamentId': tournamentId,
+        if (tournamentMatchId != null) 'tournamentMatchId': tournamentMatchId,
       };
 
   factory GameMatch.fromDoc(String id, Map<String, dynamic> data) {
@@ -311,6 +328,8 @@ class GameMatch {
       seriesGame: (data['seriesGame'] as num?)?.toInt(),
       seriesLength: (data['seriesLength'] as num?)?.toInt(),
       seriesEndedEarly: data['seriesEndedEarly'] as bool? ?? false,
+      tournamentId: data['tournamentId'] as String?,
+      tournamentMatchId: data['tournamentMatchId'] as String?,
     );
   }
 

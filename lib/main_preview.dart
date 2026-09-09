@@ -101,6 +101,7 @@ void main() {
     groupsRepo: groups,
     gamesRepo: games,
     matchesRepo: matches,
+    tournamentsRepo: FakeTournamentsRepository(),
     usersRepo: users,
     guestsRepo: FakeGuestsRepository(),
     gameLibraryRepo: FakeGameLibraryRepository(),

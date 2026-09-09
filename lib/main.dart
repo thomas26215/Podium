@@ -12,6 +12,7 @@ import 'repositories/games_repository.dart';
 import 'repositories/groups_repository.dart';
 import 'repositories/guests_repository.dart';
 import 'repositories/matches_repository.dart';
+import 'repositories/tournaments_repository.dart';
 import 'repositories/users_repository.dart';
 import 'screens/auth/auth_gate.dart';
 import 'services/notifications_service.dart';
@@ -51,6 +52,7 @@ class PodiumApp extends StatelessWidget {
             groupsRepo: FirebaseGroupsRepository(),
             gamesRepo: FirebaseGamesRepository(),
             matchesRepo: FirebaseMatchesRepository(),
+            tournamentsRepo: FirebaseTournamentsRepository(),
             usersRepo: usersRepo,
             guestsRepo: FirebaseGuestsRepository(),
             gameLibraryRepo: FirebaseGameLibraryRepository(),

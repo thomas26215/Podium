@@ -4,10 +4,12 @@ import '../models/app_user.dart';
 import '../models/game.dart';
 import '../models/group.dart';
 import '../models/match.dart';
+import '../models/tournament.dart';
 import 'auth_repository.dart';
 import 'games_repository.dart';
 import 'groups_repository.dart';
 import 'matches_repository.dart';
+import 'tournaments_repository.dart';
 import 'users_repository.dart';
 
 /// In-memory stand-ins for the Firebase-backed repositories, used by widget
@@ -553,5 +555,52 @@ class FakeMatchesRepository implements MatchesRepository {
       updatedAt: old.updatedAt,
     );
     _sessionCtrl(rootGroupId).add(list);
+  }
+}
+
+class FakeTournamentsRepository implements TournamentsRepository {
+  final Map<String, List<Tournament>> byGroup;
+  final _controllers = <String, StreamController<List<Tournament>>>{};
+
+  FakeTournamentsRepository({Map<String, List<Tournament>>? seed}) : byGroup = seed ?? {};
+
+  StreamController<List<Tournament>> _ctrl(String id) => _controllers.putIfAbsent(id, () => StreamController.broadcast());
+
+  @override
+  Stream<List<Tournament>> watchTournaments(String rootGroupId, List<String> groupIds) {
+    final c = _ctrl(rootGroupId);
+    Future.microtask(() {
+      final all = byGroup[rootGroupId] ?? const [];
+      c.add(all.where((t) => groupIds.contains(t.groupId)).toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt)));
+    });
+    return c.stream;
+  }
+
+  int _counter = 0;
+
+  @override
+  Future<Tournament> addTournament(String rootGroupId, Tournament tournament) async {
+    final list = byGroup.putIfAbsent(rootGroupId, () => []);
+    final saved = Tournament.fromDoc('tournament${++_counter}', tournament.toMap());
+    list.insert(0, saved);
+    _ctrl(rootGroupId).add(list);
+    return saved;
+  }
+
+  @override
+  Future<void> updateTournament(String rootGroupId, Tournament tournament) async {
+    final list = byGroup.putIfAbsent(rootGroupId, () => []);
+    final i = list.indexWhere((t) => t.id == tournament.id);
+    if (i == -1) return;
+    list[i] = tournament;
+    _ctrl(rootGroupId).add(list);
+  }
+
+  @override
+  Future<void> deleteTournament(String rootGroupId, String tournamentId) async {
+    final list = byGroup[rootGroupId];
+    if (list == null) return;
+    list.removeWhere((t) => t.id == tournamentId);
+    _ctrl(rootGroupId).add(list);
   }
 }
