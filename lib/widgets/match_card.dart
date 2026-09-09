@@ -137,29 +137,42 @@ class _SeriesMatchCardState extends State<SeriesMatchCard> {
               Expanded(child: Text(resultLine, style: bodyFont(size: 13.5, weight: FontWeight.w700, color: AppColors.ink2))),
               AvatarCluster(avatars: [for (final p in players.take(4)) (initial: p.initial, color: Color(p.color))]),
               const SizedBox(width: 4),
-              Icon(_expanded ? Icons.expand_less_rounded : Icons.expand_more_rounded, size: 20, color: AppColors.mut),
+              AnimatedRotation(
+                turns: _expanded ? 0.5 : 0,
+                duration: const Duration(milliseconds: 200),
+                child: Icon(Icons.expand_more_rounded, size: 20, color: AppColors.mut),
+              ),
             ],
           ),
-          if (_expanded) ...[
-            const SizedBox(height: 12),
-            Container(height: 1, color: AppColors.line),
-            const SizedBox(height: 10),
-            for (final leg in legs)
-              InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: () => widget.onTapLeg(leg),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Row(
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            alignment: Alignment.topCenter,
+            child: !_expanded
+                ? const SizedBox(width: double.infinity)
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SizedBox(width: 58, child: Text('Partie ${leg.seriesGame ?? '?'}', style: bodyFont(size: 12.5, weight: FontWeight.w700, color: AppColors.mut))),
-                      Expanded(child: Text(matchResultLine(widget.game, leg, widget.appState), style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.ink))),
-                      Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.mut),
+                      const SizedBox(height: 12),
+                      Container(height: 1, color: AppColors.line),
+                      const SizedBox(height: 10),
+                      for (final leg in legs)
+                        InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () => widget.onTapLeg(leg),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Row(
+                              children: [
+                                SizedBox(width: 58, child: Text('Partie ${leg.seriesGame ?? '?'}', style: bodyFont(size: 12.5, weight: FontWeight.w700, color: AppColors.mut))),
+                                Expanded(child: Text(matchResultLine(widget.game, leg, widget.appState), style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.ink))),
+                                Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.mut),
+                              ],
+                            ),
+                          ),
+                        ),
                     ],
                   ),
-                ),
-              ),
-          ],
+          ),
         ],
       ),
     );
@@ -256,12 +269,25 @@ class MatchCard extends StatelessWidget {
               Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.mut),
             ],
           ),
-          if (match.hasScoreBreakdown) ...[
+          if (match.hasScoreBreakdown || match.tournamentId != null) ...[
             const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(color: AppColors.accentSoft, borderRadius: BorderRadius.circular(999)),
-              child: Text('Par catégories', style: bodyFont(size: 11.5, weight: FontWeight.w800, color: AppColors.accent)),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (match.tournamentId != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(999)),
+                    child: Text('🏆 Tournoi', style: bodyFont(size: 11.5, weight: FontWeight.w800, color: AppColors.ink2)),
+                  ),
+                if (match.hasScoreBreakdown)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(color: AppColors.accentSoft, borderRadius: BorderRadius.circular(999)),
+                    child: Text('Par catégories', style: bodyFont(size: 11.5, weight: FontWeight.w800, color: AppColors.accent)),
+                  ),
+              ],
             ),
           ],
         ],

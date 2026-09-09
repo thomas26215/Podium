@@ -8,11 +8,15 @@ import '../../widgets/avatar.dart';
 import '../../widgets/common.dart';
 import '../../widgets/live_match_card.dart';
 import '../../widgets/match_card.dart';
+import '../../models/game.dart';
+import '../../models/tournament.dart';
 import '../../widgets/rank_row.dart';
 import '../games/games_catalog_screen.dart';
 import '../groups/groups_screen.dart';
 import '../live/live_match_screen.dart';
 import '../new_game/new_game_sheet.dart';
+import '../tournaments/tournament_detail_screen.dart';
+import '../tournaments/tournaments_list_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -83,74 +87,167 @@ class HomeScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          if (app.currentGroupClosed) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.lg)),
-              child: Row(
+          // Every section below is wrapped in a KeyedSubtree with a stable
+          // key — not decorative. Right after arriving on the home screen,
+          // the loading indicator right below disappears (groupDataFullyLoaded
+          // flips true) and "Parties en direct"/"Partie non terminée" can pop
+          // in a beat later as their own streams finish loading — each of
+          // those is an insertion/removal *above* the dashboard content, and
+          // without a key, Column reconciles an unkeyed list purely by index:
+          // once something above shifts, everything after it is treated as a
+          // brand-new subtree instead of the same one moving down, tearing
+          // down (and restarting from scratch) every FadeSlideIn/
+          // AnimatedCounter already mid-animation. A stable key anchors each
+          // section's identity regardless of what its siblings do.
+          if (app.currentGroupClosed)
+            KeyedSubtree(
+              key: const ValueKey('closed-banner'),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.lock_outline_rounded, size: 16, color: AppColors.mut),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      "Groupe clos — l'historique et le classement restent visibles, mais plus aucune action n'est possible.",
-                      style: bodyFont(size: 12, weight: FontWeight.w700, color: AppColors.mut),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.lg)),
+                    child: Row(
+                      children: [
+                        Icon(Icons.lock_outline_rounded, size: 16, color: AppColors.mut),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            "Groupe clos — l'historique et le classement restent visibles, mais plus aucune action n'est possible.",
+                            style: bodyFont(size: 12, weight: FontWeight.w700, color: AppColors.mut),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+                  const SizedBox(height: 12),
                 ],
               ),
             ),
-            const SizedBox(height: 12),
-          ],
-          if (!app.groupDataFullyLoaded) ...[
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  width: 13,
-                  height: 13,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.mut),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '${app.groupDataFetchedCount}/${AppState.groupDataTotalCount} données récupérées…',
-                  style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-          ],
-          if (app.pendingLocalDraft != null) ...[
-            SectionHeader(title: 'Partie non terminée', actionLabel: 'Ignorer', onAction: app.discardLocalDraft),
-            _PendingDraftBanner(app: app),
-            const SizedBox(height: 18),
-          ],
-          if (app.liveSessions.isNotEmpty) ...[
-            SectionHeader(title: 'Parties en direct'),
-            SizedBox(
-              height: 128,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: app.liveSessions.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 10),
-                itemBuilder: (_, i) {
-                  final session = app.liveSessions[i];
-                  return LiveMatchCard(
-                    session: session,
-                    game: app.gameById(session.gameId),
-                    appState: app,
-                    onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => LiveMatchScreen(sessionId: session.id))),
-                  );
-                },
+          if (!app.groupDataFullyLoaded)
+            KeyedSubtree(
+              key: const ValueKey('loading-indicator'),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 13,
+                        height: 13,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.mut),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${app.groupDataFetchedCount}/${AppState.groupDataTotalCount} données récupérées…',
+                        style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                ],
               ),
             ),
-            const SizedBox(height: 18),
-          ],
-          if (app.dashboardStyle == DashboardStyle.simple) ..._simpleSections(app, winRows) else ..._completeSections(app, stats, winRows),
+          if (app.pendingLocalDraft != null)
+            KeyedSubtree(
+              key: const ValueKey('pending-draft'),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SectionHeader(title: 'Partie non terminée', actionLabel: 'Ignorer', onAction: app.discardLocalDraft),
+                  _PendingDraftBanner(app: app),
+                  const SizedBox(height: 18),
+                ],
+              ),
+            ),
+          if (app.liveSessions.isNotEmpty)
+            KeyedSubtree(
+              key: const ValueKey('live-sessions'),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SectionHeader(title: 'Parties en direct'),
+                  SizedBox(
+                    height: 128,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: app.liveSessions.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 10),
+                      itemBuilder: (_, i) {
+                        final session = app.liveSessions[i];
+                        return LiveMatchCard(
+                          session: session,
+                          game: app.gameById(session.gameId),
+                          appState: app,
+                          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => LiveMatchScreen(sessionId: session.id))),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                ],
+              ),
+            ),
+          KeyedSubtree(
+            key: const ValueKey('dashboard'),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: app.dashboardStyle == DashboardStyle.simple ? _simpleSections(app, winRows) : _completeSections(app, stats, winRows),
+            ),
+          ),
+          if (app.viewTournaments.any((t) => !t.isCompleted))
+            KeyedSubtree(
+              key: const ValueKey('tournaments-section'),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: _tournamentsSection(context, app),
+              ),
+            ),
         ],
       ),
     );
   }
+}
+
+/// Tournaments currently in progress — deliberately low on the home screen
+/// (below the classement/dernières parties, not competing with "live"/
+/// "unfinished match" banners at the top) and only shown at all once
+/// there's actually one running; creating a new one is only ever reached
+/// via the main "+" (see `AppState.startTournamentCreationFlow`), not from
+/// here.
+List<Widget> _tournamentsSection(BuildContext context, AppState app) {
+  final activeTournaments = app.viewTournaments.where((t) => !t.isCompleted).toList();
+  return [
+    SectionHeader(
+      title: 'Tournois en cours',
+      actionLabel: 'Tout voir',
+      onAction: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TournamentsListScreen())),
+    ),
+    SizedBox(
+      height: 128,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: activeTournaments.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
+        itemBuilder: (_, i) {
+          final t = activeTournaments[i];
+          return _TournamentCard(
+            tournament: t,
+            game: app.gameById(t.gameId),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => TournamentDetailScreen(tournamentId: t.id))),
+          );
+        },
+      ),
+    ),
+  ];
 }
 
 /// Épuré: just who's leading and the very last game — the rest of the
@@ -335,11 +432,14 @@ class _LeaderHero extends StatelessWidget {
                       Text(row.player.displayName, style: dispFont(size: 24, weight: FontWeight.w800, color: Colors.white, letterSpacing: -0.4)),
                       const SizedBox(height: 6),
                       Row(children: [
-                        Text('${row.wins}', style: bodyFont(size: 15, weight: FontWeight.w700, color: Colors.white)),
+                        AnimatedCounter(value: row.wins, style: bodyFont(size: 15, weight: FontWeight.w700, color: Colors.white)),
                         const SizedBox(width: 4),
                         Text('victoires', style: bodyFont(size: 13, weight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.6))),
                         const SizedBox(width: 18),
-                        Text('${(row.ratio * 100).round()}%', style: bodyFont(size: 15, weight: FontWeight.w700, color: Colors.white)),
+                        Row(children: [
+                          AnimatedCounter(value: (row.ratio * 100).round(), style: bodyFont(size: 15, weight: FontWeight.w700, color: Colors.white)),
+                          Text('%', style: bodyFont(size: 15, weight: FontWeight.w700, color: Colors.white)),
+                        ]),
                         const SizedBox(width: 4),
                         Text('de winrate', style: bodyFont(size: 13, weight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.6))),
                       ]),
@@ -396,7 +496,12 @@ class _SimpleLeaderCard extends StatelessWidget {
               children: [
                 Text('En tête · ${row.player.displayName}', style: bodyFont(size: 15, weight: FontWeight.w800, color: AppColors.ink)),
                 const SizedBox(height: 2),
-                Text('${row.wins} victoires · ${(row.ratio * 100).round()}% de winrate', style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)),
+                Row(children: [
+                  AnimatedCounter(value: row.wins, style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)),
+                  Text(' victoires · ', style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)),
+                  AnimatedCounter(value: (row.ratio * 100).round(), style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)),
+                  Text('% de winrate', style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)),
+                ]),
               ],
             ),
           ),
@@ -414,6 +519,42 @@ class _SimpleNoDataCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
       child: Text('Enregistrez votre première partie pour lancer le classement.', style: bodyFont(size: 13.5, weight: FontWeight.w600, color: AppColors.mut)),
+    );
+  }
+}
+
+/// One active tournament in the home screen's "Tournois" section.
+class _TournamentCard extends StatelessWidget {
+  final Tournament tournament;
+  final Game? game;
+  final VoidCallback onTap;
+  const _TournamentCard({required this.tournament, required this.game, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final done = tournament.matches.where((m) => m.bracket != 'group' && (m.gameMatchId != null || m.bye)).length;
+    final total = tournament.matches.where((m) => m.bracket != 'group').length;
+    return Pressable(
+      onTap: onTap,
+      child: Container(
+        width: 150,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.xl)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(game?.emoji ?? '🏆', style: const TextStyle(fontSize: 22)),
+            const Spacer(),
+            Text(tournament.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: bodyFont(size: 13.5, weight: FontWeight.w800, color: AppColors.ink)),
+            Text(
+              total > 0 ? '$done/$total matchs' : '${tournament.entrants.length} participants',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: bodyFont(size: 11.5, weight: FontWeight.w600, color: AppColors.mut),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
