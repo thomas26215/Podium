@@ -35,7 +35,7 @@ class FriendsScreen extends StatelessWidget {
                 style: bodyFont(size: 13, weight: FontWeight.w600, color: AppColors.mut),
               ),
               const SizedBox(height: 16),
-              GestureDetector(
+              Pressable(
                 onTap: () => showDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: const _AddFriendDialog())),
                 child: Container(
                   padding: const EdgeInsets.all(14),
@@ -54,7 +54,7 @@ class FriendsScreen extends StatelessWidget {
               if (app.friends.isEmpty)
                 const EmptyState(emoji: '🧑‍🤝‍🧑', message: "Pas encore d'ami ajouté.")
               else
-                for (final f in app.friends) _FriendRow(friend: f),
+                for (final (i, f) in app.friends.indexed) FadeSlideIn(delay: Duration(milliseconds: i * 40), child: _FriendRow(friend: f)),
             ],
           ),
         ),

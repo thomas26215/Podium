@@ -139,7 +139,7 @@ Future<void> _showVariantPicker(BuildContext context, AppState app, Game base, L
             ),
           ],
           const SizedBox(height: 14),
-          GestureDetector(
+          Pressable(
             onTap: () {
               Navigator.of(sheetContext).pop();
               app.startNewGame(parentGameId: base.id);
@@ -166,9 +166,10 @@ class _VariantOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: selected ? AppColors.accentSoft : AppColors.card,
@@ -277,9 +278,10 @@ class CreateGameForm extends StatelessWidget {
           runSpacing: 8,
           children: [
             for (final e in Game.emojiChoices)
-              GestureDetector(
+              Pressable(
                 onTap: () => app.setGameForm((f) => f..emoji = e),
-                child: Container(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
                   width: 44,
                   height: 44,
                   alignment: Alignment.center,
@@ -301,9 +303,10 @@ class CreateGameForm extends StatelessWidget {
           runSpacing: 8,
           children: [
             for (final c in Game.categories)
-              GestureDetector(
+              Pressable(
                 onTap: () => app.setGameForm((f) => f..category = c),
-                child: Container(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                   decoration: BoxDecoration(
                     color: f.category == c ? AppColors.ink : AppColors.card,
@@ -341,7 +344,7 @@ class CreateGameForm extends StatelessWidget {
                   Expanded(
                     child: Text('Ex. merveilles, pièces, guerre, science…', style: bodyFont(size: 13, weight: FontWeight.w600, color: AppColors.mut)),
                   ),
-                  GestureDetector(
+                  Pressable(
                     onTap: () => app.setGameForm((draft) => draft
                       ..scoreFields.add(_newScoreField(draft.scoreFields.length))
                       ..multiRound = false),
@@ -364,7 +367,7 @@ class CreateGameForm extends StatelessWidget {
                     decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: Color(field.color).withValues(alpha: 0.55), width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
                     child: Row(
                       children: [
-                        GestureDetector(
+                        Pressable(
                           onTap: () async {
                             final picked = await _pickScoreFieldColor(context, field.color);
                             if (picked == null) return;
@@ -402,7 +405,7 @@ class CreateGameForm extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 10),
-                GestureDetector(
+                Pressable(
                   onTap: () => app.setGameForm((draft) => draft
                     ..scoreFields.add(_newScoreField(draft.scoreFields.length))
                     ..multiRound = false),
@@ -463,11 +466,13 @@ class CreateGameForm extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 18),
-        GestureDetector(
+        Pressable(
           onTap: f.scoreFields.isNotEmpty ? null : () => app.setGameForm((f) => f..multiRound = !f.multiRound),
-          child: Opacity(
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 150),
             opacity: f.scoreFields.isNotEmpty ? 0.45 : 1,
-            child: Container(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: f.multiRound ? AppColors.accentSoft : AppColors.card,
@@ -555,7 +560,7 @@ class CreateGameForm extends StatelessWidget {
               ],
             ),
           ),
-        GestureDetector(
+        Pressable(
           onTap: onAdd,
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 10),
@@ -570,9 +575,10 @@ class CreateGameForm extends StatelessWidget {
 
   Widget _countOption(AppState app, CountType type, String title, String desc) {
     final selected = app.gameForm.countType == type;
-    return GestureDetector(
+    return Pressable(
       onTap: () => app.setGameForm((f) => f..countType = type),
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         decoration: BoxDecoration(
@@ -653,9 +659,10 @@ Future<int?> _pickScoreFieldColor(BuildContext context, int initialColor) async 
                     runSpacing: 8,
                     children: [
                       for (final color in swatches)
-                        GestureDetector(
+                        Pressable(
                           onTap: () => setState(() => selected = color),
-                          child: Container(
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
                             width: 34,
                             height: 34,
                             decoration: BoxDecoration(

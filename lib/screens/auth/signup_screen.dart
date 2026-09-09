@@ -46,25 +46,27 @@ class _SignupScreenState extends State<SignupScreen> {
               constraints: const BoxConstraints(maxWidth: 420),
               child: Form(
                 key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text('Créer un compte', style: dispFont(size: 26, weight: FontWeight.w700, color: AppColors.ink, letterSpacing: -0.5)),
-                    const SizedBox(height: 4),
-                    Text('Pour rejoindre ou créer vos groupes.', style: bodyFont(size: 14, weight: FontWeight.w600, color: AppColors.mut)),
-                    const SizedBox(height: 28),
-                    _field(label: 'Prénom', controller: _nameCtrl),
-                    const SizedBox(height: 16),
-                    _field(label: 'E-mail', controller: _emailCtrl, keyboardType: TextInputType.emailAddress),
-                    const SizedBox(height: 16),
-                    _field(label: 'Mot de passe', controller: _passCtrl, obscure: true, minLen: 6),
-                    if (app.flowError != null) ...[
-                      const SizedBox(height: 12),
-                      Text(app.flowError!, style: bodyFont(size: 13, weight: FontWeight.w600, color: AppColors.accent)),
+                child: FadeSlideIn(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text('Créer un compte', style: dispFont(size: 26, weight: FontWeight.w700, color: AppColors.ink, letterSpacing: -0.5)),
+                      const SizedBox(height: 4),
+                      Text('Pour rejoindre ou créer vos groupes.', style: bodyFont(size: 14, weight: FontWeight.w600, color: AppColors.mut)),
+                      const SizedBox(height: 28),
+                      _field(label: 'Prénom', controller: _nameCtrl),
+                      const SizedBox(height: 16),
+                      _field(label: 'E-mail', controller: _emailCtrl, keyboardType: TextInputType.emailAddress),
+                      const SizedBox(height: 16),
+                      _field(label: 'Mot de passe', controller: _passCtrl, obscure: true, minLen: 6),
+                      if (app.flowError != null) ...[
+                        const SizedBox(height: 12),
+                        Text(app.flowError!, style: bodyFont(size: 13, weight: FontWeight.w600, color: AppColors.accent)),
+                      ],
+                      const SizedBox(height: 24),
+                      PrimaryButton(label: "S'inscrire", loading: app.busy, onPressed: () => _submit(app)),
                     ],
-                    const SizedBox(height: 24),
-                    PrimaryButton(label: "S'inscrire", loading: app.busy, onPressed: () => _submit(app)),
-                  ],
+                  ),
                 ),
               ),
             ),

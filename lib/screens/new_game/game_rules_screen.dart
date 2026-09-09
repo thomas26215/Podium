@@ -94,15 +94,18 @@ class _GameRulesScreenState extends State<GameRulesScreen> {
           ),
           const SizedBox(height: 16),
           for (final (i, s) in _sections.indexed) ...[
-            _SectionCard(
-              section: s,
-              onRemoveSection: _sections.length > 1 ? () => _removeSection(i) : null,
-              onAddRule: () => _addRule(i),
-              onRemoveRule: (ruleIndex) => _removeRule(i, ruleIndex),
+            FadeSlideIn(
+              delay: Duration(milliseconds: i * 40),
+              child: _SectionCard(
+                section: s,
+                onRemoveSection: _sections.length > 1 ? () => _removeSection(i) : null,
+                onAddRule: () => _addRule(i),
+                onRemoveRule: (ruleIndex) => _removeRule(i, ruleIndex),
+              ),
             ),
             const SizedBox(height: 12),
           ],
-          GestureDetector(
+          Pressable(
             onTap: _addSection,
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 12),
@@ -190,7 +193,7 @@ class _SectionCard extends StatelessWidget {
                 ],
               ),
             ),
-          GestureDetector(
+          Pressable(
             onTap: onAddRule,
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 9),

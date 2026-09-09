@@ -101,7 +101,7 @@ class GroupsScreen extends StatelessWidget {
           child: Row(
             children: [
               Expanded(
-                child: GestureDetector(
+                child: Pressable(
                   onTap: () => showDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: const GroupFormDialog())),
                   child: Container(
                     padding: const EdgeInsets.all(16),
@@ -119,7 +119,7 @@ class GroupsScreen extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: GestureDetector(
+                child: Pressable(
                   onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const QrScanScreen())),
                   child: Container(
                     padding: const EdgeInsets.all(16),
@@ -257,17 +257,22 @@ class _RootGroupCard extends StatelessWidget {
               ],
             ),
           ),
-          if (expanded && hasSubs)
-            Container(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              decoration: BoxDecoration(border: Border(top: BorderSide(color: AppColors.line))),
-              child: Column(
-                children: [
-                  const SizedBox(height: 12),
-                  for (final sg in subs) _SubGroupRow(group: sg),
-                ],
-              ),
-            ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            alignment: Alignment.topCenter,
+            child: !(expanded && hasSubs)
+                ? const SizedBox(width: double.infinity)
+                : Container(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                    decoration: BoxDecoration(border: Border(top: BorderSide(color: AppColors.line))),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 12),
+                        for (final (i, sg) in subs.indexed) FadeSlideIn(delay: Duration(milliseconds: i * 40), child: _SubGroupRow(group: sg)),
+                      ],
+                    ),
+                  ),
+          ),
         ],
       ),
     );

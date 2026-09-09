@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/game.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/common.dart';
 import 'game_rules_screen.dart';
 import 'new_game_sheet.dart';
 
@@ -29,7 +30,7 @@ class ChooserOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(14),

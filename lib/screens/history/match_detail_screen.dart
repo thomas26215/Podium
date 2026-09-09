@@ -232,13 +232,10 @@ class MatchDetailScreen extends StatelessWidget {
                   ),
                 if (game.isWinLoss)
                   (win ? const SizedBox.shrink() : Text('Défaite', style: bodyFont(size: 12.5, weight: FontWeight.w700, color: AppColors.mut)))
+                else if (e.role != null)
+                  Text(e.role!, style: bodyFont(size: 13.5, weight: FontWeight.w800, color: AppColors.ink2))
                 else
-                  Text(
-                    e.role ?? '${e.points}',
-                    style: e.role != null
-                        ? bodyFont(size: 13.5, weight: FontWeight.w800, color: AppColors.ink2)
-                        : dispFont(size: 16, weight: FontWeight.w700, color: AppColors.ink),
-                  ),
+                  AnimatedCounter(value: e.points, style: dispFont(size: 16, weight: FontWeight.w700, color: AppColors.ink)),
               ],
             ),
           );
@@ -277,7 +274,7 @@ class MatchDetailScreen extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(999)),
-                        child: Text('${entry.points}', style: bodyFont(size: 13, weight: FontWeight.w800, color: Colors.white)),
+                        child: AnimatedCounter(value: entry.points, style: bodyFont(size: 13, weight: FontWeight.w800, color: Colors.white)),
                       ),
                     ],
                   ),
@@ -291,7 +288,7 @@ class MatchDetailScreen extends StatelessWidget {
                             Container(width: 10, height: 10, decoration: BoxDecoration(color: Color(field.color), shape: BoxShape.circle)),
                             const SizedBox(width: 8),
                             Expanded(child: Text(field.label, style: bodyFont(size: 12.5, weight: FontWeight.w700, color: AppColors.ink2))),
-                            Text('${entry.scoreBreakdown?[field.id] ?? 0}', style: bodyFont(size: 12.5, weight: FontWeight.w800, color: AppColors.ink)),
+                            AnimatedCounter(value: entry.scoreBreakdown?[field.id] ?? 0, style: bodyFont(size: 12.5, weight: FontWeight.w800, color: AppColors.ink)),
                           ],
                         ),
                       )
@@ -304,7 +301,7 @@ class MatchDetailScreen extends StatelessWidget {
                             Icon(Icons.circle, size: 10, color: AppColors.mut),
                             const SizedBox(width: 8),
                             Expanded(child: Text(item.key, style: bodyFont(size: 12.5, weight: FontWeight.w700, color: AppColors.ink2))),
-                            Text('${item.value}', style: bodyFont(size: 12.5, weight: FontWeight.w800, color: AppColors.ink)),
+                            AnimatedCounter(value: item.value, style: bodyFont(size: 12.5, weight: FontWeight.w800, color: AppColors.ink)),
                           ],
                         ),
                       ),
@@ -351,7 +348,7 @@ class MatchDetailScreen extends StatelessWidget {
                         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
                         child: Text('GAGNE', style: bodyFont(size: 10, weight: FontWeight.w800, color: AppColors.green, letterSpacing: 0.3)),
                       ),
-                    Text('$pts', style: dispFont(size: 18, weight: FontWeight.w700, color: AppColors.ink)),
+                    AnimatedCounter(value: pts, style: dispFont(size: 18, weight: FontWeight.w700, color: AppColors.ink)),
                   ]),
                 ],
               ),

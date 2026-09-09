@@ -49,77 +49,100 @@ class _LoginScreenState extends State<LoginScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const SizedBox(height: 40),
-                    Container(
-                      width: 64,
-                      height: 64,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(18)),
-                      child: Icon(Icons.emoji_events, color: AppColors.gold, size: 30),
-                    ),
-                    const SizedBox(height: 20),
-                    Text('Podium', style: dispFont(size: 30, weight: FontWeight.w700, color: AppColors.ink, letterSpacing: -0.6)),
-                    const SizedBox(height: 4),
-                    Text('Les scores et classements entre amis.', style: bodyFont(size: 14, weight: FontWeight.w600, color: AppColors.mut)),
-                    const SizedBox(height: 32),
-                    _field(label: 'E-mail', controller: _emailCtrl, keyboardType: TextInputType.emailAddress),
-                    const SizedBox(height: 16),
-                    _field(label: 'Mot de passe', controller: _passCtrl, obscure: true),
-                    if (app.flowError != null) ...[
-                      const SizedBox(height: 12),
-                      Text(app.flowError!, style: bodyFont(size: 13, weight: FontWeight.w600, color: AppColors.accent)),
-                    ],
-                    const SizedBox(height: 24),
-                    PrimaryButton(label: 'Se connecter', loading: app.busy, onPressed: () => _submit(app)),
-                    if (savedAccounts.isNotEmpty) ...[
-                      const SizedBox(height: 26),
-                      Text('Comptes enregistrés', style: bodyFont(size: 12.5, weight: FontWeight.w800, color: AppColors.ink2)),
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
+                    FadeSlideIn(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          for (final account in savedAccounts)
-                            GestureDetector(
-                              onTap: () {
-                                _emailCtrl.text = account.email;
-                                _emailCtrl.selection = TextSelection.collapsed(offset: account.email.length);
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.fromLTRB(8, 8, 6, 8),
-                                decoration: BoxDecoration(
-                                  color: AppColors.card,
-                                  border: Border.all(color: AppColors.line),
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Avatar(initial: account.displayName.isNotEmpty ? account.displayName[0].toUpperCase() : '?', color: Color(account.color), size: 28, fontSize: 11),
-                                    const SizedBox(width: 8),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(account.displayName, style: bodyFont(size: 13, weight: FontWeight.w800, color: AppColors.ink)),
-                                        Text(account.email, style: bodyFont(size: 11.5, weight: FontWeight.w600, color: AppColors.mut)),
-                                      ],
-                                    ),
-                                    const SizedBox(width: 2),
-                                    GestureDetector(
-                                      onTap: () => app.removeSavedAccount(account.email),
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(6),
-                                        child: Icon(Icons.close_rounded, size: 15, color: AppColors.mut),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
+                          Container(
+                            width: 64,
+                            height: 64,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(18)),
+                            child: Icon(Icons.emoji_events, color: AppColors.gold, size: 30),
+                          ),
+                          const SizedBox(height: 20),
+                          Text('Podium', style: dispFont(size: 30, weight: FontWeight.w700, color: AppColors.ink, letterSpacing: -0.6)),
+                          const SizedBox(height: 4),
+                          Text('Les scores et classements entre amis.', style: bodyFont(size: 14, weight: FontWeight.w600, color: AppColors.mut)),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      Text('Touchez un compte pour remplir l’e-mail, ou ✕ pour l’oublier sur cet appareil.', style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
+                    ),
+                    const SizedBox(height: 32),
+                    FadeSlideIn(
+                      delay: const Duration(milliseconds: 60),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _field(label: 'E-mail', controller: _emailCtrl, keyboardType: TextInputType.emailAddress),
+                          const SizedBox(height: 16),
+                          _field(label: 'Mot de passe', controller: _passCtrl, obscure: true),
+                          if (app.flowError != null) ...[
+                            const SizedBox(height: 12),
+                            Text(app.flowError!, style: bodyFont(size: 13, weight: FontWeight.w600, color: AppColors.accent)),
+                          ],
+                          const SizedBox(height: 24),
+                          PrimaryButton(label: 'Se connecter', loading: app.busy, onPressed: () => _submit(app)),
+                        ],
+                      ),
+                    ),
+                    if (savedAccounts.isNotEmpty) ...[
+                      const SizedBox(height: 26),
+                      FadeSlideIn(
+                        delay: const Duration(milliseconds: 100),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text('Comptes enregistrés', style: bodyFont(size: 12.5, weight: FontWeight.w800, color: AppColors.ink2)),
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: [
+                                for (final account in savedAccounts)
+                                  Pressable(
+                                    onTap: () {
+                                      _emailCtrl.text = account.email;
+                                      _emailCtrl.selection = TextSelection.collapsed(offset: account.email.length);
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.fromLTRB(8, 8, 6, 8),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.card,
+                                        border: Border.all(color: AppColors.line),
+                                        borderRadius: BorderRadius.circular(999),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Avatar(initial: account.displayName.isNotEmpty ? account.displayName[0].toUpperCase() : '?', color: Color(account.color), size: 28, fontSize: 11),
+                                          const SizedBox(width: 8),
+                                          Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(account.displayName, style: bodyFont(size: 13, weight: FontWeight.w800, color: AppColors.ink)),
+                                              Text(account.email, style: bodyFont(size: 11.5, weight: FontWeight.w600, color: AppColors.mut)),
+                                            ],
+                                          ),
+                                          const SizedBox(width: 2),
+                                          GestureDetector(
+                                            onTap: () => app.removeSavedAccount(account.email),
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(6),
+                                              child: Icon(Icons.close_rounded, size: 15, color: AppColors.mut),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text('Touchez un compte pour remplir l’e-mail, ou ✕ pour l’oublier sur cet appareil.', style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
+                          ],
+                        ),
+                      ),
                     ],
                     const SizedBox(height: 18),
                     Center(

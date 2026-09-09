@@ -48,26 +48,28 @@ class GameDetailScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
-          Row(
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(16)),
-                child: Text(current.emoji, style: const TextStyle(fontSize: 28)),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(current.name, style: dispFont(size: 19, weight: FontWeight.w800, color: AppColors.ink)),
-                    Text(current.category, style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)),
-                  ],
+          FadeSlideIn(
+            child: Row(
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(16)),
+                  child: Text(current.emoji, style: const TextStyle(fontSize: 28)),
                 ),
-              ),
-            ],
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(current.name, style: dispFont(size: 19, weight: FontWeight.w800, color: AppColors.ink)),
+                      Text(current.category, style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
           if (parent != null) ...[
             const SizedBox(height: 12),
@@ -86,31 +88,34 @@ class GameDetailScreen extends StatelessWidget {
           ],
           const SizedBox(height: 22),
           SectionHeader(title: 'Comptage'),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(_countDescription, style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink)),
-                if (current.pointLimit != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text('Limite : ${current.pointLimit} points', style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)),
-                  ),
-                if (current.multiRound)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text('Manches multiples activées', style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)),
-                  ),
-                if (current.isRanks && ((current.topRoles?.isNotEmpty ?? false) || (current.bottomRoles?.isNotEmpty ?? false))) ...[
-                  const SizedBox(height: 8),
-                  for (final r in current.topRoles ?? const <String>[])
-                    Text('•  $r', style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.ink2)),
-                  for (final r in current.bottomRoles ?? const <String>[])
-                    Text('•  $r', style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.ink2)),
+          FadeSlideIn(
+            delay: const Duration(milliseconds: 60),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_countDescription, style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink)),
+                  if (current.pointLimit != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text('Limite : ${current.pointLimit} points', style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)),
+                    ),
+                  if (current.multiRound)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text('Manches multiples activées', style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)),
+                    ),
+                  if (current.isRanks && ((current.topRoles?.isNotEmpty ?? false) || (current.bottomRoles?.isNotEmpty ?? false))) ...[
+                    const SizedBox(height: 8),
+                    for (final r in current.topRoles ?? const <String>[])
+                      Text('•  $r', style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.ink2)),
+                    for (final r in current.bottomRoles ?? const <String>[])
+                      Text('•  $r', style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.ink2)),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
           const SizedBox(height: 22),
@@ -122,28 +127,31 @@ class GameDetailScreen extends StatelessWidget {
           if (current.ruleSections.isEmpty)
             EmptyState(emoji: '📖', message: "Aucune règle enregistrée pour l'instant.")
           else
-            for (final section in current.ruleSections)
-              Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(section.title, style: bodyFont(size: 14.5, weight: FontWeight.w800, color: AppColors.ink)),
-                    const SizedBox(height: 6),
-                    for (final rule in section.rules)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('•  ', style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.mut)),
-                            Expanded(child: Text(rule, style: bodyFont(size: 13, weight: FontWeight.w600, color: AppColors.ink2))),
-                          ],
+            for (final (i, section) in current.ruleSections.indexed)
+              FadeSlideIn(
+                delay: Duration(milliseconds: 100 + i * 40),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(section.title, style: bodyFont(size: 14.5, weight: FontWeight.w800, color: AppColors.ink)),
+                      const SizedBox(height: 6),
+                      for (final rule in section.rules)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('•  ', style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.mut)),
+                              Expanded(child: Text(rule, style: bodyFont(size: 13, weight: FontWeight.w600, color: AppColors.ink2))),
+                            ],
+                          ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
           if (variants.isNotEmpty) ...[
@@ -152,7 +160,7 @@ class GameDetailScreen extends StatelessWidget {
             for (final v in variants)
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
-                child: GestureDetector(
+                child: Pressable(
                   onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => GameDetailScreen(game: v))),
                   child: Container(
                     padding: const EdgeInsets.all(12),

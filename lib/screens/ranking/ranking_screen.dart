@@ -68,7 +68,7 @@ class RankingScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          GestureDetector(
+          Pressable(
             onTap: () => showModalBottomSheet(
               context: context,
               backgroundColor: Colors.transparent,
@@ -112,6 +112,7 @@ class RankingScreen extends StatelessWidget {
             )
           else ...[
             FadeSlideIn(
+              key: ValueKey(podiumRows.map((r) => r.player.uid).join(',')),
               child: PodiumWidget(columns: [
                 if (podiumRows.length > 1)
                   PodiumColumn(row: podiumRows[1], metric: app.metricFor(podiumRows[1], app.rankMode), place: 2, onTap: () => app.openProfile(podiumRows[1].player.uid)),
@@ -129,13 +130,16 @@ class RankingScreen extends StatelessWidget {
                   child: Column(
                     children: [
                       for (var i = 0; i < rest.length; i++)
-                        RankRow(
-                          rank: i + 4,
-                          player: rest[i].player,
-                          sub: app.metricFor(rest[i], app.rankMode).sub,
-                          metric: app.metricFor(rest[i], app.rankMode).metric,
-                          unit: app.metricFor(rest[i], app.rankMode).unit,
-                          onTap: () => app.openProfile(rest[i].player.uid),
+                        FadeSlideIn(
+                          delay: Duration(milliseconds: 80 + i * 30),
+                          child: RankRow(
+                            rank: i + 4,
+                            player: rest[i].player,
+                            sub: app.metricFor(rest[i], app.rankMode).sub,
+                            metric: app.metricFor(rest[i], app.rankMode).metric,
+                            unit: app.metricFor(rest[i], app.rankMode).unit,
+                            onTap: () => app.openProfile(rest[i].player.uid),
+                          ),
                         ),
                     ],
                   ),
@@ -157,9 +161,10 @@ class _FilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
         decoration: BoxDecoration(
           color: selected ? AppColors.ink : AppColors.card,
@@ -203,7 +208,7 @@ class _PlayerFilterSheet extends StatelessWidget {
             children: [
               Text('Filtrer par joueurs', style: dispFont(size: 18, weight: FontWeight.w700, color: AppColors.ink)),
               if (app.rankingPlayerFilter.isNotEmpty)
-                GestureDetector(onTap: app.clearRankingPlayerFilter, child: Text('Réinitialiser', style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.accent))),
+                Pressable(onTap: app.clearRankingPlayerFilter, child: Text('Réinitialiser', style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.accent))),
             ],
           ),
           const SizedBox(height: 14),
@@ -234,9 +239,10 @@ class _PlayerFilterSheet extends StatelessWidget {
                       final selected = app.rankingPlayerFilter.contains(p.uid);
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 8),
-                        child: GestureDetector(
+                        child: Pressable(
                           onTap: () => app.toggleRankingPlayerFilter(p.uid),
-                          child: Container(
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               color: selected ? AppColors.accentSoft : AppColors.card,

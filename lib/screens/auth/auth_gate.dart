@@ -16,24 +16,33 @@ class AuthGate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
+    final Widget child;
+    final Key key;
     if (app.authLoading) {
-      return Scaffold(
+      key = const ValueKey('authLoading');
+      child = Scaffold(
         backgroundColor: AppColors.bg,
         body: Center(child: CircularProgressIndicator(color: AppColors.accent)),
       );
-    }
-    if (app.currentUser == null) {
-      return const LoginScreen();
-    }
-    if (app.groupsLoading) {
-      return Scaffold(
+    } else if (app.currentUser == null) {
+      key = const ValueKey('login');
+      child = const LoginScreen();
+    } else if (app.groupsLoading) {
+      key = const ValueKey('groupsLoading');
+      child = Scaffold(
         backgroundColor: AppColors.bg,
         body: Center(child: CircularProgressIndicator(color: AppColors.accent)),
       );
+    } else if (app.groups.isEmpty) {
+      key = const ValueKey('noGroup');
+      child = const NoGroupScreen();
+    } else {
+      key = const ValueKey('shell');
+      child = const MainShell();
     }
-    if (app.groups.isEmpty) {
-      return const NoGroupScreen();
-    }
-    return const MainShell();
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 280),
+      child: KeyedSubtree(key: key, child: child),
+    );
   }
 }

@@ -91,35 +91,41 @@ class _GroupFormDialogState extends State<GroupFormDialog> {
                   ),
                 ],
               ),
-              if (_temporary) ...[
-                const SizedBox(height: 8),
-                Text(
-                  "Vous pourrez le fermer une fois terminé — l'historique et le classement resteront visibles, sans possibilité d'ajouter de nouvelles parties.",
-                  style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
-                ),
-              ],
-              const SizedBox(height: 16),
-            ],
-            if (_nameless) ...[
-              Text('Nom', style: bodyFont(size: 12.5, weight: FontWeight.w800, color: AppColors.ink2)),
-              const SizedBox(height: 9),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(AppRadius.md)),
-                child: Text('Nommé automatiquement : « $_autoName »', style: bodyFont(size: 13.5, weight: FontWeight.w700, color: AppColors.mut)),
-              ),
-              const SizedBox(height: 16),
-            ] else ...[
-              Text('Nom', style: bodyFont(size: 12.5, weight: FontWeight.w800, color: AppColors.ink2)),
-              const SizedBox(height: 9),
-              TextField(
-                controller: _nameCtrl,
-                style: bodyFont(size: 16, weight: FontWeight.w700, color: AppColors.ink),
-                decoration: appFieldDecoration(),
+              AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                alignment: Alignment.topCenter,
+                child: _temporary
+                    ? Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          "Vous pourrez le fermer une fois terminé — l'historique et le classement resteront visibles, sans possibilité d'ajouter de nouvelles parties.",
+                          style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
+                        ),
+                      )
+                    : const SizedBox(width: double.infinity),
               ),
               const SizedBox(height: 16),
             ],
+            Text('Nom', style: bodyFont(size: 12.5, weight: FontWeight.w800, color: AppColors.ink2)),
+            const SizedBox(height: 9),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: _nameless
+                  ? Container(
+                      key: const ValueKey('auto'),
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(AppRadius.md)),
+                      child: Text('Nommé automatiquement : « $_autoName »', style: bodyFont(size: 13.5, weight: FontWeight.w700, color: AppColors.mut)),
+                    )
+                  : TextField(
+                      key: const ValueKey('field'),
+                      controller: _nameCtrl,
+                      style: bodyFont(size: 16, weight: FontWeight.w700, color: AppColors.ink),
+                      decoration: appFieldDecoration(),
+                    ),
+            ),
+            const SizedBox(height: 16),
             Text('Emoji', style: bodyFont(size: 12.5, weight: FontWeight.w800, color: AppColors.ink2)),
             const SizedBox(height: 9),
             Wrap(
@@ -127,9 +133,10 @@ class _GroupFormDialogState extends State<GroupFormDialog> {
               runSpacing: 8,
               children: [
                 for (final e in _emojiChoices)
-                  GestureDetector(
+                  Pressable(
                     onTap: () => setState(() => _emoji = e),
-                    child: Container(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
                       width: 44,
                       height: 44,
                       alignment: Alignment.center,
@@ -165,9 +172,10 @@ class _LifespanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: selected ? AppColors.ink : AppColors.card,

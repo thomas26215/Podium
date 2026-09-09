@@ -33,7 +33,9 @@ class _RanksScoreList extends StatelessWidget {
             final p = app.playerById(uid);
             if (p == null) return const SizedBox.shrink();
             final role = game.rankRole(i, order.length);
-            return Container(
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
               margin: const EdgeInsets.only(bottom: 9),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
@@ -72,9 +74,10 @@ class _RanksScoreList extends StatelessWidget {
 }
 
 Widget _rankStepperButton(IconData icon, VoidCallback? onTap) {
-  return GestureDetector(
+  return Pressable(
     onTap: onTap,
-    child: Container(
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
       width: 34,
       height: 34,
       margin: const EdgeInsets.symmetric(horizontal: 2),
@@ -149,7 +152,7 @@ class _RanksRoundsInput extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('MANCHES JOUÉES', style: bodyFont(size: 11.5, weight: FontWeight.w800, color: AppColors.mut, letterSpacing: 0.5)),
-              GestureDetector(
+              Pressable(
                 onTap: () => app.undoRound(),
                 child: Text('↶ Annuler la dernière', style: bodyFont(size: 12, weight: FontWeight.w700, color: AppColors.accent)),
               ),
@@ -222,9 +225,10 @@ class _WinLossToggle extends StatelessWidget {
   }
 
   Widget _pill(String label, bool selected, Color activeColor, VoidCallback onTap) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(color: selected ? activeColor : null, borderRadius: BorderRadius.circular(8)),
         child: Text(label, style: bodyFont(size: 12.5, weight: FontWeight.w800, color: selected ? Colors.white : AppColors.mut)),
@@ -253,7 +257,8 @@ class _WinLossScoreList extends StatelessWidget {
             final p = app.playerById(uid);
             if (p == null) return const SizedBox.shrink();
             final isWin = (d.points[uid] ?? 0) > 0;
-            return Container(
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
               margin: const EdgeInsets.only(bottom: 9),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -365,7 +370,7 @@ class _WinLossRoundsInputState extends State<_WinLossRoundsInput> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('MANCHES JOUÉES', style: bodyFont(size: 11.5, weight: FontWeight.w800, color: AppColors.mut, letterSpacing: 0.5)),
-              GestureDetector(
+              Pressable(
                 onTap: () => app.undoRound(),
                 child: Text('↶ Annuler la dernière', style: bodyFont(size: 12, weight: FontWeight.w700, color: AppColors.accent)),
               ),
@@ -480,7 +485,8 @@ class _DetailedScoreInputState extends State<_DetailedScoreInput> {
             if (p == null) return const SizedBox.shrink();
             final isLead = app.draftLeaderIds.contains(uid);
             final total = d.points[uid] ?? 0;
-            return Container(
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
               margin: const EdgeInsets.only(bottom: 10),
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -504,7 +510,7 @@ class _DetailedScoreInputState extends State<_DetailedScoreInput> {
                           ],
                         ),
                       ),
-                      Text('$total', style: dispFont(size: 22, weight: FontWeight.w700, color: AppColors.ink)),
+                      AnimatedCounter(value: total, style: dispFont(size: 22, weight: FontWeight.w700, color: AppColors.ink)),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -623,7 +629,7 @@ class _RoundsScoreInputState extends State<_RoundsScoreInput> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('MANCHES JOUÉES', style: bodyFont(size: 11.5, weight: FontWeight.w800, color: AppColors.mut, letterSpacing: 0.5)),
-              GestureDetector(
+              Pressable(
                 onTap: () => app.undoRound(),
                 child: Text('↶ Annuler la dernière', style: bodyFont(size: 12, weight: FontWeight.w700, color: AppColors.accent)),
               ),
@@ -846,7 +852,8 @@ class Step3Scores extends StatelessWidget {
               final isLead = leaderIds.contains(uid);
               final low = d.unit == 'wins' ? false : (app.gameById(d.gameId ?? '')?.lowWins ?? false);
               final label = isLead ? (low ? '▼ EN TÊTE' : '▲ EN TÊTE') : (d.mode == 'team' ? 'Équipe ${d.team[uid] ?? 'A'}' : '');
-              return Container(
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
                 margin: const EdgeInsets.only(bottom: 9),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -868,11 +875,11 @@ class Step3Scores extends StatelessWidget {
                       ),
                     ),
                     _stepperButton(Icons.remove, () => app.bump(uid, -1)),
-                    GestureDetector(
+                    Pressable(
                       onTap: () => _showEditScoreDialog(context, app, uid, p.displayName, d.points[uid] ?? 0, onSubmit: (v) => app.setPoints(uid, v)),
                       child: SizedBox(
                         width: 40,
-                        child: Text('${d.points[uid] ?? 0}', textAlign: TextAlign.center, style: dispFont(size: 20, weight: FontWeight.w700, color: AppColors.ink)),
+                        child: AnimatedCounter(value: d.points[uid] ?? 0, textAlign: TextAlign.center, style: dispFont(size: 20, weight: FontWeight.w700, color: AppColors.ink)),
                       ),
                     ),
                     _stepperButton(Icons.add, () => app.bump(uid, 1)),
@@ -898,7 +905,7 @@ class Step3Scores extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(p.displayName, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
-                          GestureDetector(
+                          Pressable(
                             onTap: () => _showEditScoreDialog(
                               context,
                               app,
@@ -907,12 +914,12 @@ class Step3Scores extends StatelessWidget {
                               d.points[uid] ?? 0,
                               onSubmit: (v) => app.addPoints(uid, v - (d.points[uid] ?? 0)),
                             ),
-                            child: Text('${d.points[uid] ?? 0}', style: dispFont(size: 28, weight: FontWeight.w700, color: AppColors.ink)),
+                            child: AnimatedCounter(value: d.points[uid] ?? 0, style: dispFont(size: 28, weight: FontWeight.w700, color: AppColors.ink)),
                           ),
                         ],
                       ),
                     ),
-                    GestureDetector(
+                    Pressable(
                       onTap: () => app.addPoints(uid, 1),
                       onLongPress: () => _showAddPointsSheet(context, app, uid, p.displayName),
                       child: Container(
@@ -924,7 +931,7 @@ class Step3Scores extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    GestureDetector(
+                    Pressable(
                       onTap: () => _showAddPointsSheet(context, app, uid, p.displayName),
                       child: Container(
                         width: 44,
@@ -1010,7 +1017,8 @@ class Step3Scores extends StatelessWidget {
           if (members.isEmpty) return const SizedBox.shrink();
           final isLead = teamId == leadingTeam;
           final score = d.teamPoints[teamId] ?? 0;
-          return Container(
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
             margin: const EdgeInsets.only(bottom: 9),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -1037,11 +1045,11 @@ class Step3Scores extends StatelessWidget {
                   ),
                 ),
                 _stepperButton(Icons.remove, () => app.bumpTeam(teamId, -1)),
-                GestureDetector(
+                Pressable(
                   onTap: () => _showEditScoreDialog(context, app, teamId, 'Équipe $teamId', score, onSubmit: (v) => app.setTeamPoints(teamId, v)),
                   child: SizedBox(
                     width: 40,
-                    child: Text('$score', textAlign: TextAlign.center, style: dispFont(size: 20, weight: FontWeight.w700, color: AppColors.ink)),
+                    child: AnimatedCounter(value: score, textAlign: TextAlign.center, style: dispFont(size: 20, weight: FontWeight.w700, color: AppColors.ink)),
                   ),
                 ),
                 _stepperButton(Icons.add, () => app.bumpTeam(teamId, 1)),
@@ -1053,7 +1061,7 @@ class Step3Scores extends StatelessWidget {
   }
 
   Widget _stepperButton(IconData icon, VoidCallback onTap) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: Container(
         width: 34,
@@ -1144,7 +1152,7 @@ Future<void> _showAddPointsSheet(BuildContext context, AppState app, String uid,
                 runSpacing: 8,
                 children: [
                   for (final d in _quickDeltas)
-                    GestureDetector(
+                    Pressable(
                       onTap: () {
                         app.addPoints(uid, d);
                         Navigator.of(sheetContext).pop();

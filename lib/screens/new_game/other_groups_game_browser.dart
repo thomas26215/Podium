@@ -37,7 +37,8 @@ class OtherGroupsGameBrowser extends StatelessWidget {
             message: app.otherGroupsGames.isEmpty ? "Aucun jeu dans vos autres groupes." : 'Aucun résultat pour cette recherche.',
           )
         else
-          for (final og in games) _OtherGroupGameTile(entry: og, onTap: () => app.importOtherGroupGame(og)),
+          for (final (i, og) in games.indexed)
+            FadeSlideIn(delay: Duration(milliseconds: i * 30), child: _OtherGroupGameTile(entry: og, onTap: () => app.importOtherGroupGame(og))),
       ],
     );
   }

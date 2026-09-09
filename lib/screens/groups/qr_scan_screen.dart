@@ -14,13 +14,19 @@ class QrScanScreen extends StatefulWidget {
   State<QrScanScreen> createState() => _QrScanScreenState();
 }
 
-class _QrScanScreenState extends State<QrScanScreen> {
+class _QrScanScreenState extends State<QrScanScreen> with SingleTickerProviderStateMixin {
   final _controller = MobileScannerController();
   bool _busy = false;
+
+  // Purely decorative sweep inside the scan frame — like LiveDot's pulse,
+  // this repeats forever, so it's confined to a screen no test ever pumps
+  // (a real camera scanner isn't something widget tests exercise).
+  late final AnimationController _sweep = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800))..repeat();
 
   @override
   void dispose() {
     _controller.dispose();
+    _sweep.dispose();
     super.dispose();
   }
 
@@ -58,7 +64,26 @@ class _QrScanScreenState extends State<QrScanScreen> {
             child: Container(
               width: 240,
               height: 240,
+              clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(border: Border.all(color: Colors.white, width: 2), borderRadius: BorderRadius.circular(AppRadius.xl)),
+              child: AnimatedBuilder(
+                animation: _sweep,
+                builder: (context, _) {
+                  // Ping-pongs 0->1->0 across the frame instead of snapping
+                  // back to the top, so the sweep reads as a continuous scan.
+                  final t = _sweep.value < 0.5 ? _sweep.value * 2 : (1 - _sweep.value) * 2;
+                  return Align(
+                    alignment: Alignment(0, -1 + 2 * t),
+                    child: Container(
+                      width: double.infinity,
+                      height: 2,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(colors: [Colors.transparent, AppColors.accent, Colors.transparent]),
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
           ),
           Positioned(

@@ -33,11 +33,14 @@ class GamesCatalogScreen extends StatelessWidget {
               separatorBuilder: (_, _) => const SizedBox(height: 10),
               itemBuilder: (_, i) {
                 final g = games[i];
-                return _GameRow(
-                  game: g,
-                  variantCount: app.variantsOf(g.id).length,
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => GameDetailScreen(game: g))),
-                  onLongPress: () => showGameActionsSheet(context, app, g),
+                return FadeSlideIn(
+                  delay: Duration(milliseconds: i * 40),
+                  child: _GameRow(
+                    game: g,
+                    variantCount: app.variantsOf(g.id).length,
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => GameDetailScreen(game: g))),
+                    onLongPress: () => showGameActionsSheet(context, app, g),
+                  ),
                 );
               },
             ),
@@ -61,7 +64,7 @@ class _GameRow extends StatelessWidget {
       if (variantCount > 0) '$variantCount variante${variantCount > 1 ? 's' : ''}',
       if (ruleCount > 0) '$ruleCount catégorie${ruleCount > 1 ? 's' : ''} de règles',
     ];
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       onLongPress: onLongPress,
       child: Container(

@@ -38,7 +38,8 @@ class GameLibraryBrowser extends StatelessWidget {
             message: app.gameLibrary.isEmpty ? "Aucun jeu dans la bibliothèque pour l'instant." : 'Aucun résultat pour cette recherche.',
           )
         else
-          for (final g in games) _LibraryGameTile(game: g, onTap: () => app.importLibraryGame(g)),
+          for (final (i, g) in games.indexed)
+            FadeSlideIn(delay: Duration(milliseconds: i * 30), child: _LibraryGameTile(game: g, onTap: () => app.importLibraryGame(g))),
       ],
     );
   }

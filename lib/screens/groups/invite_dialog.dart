@@ -88,163 +88,183 @@ class _InviteDialogState extends State<InviteDialog> {
               ),
             ),
             const SizedBox(height: 18),
-            if (_mode == _InviteMode.email) ...[
-              Builder(builder: (_) {
-                final alreadyIn = app.getGroupMemberIds(widget.groupId).toSet();
-                final suggestions = app.friends.where((f) => !alreadyIn.contains(f.uid)).toList();
-                if (suggestions.isEmpty) return const SizedBox.shrink();
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              child: switch (_mode) {
+                _InviteMode.email => Column(
+                    key: const ValueKey(_InviteMode.email),
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text('VOS AMIS', style: bodyFont(size: 11, weight: FontWeight.w800, color: AppColors.mut, letterSpacing: 0.6)),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          for (final f in suggestions)
-                            GestureDetector(
-                              onTap: app.busy ? null : () => _addExisting(app, f),
-                              child: Container(
-                                padding: const EdgeInsets.fromLTRB(6, 6, 12, 6),
-                                decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(30)),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Avatar(initial: f.initial, color: Color(f.color), size: 26, fontSize: 11),
-                                    const SizedBox(width: 7),
-                                    Text(f.displayName, style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.ink)),
-                                  ],
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      Text('OU PAR E-MAIL', style: bodyFont(size: 11, weight: FontWeight.w800, color: AppColors.mut, letterSpacing: 0.6)),
-                      const SizedBox(height: 8),
-                    ],
-                  ),
-                );
-              }),
-              TextField(
-                controller: _emailCtrl,
-                keyboardType: TextInputType.emailAddress,
-                style: bodyFont(size: 16, weight: FontWeight.w700, color: AppColors.ink),
-                decoration: appFieldDecoration(hintText: 'ami@exemple.com'),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text('Votre ami doit déjà avoir un compte Podium.', style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
-              ),
-              if (app.flowError != null) ...[
-                const SizedBox(height: 8),
-                Text(app.flowError!, style: bodyFont(size: 13, weight: FontWeight.w600, color: AppColors.accent)),
-              ],
-              const SizedBox(height: 20),
-              PrimaryButton(label: 'Ajouter', loading: app.busy, onPressed: () => _submit(app)),
-            ] else if (_mode == _InviteMode.guest) ...[
-              Builder(builder: (_) {
-                final alreadyIn = app.getGroupMemberIds(widget.groupId).toSet();
-                final suggestions = app.knownGuests.where((g) => !alreadyIn.contains(g.uid)).toList();
-                if (suggestions.isEmpty) return const SizedBox.shrink();
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('DÉJÀ AJOUTÉS AILLEURS', style: bodyFont(size: 11, weight: FontWeight.w800, color: AppColors.mut, letterSpacing: 0.6)),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        height: 156,
-                        child: SingleChildScrollView(
-                          child: Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
+                      Builder(builder: (_) {
+                        final alreadyIn = app.getGroupMemberIds(widget.groupId).toSet();
+                        final suggestions = app.friends.where((f) => !alreadyIn.contains(f.uid)).toList();
+                        if (suggestions.isEmpty) return const SizedBox.shrink();
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              for (final g in suggestions)
-                                GestureDetector(
-                                  onTap: app.busy ? null : () => _addExisting(app, g),
-                                  child: Container(
-                                    padding: const EdgeInsets.fromLTRB(6, 6, 12, 6),
-                                    decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(30)),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Avatar(initial: g.initial, color: Color(g.color), size: 26, fontSize: 11),
-                                        const SizedBox(width: 7),
-                                        Text(g.displayName, style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.ink)),
-                                      ],
+                              Text('VOS AMIS', style: bodyFont(size: 11, weight: FontWeight.w800, color: AppColors.mut, letterSpacing: 0.6)),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  for (final f in suggestions)
+                                    Pressable(
+                                      onTap: app.busy ? null : () => _addExisting(app, f),
+                                      child: Container(
+                                        padding: const EdgeInsets.fromLTRB(6, 6, 12, 6),
+                                        decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(30)),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Avatar(initial: f.initial, color: Color(f.color), size: 26, fontSize: 11),
+                                            const SizedBox(width: 7),
+                                            Text(f.displayName, style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.ink)),
+                                          ],
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                ),
+                                ],
+                              ),
+                              const SizedBox(height: 14),
+                              Text('OU PAR E-MAIL', style: bodyFont(size: 11, weight: FontWeight.w800, color: AppColors.mut, letterSpacing: 0.6)),
+                              const SizedBox(height: 8),
                             ],
                           ),
-                        ),
+                        );
+                      }),
+                      TextField(
+                        controller: _emailCtrl,
+                        keyboardType: TextInputType.emailAddress,
+                        style: bodyFont(size: 16, weight: FontWeight.w700, color: AppColors.ink),
+                        decoration: appFieldDecoration(hintText: 'ami@exemple.com'),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Réutilise le même profil — ses parties précédentes restent liées à cette personne.',
-                        style: bodyFont(size: 11.5, weight: FontWeight.w600, color: AppColors.mut),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text('Votre ami doit déjà avoir un compte Podium.', style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
                       ),
-                      const SizedBox(height: 14),
-                      Text('OU UNE NOUVELLE PERSONNE', style: bodyFont(size: 11, weight: FontWeight.w800, color: AppColors.mut, letterSpacing: 0.6)),
-                      const SizedBox(height: 8),
+                      if (app.flowError != null) ...[
+                        const SizedBox(height: 8),
+                        Text(app.flowError!, style: bodyFont(size: 13, weight: FontWeight.w600, color: AppColors.accent)),
+                      ],
+                      const SizedBox(height: 20),
+                      PrimaryButton(label: 'Ajouter', loading: app.busy, onPressed: () => _submit(app)),
                     ],
                   ),
-                );
-              }),
-              TextField(
-                controller: _guestNameCtrl,
-                textCapitalization: TextCapitalization.words,
-                style: bodyFont(size: 16, weight: FontWeight.w700, color: AppColors.ink),
-                decoration: appFieldDecoration(hintText: 'Nom du joueur'),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  "Il pourra jouer sans compte Podium ; vous pourrez le relier à un vrai compte plus tard.",
-                  style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
-                ),
-              ),
-              if (app.flowError != null) ...[
-                const SizedBox(height: 8),
-                Text(app.flowError!, style: bodyFont(size: 13, weight: FontWeight.w600, color: AppColors.accent)),
-              ],
-              const SizedBox(height: 20),
-              PrimaryButton(label: 'Ajouter', loading: app.busy, onPressed: () => _submitGuest(app)),
-            ] else if (group != null) ...[
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(AppRadius.lg)),
-                  child: QrImageView(
-                    data: GroupInviteCode(
-                      groupId: group.id,
-                      rootId: group.isRoot ? group.id : (group.parentId ?? group.id),
-                      name: group.name,
-                      emoji: group.emoji,
-                    ).encode(),
-                    size: 200,
-                    backgroundColor: Colors.white,
+                _InviteMode.guest => Column(
+                    key: const ValueKey(_InviteMode.guest),
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Builder(builder: (_) {
+                        final alreadyIn = app.getGroupMemberIds(widget.groupId).toSet();
+                        final suggestions = app.knownGuests.where((g) => !alreadyIn.contains(g.uid)).toList();
+                        if (suggestions.isEmpty) return const SizedBox.shrink();
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('DÉJÀ AJOUTÉS AILLEURS', style: bodyFont(size: 11, weight: FontWeight.w800, color: AppColors.mut, letterSpacing: 0.6)),
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                height: 156,
+                                child: SingleChildScrollView(
+                                  child: Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: [
+                                      for (final g in suggestions)
+                                        Pressable(
+                                          onTap: app.busy ? null : () => _addExisting(app, g),
+                                          child: Container(
+                                            padding: const EdgeInsets.fromLTRB(6, 6, 12, 6),
+                                            decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(30)),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Avatar(initial: g.initial, color: Color(g.color), size: 26, fontSize: 11),
+                                                const SizedBox(width: 7),
+                                                Text(g.displayName, style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.ink)),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Réutilise le même profil — ses parties précédentes restent liées à cette personne.',
+                                style: bodyFont(size: 11.5, weight: FontWeight.w600, color: AppColors.mut),
+                              ),
+                              const SizedBox(height: 14),
+                              Text('OU UNE NOUVELLE PERSONNE', style: bodyFont(size: 11, weight: FontWeight.w800, color: AppColors.mut, letterSpacing: 0.6)),
+                              const SizedBox(height: 8),
+                            ],
+                          ),
+                        );
+                      }),
+                      TextField(
+                        controller: _guestNameCtrl,
+                        textCapitalization: TextCapitalization.words,
+                        style: bodyFont(size: 16, weight: FontWeight.w700, color: AppColors.ink),
+                        decoration: appFieldDecoration(hintText: 'Nom du joueur'),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          "Il pourra jouer sans compte Podium ; vous pourrez le relier à un vrai compte plus tard.",
+                          style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
+                        ),
+                      ),
+                      if (app.flowError != null) ...[
+                        const SizedBox(height: 8),
+                        Text(app.flowError!, style: bodyFont(size: 13, weight: FontWeight.w600, color: AppColors.accent)),
+                      ],
+                      const SizedBox(height: 20),
+                      PrimaryButton(label: 'Ajouter', loading: app.busy, onPressed: () => _submitGuest(app)),
+                    ],
                   ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                'Faites scanner ce code par votre ami depuis Podium pour le faire rejoindre le groupe instantanément.',
-                textAlign: TextAlign.center,
-                style: bodyFont(size: 13, weight: FontWeight.w600, color: AppColors.mut),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Valable 30 minutes — rouvrez cet écran pour en générer un nouveau.',
-                textAlign: TextAlign.center,
-                style: bodyFont(size: 11.5, weight: FontWeight.w600, color: AppColors.mut),
-              ),
-            ],
+                _InviteMode.qr => group == null
+                    ? const SizedBox.shrink(key: ValueKey(_InviteMode.qr))
+                    : Column(
+                        key: const ValueKey(_InviteMode.qr),
+                        children: [
+                          Center(
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(AppRadius.lg)),
+                              child: QrImageView(
+                                data: GroupInviteCode(
+                                  groupId: group.id,
+                                  rootId: group.isRoot ? group.id : (group.parentId ?? group.id),
+                                  name: group.name,
+                                  emoji: group.emoji,
+                                ).encode(),
+                                size: 200,
+                                backgroundColor: Colors.white,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          Text(
+                            'Faites scanner ce code par votre ami depuis Podium pour le faire rejoindre le groupe instantanément.',
+                            textAlign: TextAlign.center,
+                            style: bodyFont(size: 13, weight: FontWeight.w600, color: AppColors.mut),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Valable 30 minutes — rouvrez cet écran pour en générer un nouveau.',
+                            textAlign: TextAlign.center,
+                            style: bodyFont(size: 11.5, weight: FontWeight.w600, color: AppColors.mut),
+                          ),
+                        ],
+                      ),
+              },
+            ),
           ],
         ),
       ),
@@ -260,9 +280,10 @@ class _ModeTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
           color: selected ? AppColors.ink : Colors.transparent,

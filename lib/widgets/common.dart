@@ -81,23 +81,40 @@ class FadeSlideIn extends StatelessWidget {
   }
 }
 
+/// Custom ease-out, much more front-loaded than any named `Curves` constant
+/// (even `easeOutExpo`, which is already the steepest standard one — and
+/// still spends 30% of the duration covering the last ~12% of the value).
+/// The control points here shove almost the entire climb into roughly the
+/// first tenth of the duration, so the back nine-tenths reads as a
+/// deliberate, visible crawl into place rather than "arrived, then idle."
+const Curve _counterCurve = Cubic(0.03, 0.98, 0.15, 1.0);
+
 /// Animates an integer value counting up/down to its new total whenever it
 /// changes, instead of snapping — used anywhere a score/tally is displayed
 /// (stat chips, ranking metrics, live scores) so updates read as *movement*
-/// rather than a jump cut.
+/// rather than a jump cut. Deliberately a strong ease-out (races through
+/// the early numbers, visibly slows into the last few) rather than a
+/// gentler curve — that "counting down into place" feel is the whole point,
+/// not just a smoothing pass.
 class AnimatedCounter extends StatelessWidget {
   final int value;
   final TextStyle? style;
+  final TextAlign? textAlign;
   final Duration duration;
-  const AnimatedCounter({super.key, required this.value, this.style, this.duration = const Duration(milliseconds: 500)});
+  const AnimatedCounter({super.key, required this.value, this.style, this.textAlign, this.duration = const Duration(milliseconds: 1100)});
 
   @override
   Widget build(BuildContext context) {
+    // `begin: 0` only actually matters for the very first build (before any
+    // paint, so this widget counts up from zero right as it appears) —
+    // TweenAnimationBuilder itself takes care of animating from whatever is
+    // currently on screen to the new `end` on every later rebuild where
+    // `value` changed, never jumping back to 0 on an update.
     return TweenAnimationBuilder<double>(
-      tween: Tween(begin: value.toDouble(), end: value.toDouble()),
+      tween: Tween(begin: 0, end: value.toDouble()),
       duration: duration,
-      curve: Curves.easeOutCubic,
-      builder: (context, v, _) => Text('${v.round()}', style: style),
+      curve: _counterCurve,
+      builder: (context, v, _) => Text('${v.round()}', style: style, textAlign: textAlign),
     );
   }
 }
@@ -147,7 +164,7 @@ class SectionHeader extends StatelessWidget {
         children: [
           Text(title, style: bodyFont(size: 17, weight: FontWeight.w800, color: AppColors.ink, letterSpacing: -0.3)),
           if (actionLabel != null)
-            GestureDetector(
+            Pressable(
               onTap: onAction,
               child: Text(actionLabel!, style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.accent)),
             ),
@@ -239,7 +256,7 @@ class GameTileRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
