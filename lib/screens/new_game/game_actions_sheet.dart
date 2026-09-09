@@ -66,9 +66,9 @@ class ChooserOption extends StatelessWidget {
 /// (root owner only) delete it — shared between the new-game picker and the
 /// standalone games catalog.
 Future<void> showGameActionsSheet(BuildContext context, AppState app, Game game) async {
-  // A closed group is frozen against catalog changes (see AppState.setGroupClosed)
-  // — only offer read-only actions there.
-  final closed = app.currentGroupClosed;
+  // A closed group/salon is frozen against catalog changes (see
+  // AppState.setGroupClosed/setSalonClosed) — only offer read-only actions there.
+  final closed = app.activeContextClosed;
   await showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,

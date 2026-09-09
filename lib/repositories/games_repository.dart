@@ -48,10 +48,16 @@ abstract class GamesRepository {
 
 class FirebaseGamesRepository implements GamesRepository {
   final FirebaseFirestore _db;
-  FirebaseGamesRepository({FirebaseFirestore? db}) : _db = db ?? FirebaseFirestore.instance;
+
+  /// Root collection the catalog lives under — `'groups'` for a friend
+  /// group's catalog (the default), `'servers'` for a Server's (shared by
+  /// all of its Salons). Same doc shape either way.
+  final String rootCollection;
+
+  FirebaseGamesRepository({FirebaseFirestore? db, this.rootCollection = 'groups'}) : _db = db ?? FirebaseFirestore.instance;
 
   CollectionReference<Map<String, dynamic>> _col(String rootGroupId) =>
-      _db.collection('groups').doc(rootGroupId).collection('games');
+      _db.collection(rootCollection).doc(rootGroupId).collection('games');
 
   @override
   Stream<List<Game>> watchGames(String rootGroupId) {
@@ -114,7 +120,7 @@ class FirebaseGamesRepository implements GamesRepository {
 
   @override
   Future<void> deleteGame(String rootGroupId, String gameId) async {
-    final matchesSnap = await _db.collection('groups').doc(rootGroupId).collection('matches').where('gameId', isEqualTo: gameId).get();
+    final matchesSnap = await _db.collection(rootCollection).doc(rootGroupId).collection('matches').where('gameId', isEqualTo: gameId).get();
     const chunkSize = 450;
     final refs = matchesSnap.docs.map((d) => d.reference).toList();
     for (var i = 0; i < refs.length; i += chunkSize) {

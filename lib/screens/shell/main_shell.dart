@@ -16,7 +16,7 @@ class MainShell extends StatelessWidget {
   static const _tabs = [AppTab.home, AppTab.ranking, AppTab.history, AppTab.profile];
 
   Future<void> _openNewGameSheet(BuildContext context, AppState app) async {
-    if (app.currentGroupClosed) {
+    if (app.activeContextClosed) {
       app.showToast('Ce groupe est clos — plus aucune nouvelle partie ne peut y être ajoutée.');
       return;
     }
@@ -88,7 +88,7 @@ class MainShell extends StatelessWidget {
                     onTap: () => _openNewGameSheet(context, app),
                     pressedScale: 0.9,
                     child: Opacity(
-                      opacity: app.currentGroupClosed ? 0.4 : 1,
+                      opacity: app.activeContextClosed ? 0.4 : 1,
                       child: Container(
                         width: 58,
                         height: 58,

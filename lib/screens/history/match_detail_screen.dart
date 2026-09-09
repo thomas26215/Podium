@@ -56,6 +56,10 @@ class MatchDetailScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               FadeSlideIn(child: _hero()),
+              if (match.isSalonMatch) ...[
+                const SizedBox(height: 16),
+                FadeSlideIn(delay: const Duration(milliseconds: 40), child: _confirmationCard(context)),
+              ],
               const SizedBox(height: 22),
               FadeSlideIn(delay: const Duration(milliseconds: 60), child: match.isTeam ? _teamBlocks() : _ffaCard()),
               if (match.hasTimeline) ...[
@@ -76,7 +80,7 @@ class MatchDetailScreen extends StatelessWidget {
                   ),
                 ),
               ],
-              if (!appState.isGroupIdClosed(match.groupId)) ...[
+              if (!(match.isSalonMatch ? appState.activeContextClosed : appState.isGroupIdClosed(match.groupId))) ...[
                 const SizedBox(height: 22),
                 FadeSlideIn(
                   delay: Duration(milliseconds: match.hasTimeline ? 240 : 120),
@@ -196,6 +200,81 @@ class MatchDetailScreen extends StatelessWidget {
           Text(title, style: bodyFont(size: 11.5, weight: FontWeight.w800, color: AppColors.mut, letterSpacing: 0.5)),
           const SizedBox(height: 12),
           child,
+        ],
+      ),
+    );
+  }
+
+  /// Status banner + confirm/reject actions for a Salon match (see
+  /// GameMatch.status) — irrelevant for a Group match, never called there.
+  Widget _confirmationCard(BuildContext context) {
+    final uid = appState.currentUser?.uid;
+    final needsMyConfirmation = uid != null && match.requiredConfirmers.contains(uid) && !(match.confirmedBy ?? const []).contains(uid) && !match.isRejected;
+    final (label, color) = switch (match.status) {
+      'confirmed' => ('Confirmée par tous les joueurs', AppColors.ink2),
+      'rejected' => ('Refusée — en attente de correction par son auteur', AppColors.accent),
+      _ => ('En attente de confirmation', AppColors.accent),
+    };
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.lg)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                switch (match.status) { 'confirmed' => Icons.check_circle_rounded, 'rejected' => Icons.cancel_rounded, _ => Icons.hourglass_top_rounded },
+                size: 18,
+                color: color,
+              ),
+              const SizedBox(width: 8),
+              Expanded(child: Text(label, style: bodyFont(size: 13, weight: FontWeight.w700, color: color))),
+            ],
+          ),
+          if (needsMyConfirmation) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => appState.rejectMatch(match),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.accent,
+                      side: BorderSide(color: AppColors.accent, width: 1.5),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+                    ),
+                    child: const Text('Refuser'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: PrimaryButton(label: 'Confirmer', onPressed: () => appState.confirmMatch(match)),
+                ),
+              ],
+            ),
+          ] else if (match.isPending) ...[
+            const SizedBox(height: 6),
+            Text(
+              'En attente de : ${match.requiredConfirmers.where((id) => !(match.confirmedBy ?? const []).contains(id)).map((id) => appState.playerById(id)?.displayName ?? id).join(', ')}',
+              style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
+            ),
+          ],
+          if (appState.canEditRejectedMatch(match)) ...[
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: () => _resume(context),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.ink,
+                side: BorderSide(color: AppColors.line, width: 1.5),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+              ),
+              icon: const Icon(Icons.edit_rounded, size: 18),
+              label: const Text('Corriger et renvoyer'),
+            ),
+          ],
         ],
       ),
     );

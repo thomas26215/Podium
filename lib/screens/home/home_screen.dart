@@ -15,6 +15,7 @@ import '../games/games_catalog_screen.dart';
 import '../groups/groups_screen.dart';
 import '../live/live_match_screen.dart';
 import '../new_game/new_game_sheet.dart';
+import '../servers/servers_screen.dart';
 import '../tournaments/tournament_detail_screen.dart';
 import '../tournaments/tournaments_list_screen.dart';
 
@@ -24,7 +25,11 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
+    final inSalon = app.activeContext == ActiveContextKind.salon;
+    final salon = app.currentSalon;
     final group = app.currentGroup;
+    final headerEmoji = inSalon ? (salon?.emoji ?? '🎮') : (group?.emoji ?? '🎲');
+    final headerName = inSalon ? (salon?.name ?? 'Salon') : (group?.name ?? 'Podium');
     final players = app.viewPlayers;
     final stats = app.groupStats;
     final winRows = app.standings('wins');
@@ -41,7 +46,7 @@ class HomeScreen extends StatelessWidget {
               children: [
                 Flexible(
                   child: InkWell(
-                    onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GroupsPage())),
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => inSalon ? const ServersPage() : const GroupsPage())),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -50,7 +55,7 @@ class HomeScreen extends StatelessWidget {
                           height: 38,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(12)),
-                          child: Text(group?.emoji ?? '🎲', style: const TextStyle(fontSize: 19)),
+                          child: Text(headerEmoji, style: const TextStyle(fontSize: 19)),
                         ),
                         const SizedBox(width: 8),
                         Flexible(
@@ -58,7 +63,7 @@ class HomeScreen extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(group?.name ?? 'Podium', overflow: TextOverflow.ellipsis, style: bodyFont(size: 18, weight: FontWeight.w800, color: AppColors.ink, letterSpacing: -0.2)),
+                              Text(headerName, overflow: TextOverflow.ellipsis, style: bodyFont(size: 18, weight: FontWeight.w800, color: AppColors.ink, letterSpacing: -0.2)),
                               Text('${stats['joueurs']} joueurs · saison en cours', overflow: TextOverflow.ellipsis, style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
                             ],
                           ),
@@ -70,6 +75,19 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
+                if (!inSalon)
+                  InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ServersPage())),
+                    child: Container(
+                      width: 38,
+                      height: 38,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(12)),
+                      child: Icon(Icons.storefront_rounded, size: 19, color: AppColors.ink2),
+                    ),
+                  ),
+                const SizedBox(width: 10),
                 InkWell(
                   borderRadius: BorderRadius.circular(12),
                   onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GamesCatalogScreen())),
@@ -87,7 +105,7 @@ class HomeScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          if (app.currentGroupClosed)
+          if (app.activeContextClosed)
             KeyedSubtree(
               key: const ValueKey('closed-banner'),
               child: Column(

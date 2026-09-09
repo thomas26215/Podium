@@ -13,7 +13,10 @@ import '../models/group.dart';
 import '../models/group_invite_code.dart';
 import '../logic/tournament_bracket.dart';
 import '../models/match.dart';
+import '../models/salon.dart';
 import '../models/saved_account.dart';
+import '../models/server.dart';
+import '../models/server_invite_code.dart';
 import '../models/tournament.dart';
 import '../repositories/auth_repository.dart';
 import '../repositories/game_library_repository.dart';
@@ -21,6 +24,7 @@ import '../repositories/games_repository.dart';
 import '../repositories/groups_repository.dart';
 import '../repositories/guests_repository.dart';
 import '../repositories/matches_repository.dart';
+import '../repositories/servers_repository.dart';
 import '../repositories/tournaments_repository.dart';
 import '../repositories/users_repository.dart';
 import '../services/notifications_service.dart';
@@ -30,6 +34,15 @@ import 'player_row.dart';
 
 /// Which of the 5 tabs is showing.
 enum AppTab { home, ranking, history, profile, groups }
+
+/// Which kind of "place to record matches" is currently active — a friend
+/// [Group] (the original, freely-editable model) or a [Salon] within a
+/// [Server] (rigid roles + match confirmation). Mutually exclusive: switching
+/// one clears the other (see [AppState.selectGroup]/[AppState.selectSalon]).
+/// `games`/`matches`/`tournaments` always reflect whichever is active —
+/// there's only ever one live subscription set at a time, so read call sites
+/// don't need to branch on this themselves.
+enum ActiveContextKind { group, salon }
 
 /// What a given position in the new-game sheet's step sequence is currently
 /// showing — see [AppState.stepSequence]. The sequence's length (and which
@@ -61,6 +74,13 @@ class AppState extends ChangeNotifier {
   final UsersRepository usersRepo;
   final GuestsRepository guestsRepo;
   final GameLibraryRepository gameLibraryRepo;
+  final ServersRepository serversRepo;
+
+  /// Same shape as [gamesRepo]/[matchesRepo] but rooted under `servers/`
+  /// instead of `groups/` — used only while [activeContext] is
+  /// [ActiveContextKind.salon]. See [FirebaseGamesRepository.rootCollection].
+  final GamesRepository serverGamesRepo;
+  final MatchesRepository serverMatchesRepo;
   final NotificationsService? notificationsService;
 
   AppState({
@@ -72,6 +92,9 @@ class AppState extends ChangeNotifier {
     required this.usersRepo,
     required this.guestsRepo,
     required this.gameLibraryRepo,
+    required this.serversRepo,
+    required this.serverGamesRepo,
+    required this.serverMatchesRepo,
     this.notificationsService,
   }) {
     _applyTheme();
@@ -183,7 +206,30 @@ class AppState extends ChangeNotifier {
   final Map<String, AppUser> _memberCache = {};
   StreamSubscription? _groupsSub;
 
-  // ---- games / matches (scoped to currentRootId) ----
+  // ---- servers / salons ----
+  List<Server> servers = [];
+  bool serversLoading = true;
+  StreamSubscription? _serversSub;
+
+  /// The server currently being viewed/managed (server detail screen) —
+  /// independent from which salon (if any) is the active recording context,
+  /// see [currentSalonId].
+  String? currentServerId;
+
+  /// Salons of [currentServerId], for the server detail screen.
+  List<Salon> salons = [];
+  StreamSubscription? _salonsSub;
+
+  ActiveContextKind activeContext = ActiveContextKind.group;
+
+  /// The salon that's the active recording context (mutually exclusive with
+  /// [currentGroupId] — see [ActiveContextKind]), and the server it belongs
+  /// to (kept alongside since a salon alone doesn't say which server's
+  /// catalog/roles apply).
+  String? currentSalonId;
+  String? currentSalonServerId;
+
+  // ---- games / matches (scoped to currentRootId, or to the active salon) ----
   List<Game> games = [];
   List<GameMatch> matches = [];
   StreamSubscription? _gamesSub;
@@ -369,12 +415,16 @@ class AppState extends ChangeNotifier {
     currentUser = user;
     authLoading = false;
     _groupsSub?.cancel();
+    _serversSub?.cancel();
+    _salonsSub?.cancel();
     _gamesSub?.cancel();
     _matchesSub?.cancel();
     _liveSessionsSub?.cancel();
     _tournamentsSub?.cancel();
     _currentUserSub?.cancel();
     groups = [];
+    servers = [];
+    salons = [];
     games = [];
     matches = [];
     _rawLiveSessions = [];
@@ -385,12 +435,18 @@ class AppState extends ChangeNotifier {
     liveSessionsLoaded = false;
     tournamentsLoaded = false;
     currentGroupId = null;
+    currentServerId = null;
+    currentSalonId = null;
+    currentSalonServerId = null;
+    activeContext = ActiveContextKind.group;
     if (user != null) {
       _memberCache[user.uid] = user;
       profileId = user.uid;
       groupsLoading = true;
+      serversLoading = true;
       unawaited(_rememberAccount(user));
       _groupsSub = groupsRepo.watchMyGroups(user.uid).listen(_onGroupsChanged);
+      _serversSub = serversRepo.watchMyServers(user.uid).listen(_onServersChanged);
       _currentUserSub = usersRepo.watchById(user.uid).listen(_onCurrentUserDocChanged);
       unawaited(notificationsService?.registerForUser(user.uid));
       unawaited(_loadPendingLocalDraft(user.uid));
@@ -511,9 +567,295 @@ class AppState extends ChangeNotifier {
       currentGroupId = groups.isNotEmpty ? groups.first.id : null;
     }
     unawaited(_ensureMembersLoaded());
-    _resubscribeGroupData();
+    // Only actually (re)subscribe games/matches/tournaments if a Group is
+    // the active context — otherwise this would clobber a Salon's data
+    // every time the background groups list updates. See [selectSalon].
+    if (activeContext == ActiveContextKind.group) _resubscribeGroupData();
     unawaited(refreshGroupPartyCounts());
     notifyListeners();
+  }
+
+  // ============================== SERVERS / SALONS ==============================
+
+  void _onServersChanged(List<Server> ss) {
+    servers = ss;
+    serversLoading = false;
+    if (currentServerId == null || servers.every((s) => s.id != currentServerId)) {
+      currentServerId = servers.isNotEmpty ? servers.first.id : null;
+    }
+    _resubscribeSalons();
+    notifyListeners();
+  }
+
+  void _resubscribeSalons() {
+    _salonsSub?.cancel();
+    salons = [];
+    final serverId = currentServerId;
+    if (serverId == null) return;
+    _salonsSub = serversRepo.watchSalons(serverId).listen((ss) {
+      salons = ss;
+      notifyListeners();
+    });
+  }
+
+  /// Selects `serverId` as the server currently being viewed/managed (server
+  /// detail screen) — independent from the active recording context, see
+  /// [selectSalon].
+  void selectServer(String serverId) {
+    currentServerId = serverId;
+    _resubscribeSalons();
+    notifyListeners();
+  }
+
+  Future<void> createServer({required String name, required String emoji, required int emojiBg}) async {
+    final uid = currentUser?.uid;
+    if (uid == null || name.trim().isEmpty) return;
+    busy = true;
+    flowError = null;
+    notifyListeners();
+    try {
+      final server = await serversRepo.createServer(name: name.trim(), emoji: emoji, emojiBg: emojiBg, ownerId: uid);
+      await serverGamesRepo.seedDefaultCatalog(server.id);
+      currentServerId = server.id;
+    } catch (e) {
+      flowError = e.toString();
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+  }
+
+  bool isServerAdmin(Server server) {
+    final uid = currentUser?.uid;
+    return uid != null && server.isAdmin(uid);
+  }
+
+  bool canDeleteServer(Server server) => currentUser?.uid != null && server.ownerId == currentUser!.uid;
+
+  /// Admin/owner-only (unlike a Group's free-for-all invite by email) — see
+  /// [ActiveContextKind] doc comment on why Servers are more rigid. Anyone
+  /// can still self-join via the QR invite code, same as a Group.
+  Future<bool> addServerMemberByEmail({required String serverId, required String email}) async {
+    final server = serverById(serverId);
+    if (server == null || !isServerAdmin(server)) return false;
+    busy = true;
+    flowError = null;
+    notifyListeners();
+    var ok = false;
+    try {
+      await serversRepo.addMemberByEmail(serverId: serverId, email: email);
+      ok = true;
+      showToast('Membre ajouté au serveur.');
+    } catch (e) {
+      flowError = e.toString();
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+    return ok;
+  }
+
+  /// Promotes/demotes `uid` to/from admin of `server` — owner-only (see
+  /// [Server.ownerId]; revalidated by firestore.rules).
+  Future<void> setServerAdmin({required Server server, required String uid, required bool admin}) async {
+    if (currentUser?.uid != server.ownerId) return;
+    try {
+      await serversRepo.setAdmin(serverId: server.id, uid: uid, admin: admin);
+      showToast(admin ? 'Membre promu admin.' : 'Droits admin retirés.');
+    } catch (e) {
+      flowError = e.toString();
+      notifyListeners();
+    }
+  }
+
+  Future<bool> deleteServer(String serverId) async {
+    busy = true;
+    flowError = null;
+    notifyListeners();
+    var ok = false;
+    try {
+      await serversRepo.deleteServer(serverId);
+      ok = true;
+      showToast('Serveur supprimé.');
+    } catch (e) {
+      flowError = e.toString();
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+    return ok;
+  }
+
+  Future<void> setServerClosed(String serverId, bool closed) async {
+    busy = true;
+    flowError = null;
+    notifyListeners();
+    try {
+      await serversRepo.setServerClosed(serverId: serverId, closed: closed);
+      showToast(closed ? 'Serveur clos.' : 'Serveur rouvert.');
+    } catch (e) {
+      flowError = e.toString();
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> refreshServerInviteWindow(String serverId) async {
+    try {
+      await serversRepo.refreshServerInviteWindow(serverId);
+    } catch (_) {}
+  }
+
+  /// Joins the server encoded in a scanned QR invite code.
+  Future<bool> joinServerByCode(String rawCode) async {
+    final invite = ServerInviteCode.tryParse(rawCode);
+    final uid = currentUser?.uid;
+    if (invite == null || uid == null) {
+      flowError = 'Code QR invalide.';
+      notifyListeners();
+      return false;
+    }
+    if (servers.any((s) => s.id == invite.serverId)) {
+      selectServer(invite.serverId);
+      showToast('Vous êtes déjà membre de ce serveur.');
+      return true;
+    }
+    busy = true;
+    flowError = null;
+    notifyListeners();
+    var ok = false;
+    try {
+      await serversRepo.joinServer(serverId: invite.serverId, uid: uid);
+      ok = true;
+      selectServer(invite.serverId);
+      showToast('Vous avez rejoint ${invite.name}.');
+    } catch (e) {
+      flowError = e is InviteException ? e.message : "Impossible de rejoindre ce serveur (il n'existe peut-être plus).";
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+    return ok;
+  }
+
+  // ---- salons ----
+
+  bool canManageSalons(Server server) => isServerAdmin(server);
+
+  Future<void> createSalon({required String serverId, required String name, required String emoji, required int emojiBg}) async {
+    final server = serverById(serverId);
+    if (server == null || !isServerAdmin(server)) return;
+    busy = true;
+    flowError = null;
+    notifyListeners();
+    try {
+      await serversRepo.createSalon(serverId: serverId, name: name.trim(), emoji: emoji, emojiBg: emojiBg);
+    } catch (e) {
+      flowError = e.toString();
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+  }
+
+  /// Admin/owner-only, same reasoning as [addServerMemberByEmail] — anyone
+  /// can still self-join a salon via its QR invite code.
+  Future<bool> addSalonMemberByEmail({required String serverId, required String salonId, required String email}) async {
+    final server = serverById(serverId);
+    if (server == null || !isServerAdmin(server)) return false;
+    busy = true;
+    flowError = null;
+    notifyListeners();
+    var ok = false;
+    try {
+      await serversRepo.addSalonMemberByEmail(serverId: serverId, salonId: salonId, email: email);
+      ok = true;
+      showToast('Membre ajouté au salon.');
+    } catch (e) {
+      flowError = e.toString();
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+    return ok;
+  }
+
+  Future<bool> deleteSalon({required String serverId, required String salonId}) async {
+    final server = serverById(serverId);
+    if (server == null || !isServerAdmin(server)) return false;
+    busy = true;
+    flowError = null;
+    notifyListeners();
+    var ok = false;
+    try {
+      await serversRepo.deleteSalon(serverId: serverId, salonId: salonId);
+      ok = true;
+      showToast('Salon supprimé.');
+      if (currentSalonId == salonId) {
+        final fallbackGroupId = currentGroupId ?? (groups.isNotEmpty ? groups.first.id : null);
+        if (fallbackGroupId != null) {
+          selectGroup(fallbackGroupId);
+        } else {
+          currentSalonId = null;
+          currentSalonServerId = null;
+          activeContext = ActiveContextKind.group;
+          games = [];
+          matches = [];
+        }
+      }
+    } catch (e) {
+      flowError = e.toString();
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+    return ok;
+  }
+
+  Future<void> setSalonClosed({required String serverId, required String salonId, required bool closed}) async {
+    try {
+      await serversRepo.setSalonClosed(serverId: serverId, salonId: salonId, closed: closed);
+      showToast(closed ? 'Salon clos.' : 'Salon rouvert.');
+      notifyListeners();
+    } catch (e) {
+      flowError = e.toString();
+      notifyListeners();
+    }
+  }
+
+  Future<void> refreshSalonInviteWindow({required String serverId, required String salonId}) async {
+    try {
+      await serversRepo.refreshSalonInviteWindow(serverId: serverId, salonId: salonId);
+    } catch (_) {}
+  }
+
+  /// Joins the salon (and, if needed, its server) encoded in a scanned QR
+  /// invite code — see [ServersRepository.joinSalon].
+  Future<bool> joinSalonByCode(String rawCode) async {
+    final invite = SalonInviteCode.tryParse(rawCode);
+    final uid = currentUser?.uid;
+    if (invite == null || uid == null) {
+      flowError = 'Code QR invalide.';
+      notifyListeners();
+      return false;
+    }
+    busy = true;
+    flowError = null;
+    notifyListeners();
+    var ok = false;
+    try {
+      await serversRepo.joinSalon(serverId: invite.serverId, salonId: invite.salonId, uid: uid);
+      ok = true;
+      selectSalon(invite.serverId, invite.salonId);
+      showToast('Vous avez rejoint ${invite.name}.');
+    } catch (e) {
+      flowError = e is InviteException ? e.message : "Impossible de rejoindre ce salon (il n'existe peut-être plus).";
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+    return ok;
   }
 
   Group? _findGroup(String id) {
@@ -608,6 +950,45 @@ class AppState extends ChangeNotifier {
     });
   }
 
+  /// Mirrors [_resubscribeGroupData] but for the active Salon (see
+  /// [currentSalonId]/[currentSalonServerId]) — populates the exact same
+  /// `games`/`matches`/`tournaments` fields, so every read call site written
+  /// against those keeps working unchanged regardless of which context is
+  /// active. Live sessions and tournaments aren't supported in a Salon yet,
+  /// so those two are just left empty/"loaded".
+  void _resubscribeSalonData() {
+    _gamesSub?.cancel();
+    _matchesSub?.cancel();
+    _liveSessionsSub?.cancel();
+    _tournamentsSub?.cancel();
+    gamesLoaded = false;
+    matchesLoaded = false;
+    tournaments = [];
+    tournamentsLoaded = true;
+    _rawLiveSessions = [];
+    liveSessionsLoaded = true;
+    final serverId = currentSalonServerId;
+    final salonId = currentSalonId;
+    if (serverId == null || salonId == null) {
+      games = [];
+      matches = [];
+      return;
+    }
+    _gamesSub = serverGamesRepo.watchGames(serverId).listen((gs) {
+      games = gs;
+      gamesLoaded = true;
+      if (gameFilter != null && !gs.any((g) => g.id == gameFilter)) {
+        gameFilter = null;
+      }
+      notifyListeners();
+    });
+    _matchesSub = serverMatchesRepo.watchMatches(serverId, [salonId]).listen((ms) {
+      matches = ms;
+      matchesLoaded = true;
+      notifyListeners();
+    });
+  }
+
   Future<void> _ensureMembersLoaded() async {
     final allIds = <String>{};
     for (final g in groups) {
@@ -639,9 +1020,69 @@ class AppState extends ChangeNotifier {
 
   void selectGroup(String groupId) {
     currentGroupId = groupId;
+    currentSalonId = null;
+    currentSalonServerId = null;
+    activeContext = ActiveContextKind.group;
     tab = AppTab.home;
     _resubscribeGroupData();
     notifyListeners();
+  }
+
+  /// Makes `salonId` (under `serverId`) the active recording context —
+  /// mutually exclusive with [selectGroup]. `games`/`matches` switch to this
+  /// salon's; a match saved from here goes through [saveGame]'s
+  /// [ActiveContextKind.salon] branch (pending confirmation instead of
+  /// instantly final).
+  void selectSalon(String serverId, String salonId) {
+    currentSalonServerId = serverId;
+    currentSalonId = salonId;
+    activeContext = ActiveContextKind.salon;
+    tab = AppTab.home;
+    // Keeps [salons] (read by [currentSalon]) in sync with whichever server
+    // the active salon belongs to, even if the server list/detail screen was
+    // last showing a different one.
+    if (currentServerId != serverId) {
+      currentServerId = serverId;
+      _resubscribeSalons();
+    }
+    _resubscribeSalonData();
+    notifyListeners();
+  }
+
+  Salon? get currentSalon => currentSalonId == null ? null : salons.where((s) => s.id == currentSalonId).firstOrNull;
+  Server? get currentSalonServer => currentSalonServerId == null ? null : servers.where((s) => s.id == currentSalonServerId).firstOrNull;
+  Server? serverById(String id) => servers.where((s) => s.id == id).firstOrNull;
+
+  // ---- generic "active context" accessors — let game-catalog/match write
+  // paths work unchanged for both a Group and a Salon context, instead of
+  // duplicating every method (see ActiveContextKind doc comment). ----
+
+  GamesRepository get _activeGamesRepo => activeContext == ActiveContextKind.salon ? serverGamesRepo : gamesRepo;
+  MatchesRepository get _activeMatchesRepo => activeContext == ActiveContextKind.salon ? serverMatchesRepo : matchesRepo;
+
+  /// The Firestore root id backing the active context — a group id, or (for
+  /// a Salon) the server id its catalog/matches actually live under.
+  String? get _activeRootId => activeContext == ActiveContextKind.salon ? currentSalonServerId : currentRootId;
+
+  /// Whether the active context (Group or Salon) is currently closed to new
+  /// activity — used both internally (see [_rejectIfActiveContextClosed])
+  /// and by UI that needs to know regardless of which kind is active (e.g.
+  /// [showGameActionsSheet]), instead of reading [currentGroupClosed]
+  /// directly and getting it wrong while a Salon is active.
+  bool get activeContextClosed => activeContext == ActiveContextKind.salon
+      ? ((currentSalon?.closed ?? false) || (currentSalonServer?.closed ?? false))
+      : currentGroupClosed;
+
+  /// Rejects a mutating action against the active context if it's closed,
+  /// surfacing why via [flowError] — the Salon/Server equivalent of
+  /// [_rejectIfGroupClosed], used by the shared catalog/match write paths.
+  bool _rejectIfActiveContextClosed() {
+    if (!activeContextClosed) return false;
+    flowError = activeContext == ActiveContextKind.salon
+        ? 'Ce salon est clos — plus aucune action n\'est possible.'
+        : 'Ce groupe est clos — plus aucune action n\'est possible.';
+    notifyListeners();
+    return true;
   }
 
   Future<void> createGroup({required String name, required String emoji, required int emojiBg, bool temporary = false}) async {
@@ -904,26 +1345,30 @@ class AppState extends ChangeNotifier {
     return ok;
   }
 
-  /// Whether the signed-in user can remove a game from the shared catalog
-  /// — restricted to the root community's owner, since it also wipes every
-  /// match ever recorded for that game anywhere in the tree.
+  /// Whether the signed-in user can manage the active context's game
+  /// catalog — a Group's own owner, or (for a Salon) the owner/admins of its
+  /// Server, since it also wipes every match ever recorded for that game.
   bool get canManageGameCatalog {
-    final root = currentRootId;
     final uid = currentUser?.uid;
-    if (root == null || uid == null) return false;
+    if (uid == null) return false;
+    if (activeContext == ActiveContextKind.salon) {
+      return currentSalonServer?.isAdmin(uid) ?? false;
+    }
+    final root = currentRootId;
+    if (root == null) return false;
     return groupById(root)?.ownerId == uid;
   }
 
   Future<bool> deleteGame(String gameId) async {
-    final root = currentRootId;
+    final root = _activeRootId;
     if (root == null) return false;
-    if (_rejectIfGroupClosed(root)) return false;
+    if (_rejectIfActiveContextClosed()) return false;
     busy = true;
     flowError = null;
     notifyListeners();
     var ok = false;
     try {
-      await gamesRepo.deleteGame(root, gameId);
+      await _activeGamesRepo.deleteGame(root, gameId);
       ok = true;
       showToast('Jeu supprimé.');
     } catch (e) {
@@ -939,15 +1384,15 @@ class AppState extends ChangeNotifier {
   /// informational, doesn't touch anything scoring-related. Returns true on
   /// success so the editor screen knows it can pop.
   Future<bool> updateGameRules(Game game, List<GameRuleSection> sections) async {
-    final root = currentRootId;
+    final root = _activeRootId;
     if (root == null) return false;
-    if (_rejectIfGroupClosed(root)) return false;
+    if (_rejectIfActiveContextClosed()) return false;
     busy = true;
     flowError = null;
     notifyListeners();
     var ok = false;
     try {
-      await gamesRepo.updateGame(root, game.copyWith(ruleSections: sections));
+      await _activeGamesRepo.updateGame(root, game.copyWith(ruleSections: sections));
       showToast('Règles enregistrées.');
       ok = true;
     } catch (e) {
@@ -1008,6 +1453,7 @@ class AppState extends ChangeNotifier {
     try {
       await authRepo.reauthenticate(password);
       await groupsRepo.deleteAllUserData(uid);
+      await serversRepo.deleteAllUserData(uid);
       await usersRepo.deleteUser(uid: uid, email: email ?? '');
       await authRepo.deleteAccount();
       ok = true;
@@ -1077,21 +1523,32 @@ class AppState extends ChangeNotifier {
 
   // ============================== VIEW SCOPE ==============================
 
-  /// Matches recorded in the currently-viewed group.
+  /// Matches recorded in the currently-viewed group/salon — for a Salon,
+  /// only ones every player has confirmed (see GameMatch.status): a pending
+  /// or rejected match shouldn't count toward stats/rankings/history yet,
+  /// even though it already lives in [matches] (read directly by the
+  /// dedicated "à confirmer" UI — see SalonDetailScreen).
   List<GameMatch> get viewMatches {
+    if (activeContext == ActiveContextKind.salon) {
+      return matches.where((m) => m.isConfirmed).toList();
+    }
     if (currentGroupId == null) return const [];
     final ids = getAllGroupIds(currentGroupId!).toSet();
     return matches.where((m) => ids.contains(m.groupId)).toList();
   }
 
-  /// Tournaments recorded in the currently-viewed group.
+  /// Tournaments recorded in the currently-viewed group — Salons don't
+  /// support the bracket-tournament feature (yet), so always empty there.
   List<Tournament> get viewTournaments {
+    if (activeContext == ActiveContextKind.salon) return const [];
     if (currentGroupId == null) return const [];
     final ids = getAllGroupIds(currentGroupId!).toSet();
     return tournaments.where((t) => ids.contains(t.groupId)).toList();
   }
 
-  List<String> get viewPlayerIds => currentGroupId == null ? const [] : getGroupMemberIds(currentGroupId!);
+  List<String> get viewPlayerIds => activeContext == ActiveContextKind.salon
+      ? (currentSalon?.memberIds ?? const [])
+      : (currentGroupId == null ? const [] : getGroupMemberIds(currentGroupId!));
 
   List<AppUser> get viewPlayers => viewPlayerIds.map(playerById).whereType<AppUser>().toList();
 
@@ -1642,13 +2099,13 @@ class AppState extends ChangeNotifier {
   /// selects it as the match being created — one tap from "browse" straight
   /// to "playing it".
   Future<void> importLibraryGame(Game libraryGame) async {
-    final root = currentRootId;
+    final root = _activeRootId;
     if (root == null) return;
     busy = true;
     flowError = null;
     notifyListeners();
     try {
-      final game = await gamesRepo.importGame(root, libraryGame);
+      final game = await _activeGamesRepo.importGame(root, libraryGame);
       // Not `pickGame(game.id)`: the watchGames stream may not have caught
       // up with this just-created doc yet, so `gameById` could still miss
       // it — apply its (already known) default rule directly instead.
@@ -1760,9 +2217,9 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> createGame() async {
-    final root = currentRootId;
+    final root = _activeRootId;
     if (root == null || !gameForm.isValid) return;
-    if (_rejectIfGroupClosed(root)) return;
+    if (_rejectIfActiveContextClosed()) return;
     busy = true;
     flowError = null;
     notifyListeners();
@@ -1777,11 +2234,11 @@ class AppState extends ChangeNotifier {
           category: gameForm.category,
           rules: rules,
         );
-        await gamesRepo.updateGame(root, game);
+        await _activeGamesRepo.updateGame(root, game);
         showToast('Jeu mis à jour.');
         _editingGameId = null;
       } else {
-        game = await gamesRepo.createGame(
+        game = await _activeGamesRepo.createGame(
           root,
           name: gameForm.name.trim(),
           emoji: gameForm.emoji,
@@ -2677,10 +3134,12 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> saveGame() async {
-    final root = currentRootId;
-    final groupId = currentGroupId;
-    if (root == null || groupId == null || draft.gameId == null) return;
-    if (_rejectIfGroupClosed(groupId)) return;
+    final inSalon = activeContext == ActiveContextKind.salon;
+    final root = _activeRootId;
+    final groupId = inSalon ? null : currentGroupId;
+    final salonId = inSalon ? currentSalonId : null;
+    if (root == null || (inSalon ? salonId == null : groupId == null) || draft.gameId == null) return;
+    if (_rejectIfActiveContextClosed()) return;
     if (!isOnline) {
       // Some platforms (e.g. Firestore on web without persistence enabled)
       // would otherwise hang indefinitely trying to write offline. The
@@ -2711,10 +3170,15 @@ class AppState extends ChangeNotifier {
     final playedAt = draft.playedAt;
     final createdAt = _editingMatchCreatedAt ??
         (playedAt == null ? now : DateTime(playedAt.year, playedAt.month, playedAt.day, now.hour, now.minute, now.second, now.millisecond));
+    // A Salon match starts (or, on resubmission after a rejection, restarts)
+    // needing every human player's confirmation — except the author, whose
+    // own save already counts as their approval.
+    final authorUid = currentUser?.uid;
+    final initialConfirmedBy = inSalon && authorUid != null && entries.any((e) => e.playerId == authorUid) ? [authorUid] : const <String>[];
     final match = GameMatch(
       id: _editingMatchId ?? '', // assigned by the repository when creating
       gameId: draft.gameId!,
-      groupId: groupId,
+      groupId: groupId ?? '',
       mode: draft.mode,
       unit: draft.unit,
       lowWins: (rule?.isRanks == true || rule?.isWinLoss == true) ? false : (draft.unit == 'wins' ? false : (rule?.lowWins ?? false)),
@@ -2730,22 +3194,26 @@ class AppState extends ChangeNotifier {
       seriesLength: _editingMatchId != null ? _editingMatchSeriesLength : (isNewSeries ? draft.bestOf : null),
       tournamentId: _activeTournamentId,
       tournamentMatchId: _activeTournamentMatchId,
+      salonId: salonId,
+      confirmedBy: inSalon ? initialConfirmedBy : null,
     );
     try {
       if (_editingMatchId != null) {
-        await matchesRepo.updateMatch(root, match);
+        await _activeMatchesRepo.updateMatch(root, match);
         String? tournamentWarning;
         if (_activeTournamentId != null) {
           tournamentWarning = await _recordTournamentResult(match);
         }
         showToast(tournamentWarning == null ? 'Partie mise à jour ! Classement mis à jour.' : 'Partie mise à jour, mais $tournamentWarning.');
       } else {
-        final saved = await matchesRepo.addMatch(root, match);
+        final saved = await _activeMatchesRepo.addMatch(root, match);
         if (_activeTournamentId != null) {
           await _recordTournamentResult(saved);
         }
         if (isNewSeries && !isFinalLeg) {
           showToast('Partie ${draft.seriesLegIndex} enregistrée — gagnée par ${legWinnerLabel(match)}. Partie suivante !');
+        } else if (inSalon && saved.isPending) {
+          showToast('Partie enregistrée — en attente de confirmation des autres joueurs.');
         } else {
           showToast('Partie enregistrée ! Classement mis à jour.');
         }
@@ -2789,24 +3257,28 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  /// Whether the signed-in user can delete `match`: the group's owner.
+  /// Whether the signed-in user can delete `match`: the group's owner, or
+  /// (for a Salon match — see [GameMatch.isSalonMatch]) the owner/admins of
+  /// its Server, the last-resort way to resolve a contested match.
   bool canDeleteMatch(GameMatch match) {
     final uid = currentUser?.uid;
-    return uid != null && groupById(match.groupId)?.ownerId == uid;
+    if (uid == null) return false;
+    if (match.isSalonMatch) return currentSalonServer?.isAdmin(uid) ?? false;
+    return groupById(match.groupId)?.ownerId == uid;
   }
 
   /// Permanently deletes a single recorded match — one leg of a "best of N"
   /// series, or a standalone match. See [deleteMatchSeries] to remove every
   /// leg of a series at once.
   Future<bool> deleteMatch(GameMatch match) async {
-    final root = currentRootId;
+    final root = _activeRootId;
     if (root == null || !canDeleteMatch(match)) return false;
     busy = true;
     flowError = null;
     notifyListeners();
     var ok = false;
     try {
-      await matchesRepo.deleteMatch(root, match.id);
+      await _activeMatchesRepo.deleteMatch(root, match.id);
       showToast('Partie supprimée.');
       ok = true;
     } catch (e) {
@@ -2823,7 +3295,7 @@ class AppState extends ChangeNotifier {
   /// manche.
   Future<bool> deleteMatchSeries(List<GameMatch> legs) async {
     if (legs.isEmpty) return false;
-    final root = currentRootId;
+    final root = _activeRootId;
     if (root == null || !canDeleteMatch(legs.first)) return false;
     busy = true;
     flowError = null;
@@ -2831,7 +3303,7 @@ class AppState extends ChangeNotifier {
     var ok = false;
     try {
       for (final leg in legs) {
-        await matchesRepo.deleteMatch(root, leg.id);
+        await _activeMatchesRepo.deleteMatch(root, leg.id);
       }
       showToast('Série supprimée.');
       ok = true;
@@ -2843,6 +3315,58 @@ class AppState extends ChangeNotifier {
     }
     return ok;
   }
+
+  /// Approves a Salon match `match` is the signed-in user is one of the
+  /// players still needing to confirm it (see [GameMatch.requiredConfirmers]
+  /// / [GameMatch.status]) — once every player has, it counts toward
+  /// history/rankings. A no-op (returns false) for anything else: a Group
+  /// match (always implicitly confirmed already), a match the caller didn't
+  /// play in, or one they already confirmed.
+  Future<bool> confirmMatch(GameMatch match) async {
+    final uid = currentUser?.uid;
+    final root = _activeRootId;
+    if (uid == null || root == null || !match.isSalonMatch) return false;
+    if (!match.requiredConfirmers.contains(uid) || (match.confirmedBy ?? const []).contains(uid)) return false;
+    try {
+      await _activeMatchesRepo.confirmMatch(rootId: root, matchId: match.id, uid: uid);
+      return true;
+    } catch (e) {
+      flowError = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Rejects a Salon match — sends it back to its author (see
+  /// [GameMatch.createdByUid]) to edit and resubmit (see [saveGame], which
+  /// clears both [GameMatch.confirmedBy] and [GameMatch.rejectedBy] on
+  /// resubmission). Same eligibility as [confirmMatch]: only a player still
+  /// needing to confirm can reject.
+  Future<bool> rejectMatch(GameMatch match) async {
+    final uid = currentUser?.uid;
+    final root = _activeRootId;
+    if (uid == null || root == null || !match.isSalonMatch) return false;
+    if (!match.requiredConfirmers.contains(uid)) return false;
+    try {
+      await _activeMatchesRepo.rejectMatch(rootId: root, matchId: match.id, uid: uid);
+      showToast('Partie refusée — renvoyée à son auteur pour correction.');
+      return true;
+    } catch (e) {
+      flowError = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Whether the signed-in user can force-delete `match` as a last resort
+  /// for a contested Salon match — owner/admin of its Server. Equivalent to
+  /// [canDeleteMatch] for a Salon match; kept as a distinctly-named getter
+  /// since it's the one exposed in the confirmation UI (see plan doc).
+  bool canForceResolveMatch(GameMatch match) => canDeleteMatch(match);
+
+  /// Whether the signed-in user may reopen a rejected Salon match for
+  /// editing (see [resumeMatch]) — only its own author.
+  bool canEditRejectedMatch(GameMatch match) => match.isRejected && match.createdByUid == currentUser?.uid;
 
   // ============================== TOURNAMENTS ==============================
 

@@ -18,6 +18,21 @@ rules_version = '2';
 //                                       groups+elimination) — the whole bracket
 //                                       (every match node) lives embedded in
 //                                       this one document
+//   servers/{serverId}                 a rigid community (e.g. a game café) —
+//                                       unlike a group, only the owner/admins
+//                                       manage the catalog and salons
+//   servers/{serverId}/salons/{id}     a room within a server (e.g. a weekly
+//                                       tournament) — its own membership,
+//                                       separate from the server's
+//   servers/{serverId}/games/{gameId}  game catalog, shared by every salon of
+//                                       this server
+//   servers/{serverId}/matches/{id}    recorded matches, each tagged with the
+//                                       salon it was played in (`salonId`) —
+//                                       stay 'pending' (see GameMatch.status,
+//                                       computed client-side from confirmedBy/
+//                                       rejectedBy — nothing here depends on
+//                                       it) until every human player involved
+//                                       confirms
 
 service cloud.firestore {
 match /databases/{database}/documents {
@@ -70,6 +85,33 @@ match /databases/{database}/documents {
       && request.resource.data.memberIds.removeAll([request.auth.uid]) == before.memberIds
       && addedMembers.size() > 0
       && inviteWindowOpen(before);
+  }
+
+  function serverDoc(serverId) {
+    return get(/databases/$(database)/documents/servers/$(serverId));
+  }
+
+  function isServerMember(serverData) {
+    return request.auth.uid in serverData.memberIds;
+  }
+
+  function isServerAdmin(serverData) {
+    return request.auth.uid == serverData.ownerId || request.auth.uid in serverData.get('adminIds', []);
+  }
+
+  function salonDoc(serverId, salonId) {
+    return get(/databases/$(database)/documents/servers/$(serverId)/salons/$(salonId));
+  }
+
+  function isSalonMember(serverId, salonId) {
+    return request.auth.uid in salonDoc(serverId, salonId).data.memberIds;
+  }
+
+  // True if this update touches `adminIds` — promoting/demoting an admin is
+  // owner-only (see the `servers/{serverId}` update rule below), unlike
+  // every other admin-manageable field on the doc.
+  function changesAdminIds(before) {
+    return request.resource.data.diff(before).affectedKeys().hasAny(['adminIds']);
   }
 
   // A shared, global catalog of ready-made games (including special-rules
@@ -168,6 +210,71 @@ match /databases/{database}/documents {
       allow create: if signedIn() && isMember(groupDoc(groupId).data)
         && request.resource.data.startedBy == request.auth.uid;
       allow update, delete: if signedIn() && resource.data.startedBy == request.auth.uid;
+    }
+  }
+
+  match /servers/{serverId} {
+    allow read: if signedIn() && isServerMember(resource.data);
+
+    allow create: if signedIn()
+      && request.resource.data.ownerId == request.auth.uid
+      && request.resource.data.memberIds == [request.auth.uid]
+      && request.resource.data.get('adminIds', []) == [];
+
+    // Roster/closed/invite-window changes: owner or admin. Promoting/
+    // demoting an admin (`adminIds`) is further restricted to the owner
+    // alone — an admin can't grant itself or anyone else more power. A
+    // non-member can also self-join via QR (see isSelfJoin()), same pattern
+    // as a Group.
+    allow update: if signedIn() && (
+      isSelfJoin(resource.data)
+      || (resource.data.ownerId == request.auth.uid)
+      || (isServerAdmin(resource.data) && !changesAdminIds(resource.data))
+    );
+
+    allow delete: if signedIn() && resource.data.ownerId == request.auth.uid;
+
+    match /salons/{salonId} {
+      allow read: if signedIn() && (
+        request.auth.uid in resource.data.memberIds || isServerAdmin(serverDoc(serverId).data)
+      );
+      // Only the server's owner/admins create or delete a salon — the whole
+      // point of a Server over a Group is that this isn't a free-for-all.
+      allow create, delete: if signedIn() && isServerAdmin(serverDoc(serverId).data);
+      // Roster changes: admin, or a non-member self-joining via QR (see
+      // ServersRepository.joinSalon — the matching server-membership write
+      // happens as a separate update on the parent `servers/{serverId}` doc,
+      // covered by isSelfJoin() there too).
+      allow update: if signedIn() && (isSelfJoin(resource.data) || isServerAdmin(serverDoc(serverId).data));
+    }
+
+    match /games/{gameId} {
+      allow read: if signedIn() && isServerMember(serverDoc(serverId).data);
+      // Only owner/admins manage the catalog (vs. any member for a Group) —
+      // and blocked once the server is closed, same as a Group.
+      allow create, update: if signedIn() && isServerAdmin(serverDoc(serverId).data) && !isClosed(serverDoc(serverId).data);
+      allow delete: if signedIn() && isServerAdmin(serverDoc(serverId).data);
+    }
+
+    match /matches/{matchId} {
+      // A match belongs to exactly one salon (`salonId`); anyone who can see
+      // that salon can see the match recorded in it.
+      allow read: if signedIn() && (
+        isSalonMember(serverId, resource.data.salonId) || isServerAdmin(serverDoc(serverId).data)
+      );
+      // Any salon member can record or edit a match in it — same trust model
+      // as a Group's matches (this app doesn't try to enforce the
+      // confirm/reject workflow itself at the rules layer; the client only
+      // ever calls confirmMatch/rejectMatch through vetted paths — see
+      // AppState.confirmMatch/rejectMatch). Blocked once the server or the
+      // specific salon is closed.
+      allow create, update: if signedIn()
+        && isSalonMember(serverId, request.resource.data.salonId)
+        && !isClosed(serverDoc(serverId).data)
+        && !isClosed(salonDoc(serverId, request.resource.data.salonId).data);
+      // Only owner/admins delete a match — the last-resort way to resolve a
+      // contested one (see AppState.canForceResolveMatch).
+      allow delete: if signedIn() && isServerAdmin(serverDoc(serverId).data);
     }
   }
 }

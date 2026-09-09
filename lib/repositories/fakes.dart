@@ -4,11 +4,14 @@ import '../models/app_user.dart';
 import '../models/game.dart';
 import '../models/group.dart';
 import '../models/match.dart';
+import '../models/salon.dart';
+import '../models/server.dart';
 import '../models/tournament.dart';
 import 'auth_repository.dart';
 import 'games_repository.dart';
 import 'groups_repository.dart';
 import 'matches_repository.dart';
+import 'servers_repository.dart';
 import 'tournaments_repository.dart';
 import 'users_repository.dart';
 
@@ -197,6 +200,185 @@ class FakeGroupsRepository implements GroupsRepository {
   }
 }
 
+class FakeServersRepository implements ServersRepository {
+  final Map<String, Server> servers;
+  final Map<String, Salon> salons;
+  final UsersRepository users;
+  final _serversController = StreamController<List<Server>>.broadcast();
+  final _salonsControllers = <String, StreamController<List<Salon>>>{};
+
+  FakeServersRepository({Map<String, Server>? seedServers, Map<String, Salon>? seedSalons, required this.users})
+      : servers = seedServers ?? {},
+        salons = seedSalons ?? {};
+
+  void _emitServers() => _serversController.add(servers.values.toList());
+  StreamController<List<Salon>> _salonsCtrl(String serverId) => _salonsControllers.putIfAbsent(serverId, () => StreamController.broadcast());
+  void _emitSalons(String serverId) => _salonsCtrl(serverId).add(salons.values.where((s) => s.serverId == serverId).toList());
+
+  @override
+  Stream<List<Server>> watchMyServers(String uid) {
+    Future.microtask(_emitServers);
+    return _serversController.stream.map((all) => all.where((s) => s.memberIds.contains(uid)).toList());
+  }
+
+  @override
+  Future<Server> createServer({required String name, required String emoji, required int emojiBg, required String ownerId}) async {
+    final id = 'srv${servers.length + 1}';
+    final server = Server(id: id, name: name, emoji: emoji, emojiBg: emojiBg, ownerId: ownerId, adminIds: const [], memberIds: [ownerId]);
+    servers[id] = server;
+    _emitServers();
+    return server;
+  }
+
+  @override
+  Future<void> addMemberByEmail({required String serverId, required String email}) async {
+    final user = await users.getByEmail(email);
+    if (user == null) throw InviteException('Aucun compte trouvé avec cet e-mail.');
+    await addMemberId(serverId: serverId, memberId: user.uid);
+  }
+
+  @override
+  Future<void> addMemberId({required String serverId, required String memberId}) async {
+    final s = servers[serverId];
+    if (s == null) return;
+    if (!s.memberIds.contains(memberId)) {
+      servers[serverId] = s.copyWith(memberIds: [...s.memberIds, memberId]);
+      _emitServers();
+    }
+  }
+
+  @override
+  Future<void> setAdmin({required String serverId, required String uid, required bool admin}) async {
+    final s = servers[serverId];
+    if (s == null) return;
+    servers[serverId] = s.copyWith(adminIds: admin ? [...s.adminIds, uid] : s.adminIds.where((a) => a != uid).toList());
+    _emitServers();
+  }
+
+  @override
+  Future<void> deleteServer(String serverId) async {
+    servers.remove(serverId);
+    salons.removeWhere((_, s) => s.serverId == serverId);
+    _emitServers();
+    _emitSalons(serverId);
+  }
+
+  @override
+  Future<void> joinServer({required String serverId, required String uid}) async {
+    final s = servers[serverId];
+    if (s == null) throw InviteException('Serveur introuvable.');
+    if (s.closed) throw InviteException("Ce serveur est clos et n'accepte plus de nouveaux membres.");
+    if (!s.memberIds.contains(uid)) {
+      servers[serverId] = s.copyWith(memberIds: [...s.memberIds, uid]);
+      _emitServers();
+    }
+  }
+
+  @override
+  Future<void> setServerClosed({required String serverId, required bool closed}) async {
+    final s = servers[serverId];
+    if (s == null) return;
+    servers[serverId] = s.copyWith(closed: closed, closedAt: closed ? DateTime.now() : null);
+    _emitServers();
+  }
+
+  @override
+  Future<void> refreshServerInviteWindow(String serverId) async {
+    final s = servers[serverId];
+    if (s == null) return;
+    servers[serverId] = s.copyWith(inviteExpiresAt: DateTime.now().add(const Duration(minutes: 30)));
+    _emitServers();
+  }
+
+  @override
+  Stream<List<Salon>> watchSalons(String serverId) {
+    Future.microtask(() => _emitSalons(serverId));
+    return _salonsCtrl(serverId).stream;
+  }
+
+  @override
+  Future<Salon> createSalon({required String serverId, required String name, required String emoji, required int emojiBg}) async {
+    final id = 'sal${salons.length + 1}';
+    final salon = Salon(id: id, serverId: serverId, name: name, emoji: emoji, emojiBg: emojiBg, memberIds: const []);
+    salons[id] = salon;
+    _emitSalons(serverId);
+    return salon;
+  }
+
+  @override
+  Future<void> addSalonMemberId({required String serverId, required String salonId, required String memberId}) async {
+    final s = salons[salonId];
+    if (s == null) return;
+    if (!s.memberIds.contains(memberId)) {
+      salons[salonId] = s.copyWith(memberIds: [...s.memberIds, memberId]);
+      _emitSalons(serverId);
+    }
+  }
+
+  @override
+  Future<void> addSalonMemberByEmail({required String serverId, required String salonId, required String email}) async {
+    final user = await users.getByEmail(email);
+    if (user == null) throw InviteException('Aucun compte trouvé avec cet e-mail.');
+    await addSalonMemberId(serverId: serverId, salonId: salonId, memberId: user.uid);
+  }
+
+  @override
+  Future<void> deleteSalon({required String serverId, required String salonId}) async {
+    salons.remove(salonId);
+    _emitSalons(serverId);
+  }
+
+  @override
+  Future<void> joinSalon({required String serverId, required String salonId, required String uid}) async {
+    final salon = salons[salonId];
+    if (salon == null) throw InviteException('Salon introuvable.');
+    if (salon.closed) throw InviteException("Ce salon est clos et n'accepte plus de nouveaux membres.");
+    if (!salon.memberIds.contains(uid)) {
+      salons[salonId] = salon.copyWith(memberIds: [...salon.memberIds, uid]);
+      _emitSalons(serverId);
+    }
+    await addMemberId(serverId: serverId, memberId: uid);
+  }
+
+  @override
+  Future<void> setSalonClosed({required String serverId, required String salonId, required bool closed}) async {
+    final s = salons[salonId];
+    if (s == null) return;
+    salons[salonId] = s.copyWith(closed: closed, closedAt: closed ? DateTime.now() : null);
+    _emitSalons(serverId);
+  }
+
+  @override
+  Future<void> refreshSalonInviteWindow({required String serverId, required String salonId}) async {
+    final s = salons[salonId];
+    if (s == null) return;
+    salons[salonId] = s.copyWith(inviteExpiresAt: DateTime.now().add(const Duration(minutes: 30)));
+    _emitSalons(serverId);
+  }
+
+  @override
+  Future<void> deleteAllUserData(String uid) async {
+    final owned = servers.values.where((s) => s.ownerId == uid).toList();
+    for (final s in owned) {
+      await deleteServer(s.id);
+    }
+    for (final id in servers.keys.toList()) {
+      final s = servers[id];
+      if (s == null || s.ownerId == uid) continue;
+      servers[id] = s.copyWith(
+        memberIds: s.memberIds.where((m) => m != uid).toList(),
+        adminIds: s.adminIds.where((m) => m != uid).toList(),
+      );
+    }
+    for (final id in salons.keys.toList()) {
+      final s = salons[id];
+      if (s == null || !s.memberIds.contains(uid)) continue;
+      salons[id] = s.copyWith(memberIds: s.memberIds.where((m) => m != uid).toList());
+    }
+    _emitServers();
+  }
+}
+
 class FakeGamesRepository implements GamesRepository {
   final Map<String, List<Game>> byGroup;
   final _controllers = <String, StreamController<List<Game>>>{};
@@ -325,6 +507,27 @@ class FakeMatchesRepository implements MatchesRepository {
     if (list == null) return;
     list.removeWhere((m) => m.id == matchId);
     _ctrl(rootGroupId).add(list);
+  }
+
+  @override
+  Future<void> confirmMatch({required String rootId, required String matchId, required String uid}) async {
+    final list = byGroup[rootId];
+    if (list == null) return;
+    final i = list.indexWhere((m) => m.id == matchId);
+    if (i == -1) return;
+    final m = list[i];
+    list[i] = m.copyWith(confirmedBy: [...?m.confirmedBy, uid]);
+    _ctrl(rootId).add(list);
+  }
+
+  @override
+  Future<void> rejectMatch({required String rootId, required String matchId, required String uid}) async {
+    final list = byGroup[rootId];
+    if (list == null) return;
+    final i = list.indexWhere((m) => m.id == matchId);
+    if (i == -1) return;
+    list[i] = list[i].copyWith(rejectedBy: uid);
+    _ctrl(rootId).add(list);
   }
 
   @override

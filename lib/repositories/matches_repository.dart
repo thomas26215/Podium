@@ -79,14 +79,28 @@ abstract class MatchesRepository {
   /// Doesn't touch scores — a plain [updateLiveSession] call already clears
   /// it as a side effect of resuming.
   Future<void> setLiveSessionHeld({required String rootGroupId, required String sessionId, required bool held});
+
+  /// Adds `uid` to a Salon match's [GameMatch.confirmedBy] — used only for
+  /// matches recorded in a Salon (see `AppState.confirmMatch`).
+  Future<void> confirmMatch({required String rootId, required String matchId, required String uid});
+
+  /// Sets a Salon match's [GameMatch.rejectedBy] to `uid`, sending it back to
+  /// its author for editing (see `AppState.rejectMatch`).
+  Future<void> rejectMatch({required String rootId, required String matchId, required String uid});
 }
 
 class FirebaseMatchesRepository implements MatchesRepository {
   final FirebaseFirestore _db;
-  FirebaseMatchesRepository({FirebaseFirestore? db}) : _db = db ?? FirebaseFirestore.instance;
+
+  /// Root collection matches live under — `'groups'` for a friend group
+  /// (the default), `'servers'` for a Server's Salon matches. Same doc shape
+  /// either way; a Salon match additionally carries `salonId`.
+  final String rootCollection;
+
+  FirebaseMatchesRepository({FirebaseFirestore? db, this.rootCollection = 'groups'}) : _db = db ?? FirebaseFirestore.instance;
 
   CollectionReference<Map<String, dynamic>> _col(String rootGroupId) =>
-      _db.collection('groups').doc(rootGroupId).collection('matches');
+      _db.collection(rootCollection).doc(rootGroupId).collection('matches');
 
   @override
   Stream<List<GameMatch>> watchMatches(String rootGroupId, List<String> groupIds) {
@@ -161,8 +175,20 @@ class FirebaseMatchesRepository implements MatchesRepository {
     }
   }
 
+  @override
+  Future<void> confirmMatch({required String rootId, required String matchId, required String uid}) async {
+    await _col(rootId).doc(matchId).update({
+      'confirmedBy': FieldValue.arrayUnion([uid]),
+    });
+  }
+
+  @override
+  Future<void> rejectMatch({required String rootId, required String matchId, required String uid}) async {
+    await _col(rootId).doc(matchId).update({'rejectedBy': uid});
+  }
+
   CollectionReference<Map<String, dynamic>> _sessionsCol(String rootGroupId) =>
-      _db.collection('groups').doc(rootGroupId).collection('matchSessions');
+      _db.collection(rootCollection).doc(rootGroupId).collection('matchSessions');
 
   @override
   Future<String> startLiveSession({

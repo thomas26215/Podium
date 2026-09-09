@@ -33,7 +33,7 @@ class RankingScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ScreenHeading(eyebrow: app.currentGroup?.name ?? '', title: 'Classement'),
+          ScreenHeading(eyebrow: (app.activeContext == ActiveContextKind.salon ? app.currentSalon?.name : app.currentGroup?.name) ?? '', title: 'Classement'),
           SegmentedControl(
             labels: _modeLabels,
             selectedIndex: _modes.indexOf(app.rankMode),

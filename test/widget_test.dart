@@ -65,6 +65,9 @@ const _tom = AppUser(uid: 'tom', email: 'tom@test.fr', displayName: 'Tom', color
     usersRepo: users,
     guestsRepo: FakeGuestsRepository(),
     gameLibraryRepo: FakeGameLibraryRepository(),
+    serversRepo: FakeServersRepository(users: users),
+    serverGamesRepo: FakeGamesRepository(),
+    serverMatchesRepo: FakeMatchesRepository(),
   );
   return (state: state, auth: auth);
 }
@@ -272,6 +275,9 @@ void main() {
       usersRepo: users,
       guestsRepo: FakeGuestsRepository(),
       gameLibraryRepo: FakeGameLibraryRepository(),
+      serversRepo: FakeServersRepository(users: users),
+      serverGamesRepo: FakeGamesRepository(),
+      serverMatchesRepo: FakeMatchesRepository(),
     );
 
     await tester.pumpWidget(
@@ -348,6 +354,60 @@ void main() {
 
     // Flush AppState.showToast's auto-dismiss timer so it doesn't outlive
     // the test (the binding asserts no pending timers at teardown).
+    await tester.pump(const Duration(milliseconds: 2700));
+  });
+
+  testWidgets('a salon match stays pending until every player confirms it', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_tom);
+    await tester.pumpAndSettle();
+
+    final state = seeded.state;
+    await state.createServer(name: 'Café Test', emoji: '☕', emojiBg: 0);
+    await tester.pumpAndSettle();
+    final server = state.servers.single;
+    expect(state.isServerAdmin(server), isTrue, reason: 'the creator is the owner, always an admin');
+
+    await state.createSalon(serverId: server.id, name: 'Tournoi', emoji: '🎮', emojiBg: 0);
+    await tester.pumpAndSettle();
+    final salon = state.salons.single;
+
+    state.selectSalon(server.id, salon.id);
+    await tester.pumpAndSettle();
+    expect(state.activeContext, ActiveContextKind.salon);
+    expect(state.games.any((g) => g.id == 'catan'), isTrue, reason: 'the server got the default catalog seeded on creation');
+
+    // Record a quick FFA match between Tom (the author) and Léa.
+    state.pickGame('catan');
+    state.togglePlayer('tom');
+    state.togglePlayer('lea');
+    state.draft.points['tom'] = 10;
+    state.draft.points['lea'] = 8;
+    await state.saveGame();
+    await tester.pumpAndSettle();
+
+    final saved = state.matches.single;
+    expect(saved.isSalonMatch, isTrue);
+    expect(saved.isPending, isTrue, reason: 'Léa has not confirmed yet');
+    expect(saved.confirmedBy, contains('tom'), reason: "the author's own save counts as their confirmation");
+    expect(state.viewMatches, isEmpty, reason: 'a pending match must not count toward stats/rankings yet');
+
+    // Tom already implicitly confirmed his own save (see above) — Léa is the
+    // one still missing. Simulate her confirmation arriving from another
+    // device by writing straight through the repository, the same path
+    // AppState.confirmMatch would take on her behalf.
+    await state.serverMatchesRepo.confirmMatch(rootId: server.id, matchId: saved.id, uid: 'lea');
+    await tester.pumpAndSettle();
+    expect(state.matches.single.isConfirmed, isTrue);
+    expect(state.viewMatches, hasLength(1), reason: 'now that everyone confirmed, it counts');
+
     await tester.pump(const Duration(milliseconds: 2700));
   });
 }

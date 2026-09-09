@@ -5,10 +5,15 @@ import 'package:provider/provider.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 
-/// Full-screen camera scanner for joining a group via a QR invite code.
-/// Pops with `true` once a join succeeds.
+/// What kind of invite code [QrScanScreen] expects — determines which
+/// `AppState.join*ByCode` method a scanned code is handed to.
+enum QrJoinTarget { group, server, salon }
+
+/// Full-screen camera scanner for joining a group/server/salon via a QR
+/// invite code. Pops with `true` once a join succeeds.
 class QrScanScreen extends StatefulWidget {
-  const QrScanScreen({super.key});
+  final QrJoinTarget target;
+  const QrScanScreen({super.key, this.target = QrJoinTarget.group});
 
   @override
   State<QrScanScreen> createState() => _QrScanScreenState();
@@ -36,7 +41,11 @@ class _QrScanScreenState extends State<QrScanScreen> with SingleTickerProviderSt
     if (raw == null) return;
     setState(() => _busy = true);
     final app = context.read<AppState>();
-    final ok = await app.joinGroupByCode(raw);
+    final ok = switch (widget.target) {
+      QrJoinTarget.group => await app.joinGroupByCode(raw),
+      QrJoinTarget.server => await app.joinServerByCode(raw),
+      QrJoinTarget.salon => await app.joinSalonByCode(raw),
+    };
     if (!mounted) return;
     if (ok) {
       Navigator.of(context).pop(true);
@@ -91,7 +100,11 @@ class _QrScanScreenState extends State<QrScanScreen> with SingleTickerProviderSt
             right: 24,
             bottom: 40,
             child: Text(
-              "Cadrez le QR code d'invitation partagé par un membre du groupe.",
+              switch (widget.target) {
+                QrJoinTarget.group => "Cadrez le QR code d'invitation partagé par un membre du groupe.",
+                QrJoinTarget.server => "Cadrez le QR code d'invitation partagé par un membre du serveur.",
+                QrJoinTarget.salon => "Cadrez le QR code d'invitation partagé pour ce salon.",
+              },
               textAlign: TextAlign.center,
               style: bodyFont(size: 14, weight: FontWeight.w600, color: Colors.white),
             ),

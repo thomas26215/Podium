@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../repositories/guests_repository.dart' show isGuestId;
 import 'game.dart';
 
 class MatchEntry {
@@ -201,6 +202,21 @@ class GameMatch {
   final String? tournamentId;
   final String? tournamentMatchId;
 
+  /// Set only for a match recorded in a Salon (see `lib/models/salon.dart`)
+  /// — mutually exclusive with the ordinary use of [groupId] for a match
+  /// recorded in a friend Group. Null for every Group match, past or future.
+  final String? salonId;
+
+  /// Uids of the human (non-guest) players from [entries] who have approved
+  /// this Salon match — irrelevant for a Group match (always implicitly
+  /// confirmed, see [status]).
+  final List<String>? confirmedBy;
+
+  /// Uid of the player who rejected this Salon match, if any — sends it back
+  /// to [createdByUid] for editing/resubmission. A single rejection is
+  /// enough to block confirmation; there's no partial-veto concept.
+  final String? rejectedBy;
+
   const GameMatch({
     required this.id,
     required this.gameId,
@@ -221,12 +237,38 @@ class GameMatch {
     this.seriesEndedEarly = false,
     this.tournamentId,
     this.tournamentMatchId,
+    this.salonId,
+    this.confirmedBy,
+    this.rejectedBy,
   });
 
   bool get isTeam => mode == 'team';
   bool get hasTimeline => timeline.isNotEmpty;
   bool get isSeriesLeg => seriesId != null;
   bool get hasScoreBreakdown => entries.any((e) => e.scoreBreakdown != null && e.scoreBreakdown!.isNotEmpty);
+  bool get isSalonMatch => salonId != null;
+
+  /// Human (non-guest) players who must confirm this match before it counts
+  /// — guests have no account to confirm with, so they're excluded.
+  List<String> get requiredConfirmers => entries.map((e) => e.playerId).where((id) => !isGuestId(id)).toList();
+
+  /// A Group match is always implicitly confirmed (unchanged legacy
+  /// behavior). A Salon match starts 'pending' and becomes 'confirmed' once
+  /// every [requiredConfirmers] appears in [confirmedBy], or 'rejected' as
+  /// soon as [rejectedBy] is set (which always wins over confirmations —
+  /// re-confirming doesn't clear a rejection, only the author editing and
+  /// resubmitting does, see AppState.saveGame).
+  String get status {
+    if (!isSalonMatch) return 'confirmed';
+    if (rejectedBy != null) return 'rejected';
+    final required = requiredConfirmers;
+    final confirmed = confirmedBy ?? const [];
+    return required.every(confirmed.contains) ? 'confirmed' : 'pending';
+  }
+
+  bool get isPending => status == 'pending';
+  bool get isRejected => status == 'rejected';
+  bool get isConfirmed => status == 'confirmed';
 
   /// [inputMode] when known; for matches saved before that field existed,
   /// infers it from the timeline's shape — round-synced (chunks cleanly
@@ -263,12 +305,24 @@ class GameMatch {
         seriesEndedEarly: seriesEndedEarly,
         tournamentId: tournamentId,
         tournamentMatchId: tournamentMatchId,
+        salonId: salonId,
+        confirmedBy: confirmedBy,
+        rejectedBy: rejectedBy,
       );
 
   /// Used to flag already-saved legs when a "best of N" series is cut short
-  /// before every leg was played (see `AppState.endSeriesEarly`) — every
-  /// other field carries over unchanged.
-  GameMatch copyWith({bool? seriesEndedEarly}) => GameMatch(
+  /// before every leg was played (see `AppState.endSeriesEarly`), or to
+  /// update a Salon match's confirmation state (see `AppState.confirmMatch`/
+  /// `rejectMatch`) — every other field carries over unchanged. Passing
+  /// `resetConfirmation: true` clears both [confirmedBy] and [rejectedBy]
+  /// (the author editing and resubmitting a rejected match).
+  GameMatch copyWith({
+    bool? seriesEndedEarly,
+    List<String>? confirmedBy,
+    String? rejectedBy,
+    bool resetConfirmation = false,
+  }) =>
+      GameMatch(
         id: id,
         gameId: gameId,
         groupId: groupId,
@@ -288,6 +342,9 @@ class GameMatch {
         seriesEndedEarly: seriesEndedEarly ?? this.seriesEndedEarly,
         tournamentId: tournamentId,
         tournamentMatchId: tournamentMatchId,
+        salonId: salonId,
+        confirmedBy: resetConfirmation ? const [] : (confirmedBy ?? this.confirmedBy),
+        rejectedBy: resetConfirmation ? null : (rejectedBy ?? this.rejectedBy),
       );
 
   Map<String, dynamic> toMap() => {
@@ -313,6 +370,9 @@ class GameMatch {
         if (seriesEndedEarly) 'seriesEndedEarly': seriesEndedEarly,
         if (tournamentId != null) 'tournamentId': tournamentId,
         if (tournamentMatchId != null) 'tournamentMatchId': tournamentMatchId,
+        if (salonId != null) 'salonId': salonId,
+        if (confirmedBy != null) 'confirmedBy': confirmedBy,
+        if (rejectedBy != null) 'rejectedBy': rejectedBy,
       };
 
   factory GameMatch.fromDoc(String id, Map<String, dynamic> data) {
@@ -342,6 +402,9 @@ class GameMatch {
       seriesEndedEarly: data['seriesEndedEarly'] as bool? ?? false,
       tournamentId: data['tournamentId'] as String?,
       tournamentMatchId: data['tournamentMatchId'] as String?,
+      salonId: data['salonId'] as String?,
+      confirmedBy: (data['confirmedBy'] as List?)?.map((e) => e as String).toList(),
+      rejectedBy: data['rejectedBy'] as String?,
     );
   }
 

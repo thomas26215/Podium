@@ -55,7 +55,10 @@ class Step1Game extends StatelessWidget {
 }
 
 Future<void> _showNewGameChooser(BuildContext context, AppState app) async {
-  final hasOtherGroups = app.groups.any((g) => g.id != app.currentRootId);
+  // Cross-group catalog browsing doesn't have a Salon equivalent — hidden
+  // entirely while a Salon is the active context (see AppState.
+  // startBrowsingOtherGroups, which is a Group-only feature).
+  final hasOtherGroups = app.activeContext == ActiveContextKind.group && app.groups.any((g) => g.id != app.currentRootId);
   await showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,
