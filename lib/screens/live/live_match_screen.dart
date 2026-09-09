@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -9,6 +11,51 @@ import '../../widgets/common.dart';
 import '../../widgets/live_match_card.dart';
 import '../../widgets/match_card.dart';
 import '../../widgets/score_evolution_chart.dart';
+
+/// `mm:ss`, minutes uncapped (so a multi-hour duration like
+/// [AppState.liveSessionStaleAfter] still reads as e.g. "240:00" rather than
+/// switching formats) — matches how long a held session has been offline
+/// against the same clock that decides when it disappears.
+String _mmss(Duration d) {
+  final totalSeconds = d.inSeconds.clamp(0, 1 << 31);
+  final minutes = totalSeconds ~/ 60;
+  final seconds = totalSeconds % 60;
+  return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+}
+
+/// Ticks once a second so "hors ligne depuis" reads as a live stopwatch
+/// instead of freezing at whatever it was when the screen opened.
+class _ElapsedSince extends StatefulWidget {
+  final DateTime since;
+  final TextStyle? style;
+  const _ElapsedSince({required this.since, this.style});
+
+  @override
+  State<_ElapsedSince> createState() => _ElapsedSinceState();
+}
+
+class _ElapsedSinceState extends State<_ElapsedSince> {
+  late final Timer _ticker;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(_mmss(DateTime.now().difference(widget.since)), style: widget.style);
+  }
+}
 
 /// Read-only, real-time view of a match someone else in the group is
 /// currently scoring — the scores update live as they play, no
@@ -91,15 +138,29 @@ class _LiveMatchBody extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.lg)),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.wifi_off_rounded, size: 16, color: AppColors.mut),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    "${session.startedByName} est hors ligne — les scores affichés sont les derniers connus.",
-                    style: bodyFont(size: 12.5, weight: FontWeight.w700, color: AppColors.mut),
-                  ),
+                Row(
+                  children: [
+                    Icon(Icons.wifi_off_rounded, size: 16, color: AppColors.mut),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        "${session.startedByName} est hors ligne — les scores affichés sont les derniers connus.",
+                        style: bodyFont(size: 12.5, weight: FontWeight.w700, color: AppColors.mut),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Text('Hors ligne depuis ', style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
+                    _ElapsedSince(since: session.updatedAt, style: bodyFont(size: 12, weight: FontWeight.w800, color: AppColors.ink)),
+                    Text('  ·  max ', style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
+                    Text(_mmss(AppState.liveSessionStaleAfter), style: bodyFont(size: 12, weight: FontWeight.w800, color: AppColors.ink)),
+                  ],
                 ),
               ],
             ),
