@@ -177,7 +177,7 @@ class _SalonRow extends StatelessWidget {
                         ],
                       ],
                     ),
-                    Text('${salon.memberIds.length} joueurs', style: bodyFont(size: 11, weight: FontWeight.w600, color: AppColors.mut)),
+                    Text('${salon.memberIds.length} joueurs · ${app.salonPartyCount(salon.id)} parties', style: bodyFont(size: 11, weight: FontWeight.w600, color: AppColors.mut)),
                   ],
                 ),
               ),

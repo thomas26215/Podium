@@ -459,26 +459,49 @@ class FakeGamesRepository implements GamesRepository {
 
 class FakeMatchesRepository implements MatchesRepository {
   final Map<String, List<GameMatch>> byGroup;
+
+  // Keyed by rootGroupId + groupIds + bySalon, not just rootGroupId — unlike
+  // most other Fake*Repository broadcast controllers, a single root can be
+  // watched under several different filters at once (e.g. a server's
+  // several salons), and every write below needs to re-filter each of
+  // those independently rather than pushing the same raw, unfiltered list
+  // to whichever controller happens to be keyed by that root id.
   final _controllers = <String, StreamController<List<GameMatch>>>{};
+  final _filters = <String, (String rootGroupId, List<String> groupIds, bool bySalon)>{};
 
   FakeMatchesRepository({Map<String, List<GameMatch>>? seed}) : byGroup = seed ?? {};
 
-  StreamController<List<GameMatch>> _ctrl(String id) => _controllers.putIfAbsent(id, () => StreamController.broadcast());
+  String _key(String rootGroupId, List<String> groupIds, bool bySalon) => '$rootGroupId $bySalon ${groupIds.join(' ')}';
+
+  StreamController<List<GameMatch>> _ctrl(String key) => _controllers.putIfAbsent(key, () => StreamController.broadcast());
+
+  List<GameMatch> _filtered(String rootGroupId, List<String> groupIds, bool bySalon) {
+    final all = byGroup[rootGroupId] ?? const [];
+    return all.where((m) => groupIds.contains(bySalon ? m.salonId : m.groupId)).toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
+
+  /// Re-pushes freshly-filtered data to every live subscription watching
+  /// `rootGroupId`, under whichever filter each one was created with.
+  void _emitAll(String rootGroupId) {
+    for (final entry in _filters.entries) {
+      final (root, groupIds, bySalon) = entry.value;
+      if (root != rootGroupId) continue;
+      _ctrl(entry.key).add(_filtered(root, groupIds, bySalon));
+    }
+  }
 
   @override
-  Stream<List<GameMatch>> watchMatches(String rootGroupId, List<String> groupIds) {
-    final c = _ctrl(rootGroupId);
-    Future.microtask(() {
-      final all = byGroup[rootGroupId] ?? const [];
-      c.add(all.where((m) => groupIds.contains(m.groupId)).toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt)));
-    });
+  Stream<List<GameMatch>> watchMatches(String rootGroupId, List<String> groupIds, {bool bySalon = false}) {
+    final key = _key(rootGroupId, groupIds, bySalon);
+    _filters[key] = (rootGroupId, groupIds, bySalon);
+    final c = _ctrl(key);
+    Future.microtask(() => c.add(_filtered(rootGroupId, groupIds, bySalon)));
     return c.stream;
   }
 
   @override
-  Future<int> countMatches(String rootGroupId, List<String> groupIds) async {
-    final all = byGroup[rootGroupId] ?? const [];
-    return all.where((m) => groupIds.contains(m.groupId)).length;
+  Future<int> countMatches(String rootGroupId, List<String> groupIds, {bool bySalon = false}) async {
+    return _filtered(rootGroupId, groupIds, bySalon).length;
   }
 
   int _counter = 0;
@@ -488,7 +511,7 @@ class FakeMatchesRepository implements MatchesRepository {
     final list = byGroup.putIfAbsent(rootGroupId, () => []);
     final saved = match.copyWithId('match${++_counter}');
     list.insert(0, saved);
-    _ctrl(rootGroupId).add(list);
+    _emitAll(rootGroupId);
     return saved;
   }
 
@@ -498,7 +521,7 @@ class FakeMatchesRepository implements MatchesRepository {
     final i = list.indexWhere((m) => m.id == match.id);
     if (i == -1) return;
     list[i] = match;
-    _ctrl(rootGroupId).add(list);
+    _emitAll(rootGroupId);
   }
 
   @override
@@ -506,7 +529,7 @@ class FakeMatchesRepository implements MatchesRepository {
     final list = byGroup[rootGroupId];
     if (list == null) return;
     list.removeWhere((m) => m.id == matchId);
-    _ctrl(rootGroupId).add(list);
+    _emitAll(rootGroupId);
   }
 
   @override
@@ -517,7 +540,7 @@ class FakeMatchesRepository implements MatchesRepository {
     if (i == -1) return;
     final m = list[i];
     list[i] = m.copyWith(confirmedBy: [...?m.confirmedBy, uid]);
-    _ctrl(rootId).add(list);
+    _emitAll(rootId);
   }
 
   @override
@@ -527,7 +550,7 @@ class FakeMatchesRepository implements MatchesRepository {
     final i = list.indexWhere((m) => m.id == matchId);
     if (i == -1) return;
     list[i] = list[i].copyWith(rejectedBy: uid);
-    _ctrl(rootId).add(list);
+    _emitAll(rootId);
   }
 
   @override
@@ -551,7 +574,7 @@ class FakeMatchesRepository implements MatchesRepository {
         createdByUid: m.createdByUid,
       );
     }
-    _ctrl(rootGroupId).add(list);
+    _emitAll(rootGroupId);
   }
 
   final List<Map<String, String>> announcedStarts = [];

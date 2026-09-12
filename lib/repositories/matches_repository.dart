@@ -3,14 +3,19 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/match.dart';
 
 abstract class MatchesRepository {
-  /// All matches recorded in any of `groupIds`, newest first.
-  Stream<List<GameMatch>> watchMatches(String rootGroupId, List<String> groupIds);
+  /// All matches recorded in any of `groupIds`, newest first. Matches on the
+  /// `groupId` field by default; pass `bySalon: true` to match on `salonId`
+  /// instead — a Salon match's own `groupId` is always empty (see
+  /// `AppState.saveGame`), so a Salon's matches must be found by `salonId`.
+  Stream<List<GameMatch>> watchMatches(String rootGroupId, List<String> groupIds, {bool bySalon = false});
 
   /// One-time tally of matches recorded in any of `groupIds` — cheaper than
   /// [watchMatches] when only a count is needed (e.g. the groups list's "X
-  /// parties" summary for a group that isn't the currently-selected one, so
-  /// its matches aren't already loaded — see AppState.refreshGroupPartyCounts).
-  Future<int> countMatches(String rootGroupId, List<String> groupIds);
+  /// parties" summary for a group/salon that isn't the currently-selected
+  /// one, so its matches aren't already loaded — see
+  /// AppState.refreshGroupPartyCounts/refreshSalonPartyCounts). See
+  /// [watchMatches] for `bySalon`.
+  Future<int> countMatches(String rootGroupId, List<String> groupIds, {bool bySalon = false});
 
   /// Persists `match` (its `id` is ignored — the repository assigns one)
   /// and returns the saved match with its real id.
@@ -103,21 +108,21 @@ class FirebaseMatchesRepository implements MatchesRepository {
       _db.collection(rootCollection).doc(rootGroupId).collection('matches');
 
   @override
-  Stream<List<GameMatch>> watchMatches(String rootGroupId, List<String> groupIds) {
+  Stream<List<GameMatch>> watchMatches(String rootGroupId, List<String> groupIds, {bool bySalon = false}) {
     if (groupIds.isEmpty) return Stream.value(const []);
     // Firestore whereIn caps at 30 values, comfortably above any realistic
     // fan-out for this app.
     return _col(rootGroupId)
-        .where('groupId', whereIn: groupIds.take(30).toList())
+        .where(bySalon ? 'salonId' : 'groupId', whereIn: groupIds.take(30).toList())
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snap) => snap.docs.map((d) => GameMatch.fromDoc(d.id, d.data())).toList());
   }
 
   @override
-  Future<int> countMatches(String rootGroupId, List<String> groupIds) async {
+  Future<int> countMatches(String rootGroupId, List<String> groupIds, {bool bySalon = false}) async {
     if (groupIds.isEmpty) return 0;
-    final agg = await _col(rootGroupId).where('groupId', whereIn: groupIds.take(30).toList()).count().get();
+    final agg = await _col(rootGroupId).where(bySalon ? 'salonId' : 'groupId', whereIn: groupIds.take(30).toList()).count().get();
     return agg.count ?? 0;
   }
 

@@ -583,4 +583,55 @@ void main() {
 
     await tester.pump(const Duration(milliseconds: 2700));
   });
+
+  testWidgets('the server detail screen shows a match count per salon, scoped correctly', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_tom);
+    await tester.pumpAndSettle();
+
+    final state = seeded.state;
+    await state.createServer(name: 'Café Test', emoji: '☕', emojiBg: 0);
+    await tester.pumpAndSettle();
+    final server = state.servers.single;
+
+    await state.createSalon(serverId: server.id, name: 'Salon A', emoji: '🎮', emojiBg: 0);
+    await state.createSalon(serverId: server.id, name: 'Salon B', emoji: '🎯', emojiBg: 0);
+    await tester.pumpAndSettle();
+    final salonA = state.salons.firstWhere((s) => s.name == 'Salon A');
+
+    // Record one match in Salon A only — this exercises the fix for a real
+    // bug found while investigating: watchMatches/countMatches used to
+    // filter on the `groupId` field even for Salon matches, which are
+    // always empty on that field (they carry `salonId` instead), so a
+    // Salon's matches never actually matched the query.
+    state.selectSalon(server.id, salonA.id);
+    await tester.pumpAndSettle();
+    state.pickGame('catan');
+    state.togglePlayer('tom');
+    state.draft.points['tom'] = 10;
+    await state.saveGame();
+    await tester.pumpAndSettle();
+    expect(state.matches, hasLength(1), reason: 'the match is visible from within Salon A itself');
+
+    // saveGame() switched to the History tab — back to Home to reach the
+    // header (IndexedStack keeps History mounted but not hit-testable).
+    state.setTab(AppTab.home);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Salon A'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Café Test'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('1 parties'), findsOneWidget, reason: 'Salon A shows its 1 recorded match');
+    expect(find.textContaining('0 parties'), findsOneWidget, reason: 'Salon B has none');
+
+    await tester.pump(const Duration(milliseconds: 2700));
+  });
 }

@@ -595,6 +595,7 @@ class AppState extends ChangeNotifier {
     if (serverId == null) return;
     _salonsSub = serversRepo.watchSalons(serverId).listen((ss) {
       salons = ss;
+      unawaited(refreshSalonPartyCounts(serverId));
       notifyListeners();
     });
   }
@@ -1032,6 +1033,28 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Per-salon match tallies for the server detail screen — same reasoning
+  // as [_groupPartyCounts]: `matches` only ever holds the currently-active
+  // salon's, so a screen listing every salon of a server needs its own
+  // one-time tally.
+  final Map<String, int> _salonPartyCounts = {};
+  int salonPartyCount(String salonId) => _salonPartyCounts[salonId] ?? 0;
+
+  /// Refreshes [salonPartyCount] for every salon currently in [salons] —
+  /// called when the server detail screen opens (see ServerDetailScreen).
+  Future<void> refreshSalonPartyCounts(String serverId) async {
+    final futures = <Future<void>>[
+      for (final s in salons)
+        () async {
+          try {
+            _salonPartyCounts[s.id] = await serverMatchesRepo.countMatches(serverId, [s.id], bySalon: true);
+          } catch (_) {}
+        }(),
+    ];
+    await Future.wait(futures);
+    notifyListeners();
+  }
+
   void _resubscribeGroupData() {
     final root = currentRootId;
     _gamesSub?.cancel();
@@ -1109,7 +1132,7 @@ class AppState extends ChangeNotifier {
       }
       notifyListeners();
     });
-    _matchesSub = serverMatchesRepo.watchMatches(serverId, [salonId]).listen((ms) {
+    _matchesSub = serverMatchesRepo.watchMatches(serverId, [salonId], bySalon: true).listen((ms) {
       matches = ms;
       matchesLoaded = true;
       notifyListeners();
