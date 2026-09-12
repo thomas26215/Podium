@@ -175,7 +175,7 @@ class HomeScreen extends StatelessWidget {
                   children: [
                     SectionHeader(title: 'Parties en direct'),
                     SizedBox(
-                      height: 128,
+                      height: 144,
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
                         itemCount: app.liveSessions.length,

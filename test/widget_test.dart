@@ -525,4 +525,53 @@ void main() {
 
     await tester.pump(const Duration(milliseconds: 2700));
   });
+
+  testWidgets('a plain match in a group saves through the full wizard UI', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    final before = seeded.state.matches.length;
+
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Partie simple'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continuer'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Catan').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continuer'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Léa').last);
+    await tester.tap(find.text('Tom').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continuer'));
+    // Not pumpAndSettle from here: reaching the scores step starts a live
+    // session (AppState._startLiveSessionIfNeeded), and its "EN DIRECT"
+    // pulsing dot (LiveDot, ..repeat(reverse: true)) animates forever by
+    // design — pumpAndSettle would never find a quiet frame and time out.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('Enregistrer la partie'), findsOneWidget, reason: 'reached the final scores step');
+    await tester.tap(find.text('Enregistrer la partie'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(seeded.state.matches.length, before + 1, reason: 'the match was actually persisted through the repository');
+    expect(seeded.state.flowError, isNull);
+
+    await tester.pump(const Duration(milliseconds: 2700));
+  });
 }
