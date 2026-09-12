@@ -571,6 +571,15 @@ void main() {
 
     expect(seeded.state.matches.length, before + 1, reason: 'the match was actually persisted through the repository');
     expect(seeded.state.flowError, isNull);
+    expect(seeded.state.tab, AppTab.history, reason: 'saveGame() switches to the history tab on success');
+
+    // Also check what the user actually sees on that tab, not just the
+    // repository's internal state — this is the exact screen a real
+    // permission-denied write (rejected server-side after an optimistic
+    // local commit) would still show as empty despite the redirect.
+    await tester.pump();
+    expect(find.text('Pas encore de partie. Lancez-vous avec le bouton +.'), findsNothing, reason: 'the new match should show up in the history list, not the empty state');
+    expect(find.textContaining('Catan'), findsWidgets);
 
     await tester.pump(const Duration(milliseconds: 2700));
   });
