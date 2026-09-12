@@ -1662,8 +1662,8 @@ class AppState extends ChangeNotifier {
   /// Matches recorded in the currently-viewed group/salon — for a Salon,
   /// only ones every player has confirmed (see GameMatch.status): a pending
   /// or rejected match shouldn't count toward stats/rankings/history yet,
-  /// even though it already lives in [matches] (read directly by the
-  /// dedicated "à confirmer" UI — see SalonDetailScreen).
+  /// even though it already lives in [matches] (read directly by
+  /// HomeScreen's "à confirmer" section for a Salon).
   List<GameMatch> get viewMatches {
     if (activeContext == ActiveContextKind.salon) {
       return matches.where((m) => m.isConfirmed).toList();

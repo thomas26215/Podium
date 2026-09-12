@@ -7,7 +7,6 @@ import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/avatar.dart';
 import '../../widgets/common.dart';
-import 'salon_detail_screen.dart';
 import 'salon_form_dialog.dart';
 import 'salon_invite_dialog.dart';
 import 'server_invite_dialog.dart';
@@ -145,7 +144,14 @@ class _SalonRow extends StatelessWidget {
       decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
       child: InkWell(
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => SalonDetailScreen(serverId: server.id, salonId: salon.id))),
+        // Selecting a salon works exactly like selecting a group (see
+        // AppState.selectSalon + _selectAndClose in groups_screen.dart): pop
+        // back to the tabbed shell instead of pushing a separate screen — a
+        // salon is just another recording context, not a different app.
+        onTap: () {
+          app.selectSalon(server.id, salon.id);
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        },
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(

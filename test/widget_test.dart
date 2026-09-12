@@ -174,6 +174,47 @@ void main() {
     await tester.pump(const Duration(milliseconds: 2700));
   });
 
+  testWidgets('tapping a salon lands back on the normal home tab, not a separate screen', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_tom);
+    await tester.pumpAndSettle();
+
+    final state = seeded.state;
+    await state.createServer(name: 'Café Test', emoji: '☕', emojiBg: 0);
+    await tester.pumpAndSettle();
+    final server = state.servers.single;
+    await state.createSalon(serverId: server.id, name: 'Tournoi', emoji: '🎮', emojiBg: 0);
+    await tester.pumpAndSettle();
+    final salon = state.salons.single;
+
+    // Home -> unified groups/servers screen -> server detail -> tap the salon.
+    await tester.tap(find.text('Les Bandits'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Café Test'));
+    await tester.pumpAndSettle();
+    expect(find.text('Salons'), findsOneWidget, reason: 'we are on the server detail screen');
+    await tester.tap(find.text('Tournoi'));
+    await tester.pumpAndSettle();
+
+    expect(state.activeContext, ActiveContextKind.salon);
+    expect(state.currentSalonId, salon.id);
+    // Landed back on the ordinary tabbed home screen — not a separate,
+    // disconnected screen — so it shows the salon in the same header the
+    // group used to occupy, and none of the server-detail-only chrome.
+    expect(find.text('Tournoi'), findsOneWidget, reason: 'the home header now shows the salon');
+    expect(find.text('Salons'), findsNothing, reason: 'no longer on the server detail screen');
+    expect(find.text('Classement'), findsWidgets, reason: 'the ordinary tab bar is back');
+
+    await tester.pump(const Duration(milliseconds: 2700));
+  });
+
   testWidgets('new-game sheet opens from the FAB and shows the game grid', (tester) async {
     final seeded = _buildSeededState();
     await tester.pumpWidget(

@@ -9,10 +9,12 @@ import '../../widgets/common.dart';
 import '../../widgets/live_match_card.dart';
 import '../../widgets/match_card.dart';
 import '../../models/game.dart';
+import '../../models/match.dart';
 import '../../models/tournament.dart';
 import '../../widgets/rank_row.dart';
 import '../games/games_catalog_screen.dart';
 import '../groups/groups_screen.dart';
+import '../history/match_detail_screen.dart';
 import '../live/live_match_screen.dart';
 import '../new_game/new_game_sheet.dart';
 import '../tournaments/tournament_detail_screen.dart';
@@ -29,6 +31,7 @@ class HomeScreen extends StatelessWidget {
     final group = app.currentGroup;
     final headerEmoji = inSalon ? (salon?.emoji ?? '🎮') : (group?.emoji ?? '🎲');
     final headerName = inSalon ? (salon?.name ?? 'Salon') : (group?.name ?? 'Podium');
+    final matchesToReview = inSalon ? _matchesToReview(app) : const <GameMatch>[];
     final players = app.viewPlayers;
     final stats = app.groupStats;
     final winRows = app.standings('wins');
@@ -192,6 +195,35 @@ class HomeScreen extends StatelessWidget {
                   ],
                 ),
               ),
+            if (matchesToReview.isNotEmpty)
+              KeyedSubtree(
+                key: const ValueKey('salon-review'),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SectionHeader(title: 'Parties à confirmer'),
+                    for (final (i, m) in matchesToReview.indexed)
+                      Builder(builder: (_) {
+                        final g = app.gameById(m.gameId);
+                        if (g == null) return const SizedBox.shrink();
+                        return FadeSlideIn(
+                          delay: Duration(milliseconds: i * 40),
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: MatchCard(
+                              game: g,
+                              match: m,
+                              appState: app,
+                              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => MatchDetailScreen(game: g, match: m, appState: app))),
+                            ),
+                          ),
+                        );
+                      }),
+                    const SizedBox(height: 18),
+                  ],
+                ),
+              ),
             KeyedSubtree(
               key: const ValueKey('dashboard'),
               child: Column(
@@ -214,6 +246,21 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Salon matches (see [ActiveContextKind.salon]) the signed-in player still
+/// needs to act on: one they played in and haven't confirmed yet, or one
+/// they authored that got rejected and needs correcting — see
+/// [GameMatch.requiredConfirmers]/[AppState.canEditRejectedMatch]. These
+/// stay out of [AppState.viewMatches] (so they don't count toward stats
+/// until settled), so this is the one place they're surfaced.
+List<GameMatch> _matchesToReview(AppState app) {
+  final uid = app.currentUser?.uid;
+  if (uid == null) return const [];
+  return app.matches.where((m) {
+    if (m.isRejected) return m.createdByUid == uid;
+    return m.requiredConfirmers.contains(uid) && !(m.confirmedBy ?? const []).contains(uid);
+  }).toList();
 }
 
 /// Tournaments currently in progress — deliberately low on the home screen
