@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/group.dart';
+import '../../models/server.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
+import '../servers/server_detail_screen.dart';
+import '../servers/server_form_dialog.dart';
 import 'group_form_dialog.dart';
 import 'invite_dialog.dart';
 import 'qr_scan_screen.dart';
@@ -18,8 +21,9 @@ void _selectAndClose(BuildContext context, AppState app, String groupId) {
   if (Navigator.of(context).canPop()) Navigator.of(context).pop();
 }
 
-/// Standalone page wrapper for [GroupsScreen], used when navigating to it
-/// via [Navigator.push] (it's no longer a bottom-nav tab).
+/// Standalone page wrapper for [GroupsScreen] — the single place both
+/// Groups and Servers are picked from (see GroupsScreen), used when
+/// navigating to it via [Navigator.push] (it's no longer a bottom-nav tab).
 class GroupsPage extends StatefulWidget {
   const GroupsPage({super.key});
 
@@ -54,8 +58,51 @@ class _GroupsPageState extends State<GroupsPage> {
   }
 }
 
+/// The one place both Groups (free-for-all friend spaces) and Servers
+/// (rigid communities like a game café — see [ServerCard]) are listed,
+/// created and joined from — tapping either kind of card selects it as the
+/// active recording context (a Group directly, a Server by drilling into
+/// one of its salons first, see [ServerDetailScreen]).
 class GroupsScreen extends StatelessWidget {
   const GroupsScreen({super.key});
+
+  Future<void> _chooseCreateKind(BuildContext context, AppState app) async {
+    final kind = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Container(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+        decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Quoi créer ?', style: dispFont(size: 18, weight: FontWeight.w700, color: AppColors.ink)),
+            const SizedBox(height: 16),
+            _CreateKindTile(
+              emoji: '👥',
+              title: 'Un groupe',
+              subtitle: "Entre amis — tout le monde peut tout modifier.",
+              onTap: () => Navigator.of(sheetContext).pop('group'),
+            ),
+            const SizedBox(height: 10),
+            _CreateKindTile(
+              emoji: '🏠',
+              title: 'Un serveur',
+              subtitle: "Pour un café jeu ou une structure — vous gardez la main sur le catalogue et les salons.",
+              onTap: () => Navigator.of(sheetContext).pop('server'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!context.mounted || kind == null) return;
+    if (kind == 'group') {
+      await showDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: const GroupFormDialog()));
+    } else {
+      await showDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: const ServerFormDialog()));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,6 +112,8 @@ class GroupsScreen extends StatelessWidget {
     // clearly-labelled section underneath instead.
     final activeRoots = app.groups.where((g) => !g.closed).toList();
     final closedRoots = app.groups.where((g) => g.closed).toList();
+    final activeServers = app.servers.where((s) => !s.closed).toList();
+    final closedServers = app.servers.where((s) => s.closed).toList();
 
     return Column(
       children: [
@@ -74,7 +123,7 @@ class GroupsScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const ScreenHeading(eyebrow: 'Vos communautés', title: 'Mes groupes'),
+                const ScreenHeading(eyebrow: 'Vos communautés', title: 'Mes groupes & serveurs'),
                 if (app.groupsLoading)
                   Padding(padding: EdgeInsets.symmetric(vertical: 40), child: Center(child: CircularProgressIndicator(color: AppColors.accent)))
                 else if (app.groups.isEmpty)
@@ -90,6 +139,26 @@ class GroupsScreen extends StatelessWidget {
                     for (final g in closedRoots) _RootGroupCard(group: g),
                   ],
                 ],
+                if (app.servers.isNotEmpty || app.serversLoading) ...[
+                  const SizedBox(height: 24),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 2, bottom: 10),
+                    child: Text('SERVEURS', style: bodyFont(size: 11.5, weight: FontWeight.w800, color: AppColors.mut, letterSpacing: 0.5)),
+                  ),
+                  if (app.serversLoading)
+                    Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: CircularProgressIndicator(color: AppColors.accent)))
+                  else ...[
+                    for (final (i, s) in activeServers.indexed) FadeSlideIn(delay: Duration(milliseconds: i * 60), child: ServerCard(server: s)),
+                    if (closedServers.isNotEmpty) ...[
+                      if (activeServers.isNotEmpty) const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 2, bottom: 10),
+                        child: Text('SERVEURS CLOS', style: bodyFont(size: 11.5, weight: FontWeight.w800, color: AppColors.mut, letterSpacing: 0.5)),
+                      ),
+                      for (final s in closedServers) ServerCard(server: s),
+                    ],
+                  ],
+                ],
               ],
             ),
           ),
@@ -101,7 +170,7 @@ class GroupsScreen extends StatelessWidget {
             children: [
               Expanded(
                 child: Pressable(
-                  onTap: () => showDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: const GroupFormDialog())),
+                  onTap: () => _chooseCreateKind(context, app),
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(border: Border.all(color: AppColors.line, width: 2), borderRadius: BorderRadius.circular(AppRadius.lg)),
@@ -110,7 +179,7 @@ class GroupsScreen extends StatelessWidget {
                       children: [
                         Icon(Icons.add, size: 20, color: AppColors.ink2),
                         const SizedBox(width: 8),
-                        Flexible(child: Text('Créer un groupe', overflow: TextOverflow.ellipsis, style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink2))),
+                        Flexible(child: Text('Créer', overflow: TextOverflow.ellipsis, style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink2))),
                       ],
                     ),
                   ),
@@ -138,6 +207,48 @@ class GroupsScreen extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _CreateKindTile extends StatelessWidget {
+  final String emoji;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  const _CreateKindTile({required this.emoji, required this.title, required this.subtitle, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Pressable(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(12)),
+              child: Text(emoji, style: const TextStyle(fontSize: 22)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: bodyFont(size: 15, weight: FontWeight.w800, color: AppColors.ink)),
+                  const SizedBox(height: 2),
+                  Text(subtitle, style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: AppColors.mut),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -235,6 +346,81 @@ class _RootGroupCard extends StatelessWidget {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A server card in the unified list — tapping it opens [ServerDetailScreen]
+/// (pick a salon, manage members/roles) rather than selecting it directly,
+/// since a Server itself isn't a recording context, only one of its salons
+/// is (see AppState.selectSalon).
+class ServerCard extends StatelessWidget {
+  final Server server;
+  const ServerCard({super.key, required this.server});
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final uid = app.currentUser?.uid;
+    final isOwner = uid != null && server.ownerId == uid;
+    final isAdmin = app.isServerAdmin(server);
+    final closed = server.closed;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ServerDetailScreen(serverId: server.id))),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Opacity(
+                opacity: closed ? 0.5 : 1,
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(color: Color(server.emojiBg), borderRadius: BorderRadius.circular(14)),
+                  child: Text(server.emoji, style: const TextStyle(fontSize: 24)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(child: Text(server.name, overflow: TextOverflow.ellipsis, style: bodyFont(size: 16, weight: FontWeight.w800, color: AppColors.ink))),
+                        if (closed) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                            decoration: BoxDecoration(color: AppColors.bg, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(6)),
+                            child: Text('CLOS', style: bodyFont(size: 10, weight: FontWeight.w800, color: AppColors.mut, letterSpacing: 0.4)),
+                          ),
+                        ] else if (isOwner || isAdmin) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                            decoration: BoxDecoration(color: AppColors.accentSoft, border: Border.all(color: AppColors.accent), borderRadius: BorderRadius.circular(6)),
+                            child: Text(isOwner ? 'OWNER' : 'ADMIN', style: bodyFont(size: 10, weight: FontWeight.w800, color: AppColors.accent, letterSpacing: 0.4)),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text('${server.memberIds.length} membres', style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: AppColors.mut),
+            ],
+          ),
         ),
       ),
     );

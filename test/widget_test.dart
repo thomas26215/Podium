@@ -143,9 +143,35 @@ void main() {
     await tester.tap(find.text('Les Bandits'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Mes groupes'), findsOneWidget);
+    expect(find.text('Mes groupes & serveurs'), findsOneWidget);
     expect(find.text('Les Bandits'), findsOneWidget);
-    expect(find.text('Créer un groupe'), findsOneWidget);
+    expect(find.text('Créer'), findsOneWidget);
+  });
+
+  testWidgets('servers are listed alongside groups in the same screen', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    await seeded.state.createServer(name: 'Café Test', emoji: '☕', emojiBg: 0);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Les Bandits'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Mes groupes & serveurs'), findsOneWidget);
+    expect(find.text('Les Bandits'), findsOneWidget, reason: 'the group card is still there');
+    expect(find.text('SERVEURS'), findsOneWidget);
+    expect(find.text('Café Test'), findsOneWidget, reason: 'the newly created server shows up in the same list');
+
+    await tester.pump(const Duration(milliseconds: 2700));
   });
 
   testWidgets('new-game sheet opens from the FAB and shows the game grid', (tester) async {

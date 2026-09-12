@@ -15,7 +15,6 @@ import '../games/games_catalog_screen.dart';
 import '../groups/groups_screen.dart';
 import '../live/live_match_screen.dart';
 import '../new_game/new_game_sheet.dart';
-import '../servers/servers_screen.dart';
 import '../tournaments/tournament_detail_screen.dart';
 import '../tournaments/tournaments_list_screen.dart';
 
@@ -46,7 +45,7 @@ class HomeScreen extends StatelessWidget {
               children: [
                 Flexible(
                   child: InkWell(
-                    onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => inSalon ? const ServersPage() : const GroupsPage())),
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GroupsPage())),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -75,19 +74,6 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                if (!inSalon)
-                  InkWell(
-                    borderRadius: BorderRadius.circular(12),
-                    onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ServersPage())),
-                    child: Container(
-                      width: 38,
-                      height: 38,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(12)),
-                      child: Icon(Icons.storefront_rounded, size: 19, color: AppColors.ink2),
-                    ),
-                  ),
-                const SizedBox(width: 10),
                 InkWell(
                   borderRadius: BorderRadius.circular(12),
                   onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GamesCatalogScreen())),

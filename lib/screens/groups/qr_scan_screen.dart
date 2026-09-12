@@ -2,18 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/group_invite_code.dart';
+import '../../models/server_invite_code.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 
 /// What kind of invite code [QrScanScreen] expects — determines which
-/// `AppState.join*ByCode` method a scanned code is handed to.
-enum QrJoinTarget { group, server, salon }
+/// `AppState.join*ByCode` method a scanned code is handed to. [auto] (the
+/// default from the unified "Rejoindre" entry point on [GroupsScreen])
+/// figures it out from the code's own shape instead of requiring the user
+/// to pick a kind before they've even scanned anything.
+enum QrJoinTarget { auto, group, server, salon }
 
 /// Full-screen camera scanner for joining a group/server/salon via a QR
 /// invite code. Pops with `true` once a join succeeds.
 class QrScanScreen extends StatefulWidget {
   final QrJoinTarget target;
-  const QrScanScreen({super.key, this.target = QrJoinTarget.group});
+  const QrScanScreen({super.key, this.target = QrJoinTarget.auto});
 
   @override
   State<QrScanScreen> createState() => _QrScanScreenState();
@@ -35,13 +40,34 @@ class _QrScanScreenState extends State<QrScanScreen> with SingleTickerProviderSt
     super.dispose();
   }
 
+  /// [widget.target] itself unless it's [QrJoinTarget.auto], in which case
+  /// this sniffs `raw`'s own shape (see GroupInviteCode/ServerInviteCode/
+  /// SalonInviteCode — each uses a distinct URI host) to figure out which
+  /// kind of invite it is without asking the user to guess first.
+  QrJoinTarget _resolveTarget(String raw) {
+    if (widget.target != QrJoinTarget.auto) return widget.target;
+    if (GroupInviteCode.tryParse(raw) != null) return QrJoinTarget.group;
+    if (SalonInviteCode.tryParse(raw) != null) return QrJoinTarget.salon;
+    if (ServerInviteCode.tryParse(raw) != null) return QrJoinTarget.server;
+    return QrJoinTarget.auto;
+  }
+
   Future<void> _onDetect(BarcodeCapture capture) async {
     if (_busy) return;
     final raw = capture.barcodes.isEmpty ? null : capture.barcodes.first.rawValue;
     if (raw == null) return;
     setState(() => _busy = true);
     final app = context.read<AppState>();
-    final ok = switch (widget.target) {
+    final resolved = _resolveTarget(raw);
+    if (resolved == QrJoinTarget.auto) {
+      // Doesn't match any known invite shape — nothing was actually
+      // attempted, so app.flowError could only be stale from a previous try.
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Code QR invalide.')));
+      return;
+    }
+    final ok = switch (resolved) {
+      QrJoinTarget.auto => false, // unreachable, handled above
       QrJoinTarget.group => await app.joinGroupByCode(raw),
       QrJoinTarget.server => await app.joinServerByCode(raw),
       QrJoinTarget.salon => await app.joinSalonByCode(raw),
@@ -101,6 +127,7 @@ class _QrScanScreenState extends State<QrScanScreen> with SingleTickerProviderSt
             bottom: 40,
             child: Text(
               switch (widget.target) {
+                QrJoinTarget.auto => "Cadrez un QR code d'invitation — groupe, serveur ou salon.",
                 QrJoinTarget.group => "Cadrez le QR code d'invitation partagé par un membre du groupe.",
                 QrJoinTarget.server => "Cadrez le QR code d'invitation partagé par un membre du serveur.",
                 QrJoinTarget.salon => "Cadrez le QR code d'invitation partagé pour ce salon.",

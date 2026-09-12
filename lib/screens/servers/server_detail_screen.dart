@@ -14,7 +14,8 @@ import 'server_invite_dialog.dart';
 
 /// Server management screen: its salons (create/delete admin-only), its
 /// roster with role management (promote/demote admin, owner-only), invite,
-/// close/reopen/delete. Reached by tapping a server in [ServersScreen].
+/// close/reopen/delete. Reached by tapping a server card in [GroupsScreen]
+/// (the same screen Groups are picked from).
 class ServerDetailScreen extends StatefulWidget {
   final String serverId;
   const ServerDetailScreen({super.key, required this.serverId});
