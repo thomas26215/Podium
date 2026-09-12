@@ -583,6 +583,7 @@ class AppState extends ChangeNotifier {
     if (currentServerId == null || servers.every((s) => s.id != currentServerId)) {
       currentServerId = servers.isNotEmpty ? servers.first.id : null;
     }
+    unawaited(_ensureMembersLoaded());
     _resubscribeSalons();
     notifyListeners();
   }
@@ -646,6 +647,65 @@ class AppState extends ChangeNotifier {
       await serversRepo.addMemberByEmail(serverId: serverId, email: email);
       ok = true;
       showToast('Membre ajouté au serveur.');
+    } catch (e) {
+      flowError = e.toString();
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+    return ok;
+  }
+
+  /// Adds an already-known account or guest (typically picked from [friends]/
+  /// [knownGuests]) to `serverId` straight by uid — admin/owner-only, same
+  /// reasoning as [addServerMemberByEmail].
+  Future<bool> addServerMemberByUid({required String serverId, required String uid}) async {
+    final server = serverById(serverId);
+    if (server == null || !isServerAdmin(server)) return false;
+    busy = true;
+    flowError = null;
+    notifyListeners();
+    var ok = false;
+    try {
+      await serversRepo.addMemberId(serverId: serverId, memberId: uid);
+      ok = true;
+      showToast('Membre ajouté au serveur.');
+    } catch (e) {
+      flowError = e.toString();
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+    return ok;
+  }
+
+  /// Adds a player with no real account to `serverId` — e.g. a walk-in
+  /// customer at a game café. Admin/owner-only, same reasoning as
+  /// [addServerMemberByEmail]. See [addGuest] (the Group equivalent) for how
+  /// the shared `guest:` identity works.
+  Future<bool> addServerGuest({required String serverId, required String displayName}) async {
+    final server = serverById(serverId);
+    if (server == null || !isServerAdmin(server)) return false;
+    final name = displayName.trim();
+    if (name.isEmpty) return false;
+    final me = currentUser;
+    if (me == null) return false;
+    final alreadyIn = server.memberIds.map(playerById).whereType<AppUser>();
+    if (alreadyIn.any((p) => p.displayName.trim().toLowerCase() == name.toLowerCase())) {
+      flowError = 'Il y a déjà un joueur nommé « $name » dans ce serveur.';
+      notifyListeners();
+      return false;
+    }
+    busy = true;
+    flowError = null;
+    notifyListeners();
+    var ok = false;
+    try {
+      final guest = await guestsRepo.createGuest(displayName: name, createdBy: me.uid);
+      await serversRepo.addMemberId(serverId: serverId, memberId: guest.uid);
+      _memberCache[guest.uid] = guest;
+      ok = true;
+      showToast('Joueur ajouté au serveur.');
     } catch (e) {
       flowError = e.toString();
     } finally {
@@ -772,6 +832,73 @@ class AppState extends ChangeNotifier {
       await serversRepo.addSalonMemberByEmail(serverId: serverId, salonId: salonId, email: email);
       ok = true;
       showToast('Membre ajouté au salon.');
+    } catch (e) {
+      flowError = e.toString();
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+    return ok;
+  }
+
+  /// Adds an already-known account or guest (typically picked from [friends]/
+  /// [knownGuests]) to a salon straight by uid — admin/owner-only, same
+  /// reasoning as [addSalonMemberByEmail]. Also adds them to the parent
+  /// server if they aren't already a member (mirrors [ServersRepository.joinSalon]).
+  Future<bool> addSalonMemberByUid({required String serverId, required String salonId, required String uid}) async {
+    final server = serverById(serverId);
+    if (server == null || !isServerAdmin(server)) return false;
+    busy = true;
+    flowError = null;
+    notifyListeners();
+    var ok = false;
+    try {
+      await serversRepo.addSalonMemberId(serverId: serverId, salonId: salonId, memberId: uid);
+      if (!server.memberIds.contains(uid)) {
+        await serversRepo.addMemberId(serverId: serverId, memberId: uid);
+      }
+      ok = true;
+      showToast('Membre ajouté au salon.');
+    } catch (e) {
+      flowError = e.toString();
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+    return ok;
+  }
+
+  /// Adds a player with no real account to a salon — e.g. a walk-in customer
+  /// signing up for this specific event. Admin/owner-only, same reasoning as
+  /// [addSalonMemberByEmail]. See [addGuest] (the Group equivalent) for how
+  /// the shared `guest:` identity works.
+  Future<bool> addSalonGuest({required String serverId, required String salonId, required String displayName}) async {
+    final server = serverById(serverId);
+    if (server == null || !isServerAdmin(server)) return false;
+    final name = displayName.trim();
+    if (name.isEmpty) return false;
+    final me = currentUser;
+    if (me == null) return false;
+    final salon = salons.where((s) => s.id == salonId).firstOrNull;
+    final alreadyIn = (salon?.memberIds ?? const []).map(playerById).whereType<AppUser>();
+    if (alreadyIn.any((p) => p.displayName.trim().toLowerCase() == name.toLowerCase())) {
+      flowError = 'Il y a déjà un joueur nommé « $name » dans ce salon.';
+      notifyListeners();
+      return false;
+    }
+    busy = true;
+    flowError = null;
+    notifyListeners();
+    var ok = false;
+    try {
+      final guest = await guestsRepo.createGuest(displayName: name, createdBy: me.uid);
+      await serversRepo.addSalonMemberId(serverId: serverId, salonId: salonId, memberId: guest.uid);
+      if (!server.memberIds.contains(guest.uid)) {
+        await serversRepo.addMemberId(serverId: serverId, memberId: guest.uid);
+      }
+      _memberCache[guest.uid] = guest;
+      ok = true;
+      showToast('Joueur ajouté au salon.');
     } catch (e) {
       flowError = e.toString();
     } finally {
@@ -994,6 +1121,9 @@ class AppState extends ChangeNotifier {
     for (final g in groups) {
       allIds.addAll(g.memberIds);
     }
+    for (final s in servers) {
+      allIds.addAll(s.memberIds);
+    }
     final missing = allIds.where((id) => !_memberCache.containsKey(id)).toList();
     if (missing.isEmpty) return;
     for (final id in missing) {
@@ -1014,6 +1144,12 @@ class AppState extends ChangeNotifier {
     final ids = <String>{};
     for (final g in groups) {
       ids.addAll(g.memberIds.where(isGuestId));
+    }
+    // Servers' memberIds already include everyone in any of their salons
+    // (see ServersRepository.joinSalon/addSalonMemberId), so this alone
+    // covers guests added anywhere in a Server too.
+    for (final s in servers) {
+      ids.addAll(s.memberIds.where(isGuestId));
     }
     return ids.map((id) => _memberCache[id]).whereType<AppUser>().toList();
   }

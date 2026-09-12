@@ -410,4 +410,52 @@ void main() {
 
     await tester.pump(const Duration(milliseconds: 2700));
   });
+
+  testWidgets('guests without an account can be added to a group, a server and a salon', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_tom);
+    await tester.pumpAndSettle();
+
+    final state = seeded.state;
+
+    // Group: any member can add a guest, no admin gate.
+    final groupOk = await state.addGuest(groupId: 'bandits', displayName: 'Karim');
+    await tester.pumpAndSettle();
+    expect(groupOk, isTrue);
+    final groupGuestId = state.groupById('bandits')!.memberIds.firstWhere(isGuestId);
+    expect(state.playerById(groupGuestId)?.displayName, 'Karim');
+
+    // Server: owner/admin-only, but Tom is the owner of the server he just created.
+    await state.createServer(name: 'Café Test', emoji: '☕', emojiBg: 0);
+    await tester.pumpAndSettle();
+    final server = state.servers.single;
+
+    final serverOk = await state.addServerGuest(serverId: server.id, displayName: 'Nadia');
+    await tester.pumpAndSettle();
+    expect(serverOk, isTrue);
+    final serverGuestId = state.serverById(server.id)!.memberIds.firstWhere(isGuestId);
+    expect(state.playerById(serverGuestId)?.displayName, 'Nadia');
+    expect(state.knownGuests.map((g) => g.uid), contains(serverGuestId), reason: 'shows up as a suggestion elsewhere too');
+
+    await state.createSalon(serverId: server.id, name: 'Tournoi', emoji: '🎮', emojiBg: 0);
+    await tester.pumpAndSettle();
+    final salon = state.salons.single;
+
+    final salonOk = await state.addSalonGuest(serverId: server.id, salonId: salon.id, displayName: 'Yanis');
+    await tester.pumpAndSettle();
+    expect(salonOk, isTrue);
+    final updatedSalon = state.salons.firstWhere((s) => s.id == salon.id);
+    final salonGuestId = updatedSalon.memberIds.firstWhere(isGuestId);
+    expect(state.playerById(salonGuestId)?.displayName, 'Yanis');
+    expect(state.serverById(server.id)!.memberIds, contains(salonGuestId), reason: "adding a guest to a salon also adds them to its server");
+
+    await tester.pump(const Duration(milliseconds: 2700));
+  });
 }
