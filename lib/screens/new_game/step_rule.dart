@@ -61,6 +61,7 @@ class _RuleOption extends StatelessWidget {
         CountType.winLoss => 'Victoire / défaite',
       },
       if (rule.pointLimit != null) '${rule.pointLimit} pts max',
+      if (rule.coop) 'Coopératif',
     ];
     return bits.join(' · ');
   }

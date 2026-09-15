@@ -47,6 +47,7 @@ abstract class MatchesRepository {
   Future<String> startLiveSession({
     required String rootGroupId,
     required String groupId,
+    String? salonId,
     required String gameId,
     required String startedByUid,
     required String startedByName,
@@ -56,8 +57,9 @@ abstract class MatchesRepository {
   });
 
   /// All matches currently being scored in any of `groupIds`, newest first —
-  /// lets the rest of the group watch live games update in real time.
-  Stream<List<LiveMatchSession>> watchLiveSessions(String rootGroupId, List<String> groupIds);
+  /// lets the rest of the group watch live games update in real time. Same
+  /// `bySalon` convention as [watchMatches].
+  Stream<List<LiveMatchSession>> watchLiveSessions(String rootGroupId, List<String> groupIds, {bool bySalon = false});
 
   /// Pushes the current scores of an in-progress match (see
   /// [startLiveSession]) so everyone watching sees them update live —
@@ -199,6 +201,7 @@ class FirebaseMatchesRepository implements MatchesRepository {
   Future<String> startLiveSession({
     required String rootGroupId,
     required String groupId,
+    String? salonId,
     required String gameId,
     required String startedByUid,
     required String startedByName,
@@ -208,6 +211,7 @@ class FirebaseMatchesRepository implements MatchesRepository {
   }) async {
     final ref = await _sessionsCol(rootGroupId).add({
       'groupId': groupId,
+      if (salonId != null) 'salonId': salonId,
       'gameId': gameId,
       'startedBy': startedByUid,
       'startedByName': startedByName,
@@ -222,10 +226,10 @@ class FirebaseMatchesRepository implements MatchesRepository {
   }
 
   @override
-  Stream<List<LiveMatchSession>> watchLiveSessions(String rootGroupId, List<String> groupIds) {
+  Stream<List<LiveMatchSession>> watchLiveSessions(String rootGroupId, List<String> groupIds, {bool bySalon = false}) {
     if (groupIds.isEmpty) return Stream.value(const []);
     return _sessionsCol(rootGroupId)
-        .where('groupId', whereIn: groupIds.take(30).toList())
+        .where(bySalon ? 'salonId' : 'groupId', whereIn: groupIds.take(30).toList())
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snap) => snap.docs.map((d) => LiveMatchSession.fromDoc(d.id, d.data())).toList());

@@ -10,6 +10,7 @@ import 'game_detail_screen.dart';
 
 /// The group's whole game catalog in one place — anyone can browse it,
 /// including its rules reminders, without going through the new-game flow.
+/// The "Jeux" tab of `MainShell`.
 class GamesCatalogScreen extends StatelessWidget {
   const GamesCatalogScreen({super.key});
 
@@ -17,32 +18,29 @@ class GamesCatalogScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final games = app.games;
-    return Scaffold(
-      backgroundColor: AppColors.bg,
-      appBar: AppBar(
-        backgroundColor: AppColors.bg,
-        elevation: 0,
-        foregroundColor: AppColors.ink,
-        title: Text('Jeux du groupe', style: bodyFont(size: 17, weight: FontWeight.w800, color: AppColors.ink)),
-      ),
-      body: games.isEmpty
-          ? Center(child: EmptyState(emoji: '🎲', message: "Aucun jeu dans ce groupe pour l'instant."))
-          : ListView.separated(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-              itemCount: games.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 10),
-              itemBuilder: (_, i) {
-                final g = games[i];
-                return FadeSlideIn(
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 6, 20, 116),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ScreenHeading(eyebrow: '${games.length} jeux', title: 'Jeux'),
+          if (games.isEmpty)
+            EmptyState(emoji: '🎲', message: "Aucun jeu dans ce groupe pour l'instant.")
+          else
+            for (final (i, g) in games.indexed)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: FadeSlideIn(
                   delay: Duration(milliseconds: i * 40),
                   child: _GameRow(
                     game: g,
                     onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => GameDetailScreen(game: g))),
                     onLongPress: () => showGameActionsSheet(context, app, g),
                   ),
-                );
-              },
-            ),
+                ),
+              ),
+        ],
+      ),
     );
   }
 }

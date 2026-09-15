@@ -15,10 +15,12 @@ import '../logic/tournament_bracket.dart';
 import '../models/match.dart';
 import '../models/salon.dart';
 import '../models/saved_account.dart';
+import '../models/scheduled_event.dart';
 import '../models/server.dart';
 import '../models/server_invite_code.dart';
 import '../models/tournament.dart';
 import '../repositories/auth_repository.dart';
+import '../repositories/events_repository.dart';
 import '../repositories/game_library_repository.dart';
 import '../repositories/games_repository.dart';
 import '../repositories/groups_repository.dart';
@@ -33,7 +35,7 @@ import 'new_game_draft.dart';
 import 'player_row.dart';
 
 /// Which of the 5 tabs is showing.
-enum AppTab { home, ranking, history, profile, groups }
+enum AppTab { home, ranking, history, profile, groups, games }
 
 /// Which kind of "place to record matches" is currently active — a friend
 /// [Group] (the original, freely-editable model) or a [Salon] within a
@@ -76,11 +78,17 @@ class AppState extends ChangeNotifier {
   final GameLibraryRepository gameLibraryRepo;
   final ServersRepository serversRepo;
 
-  /// Same shape as [gamesRepo]/[matchesRepo] but rooted under `servers/`
-  /// instead of `groups/` — used only while [activeContext] is
-  /// [ActiveContextKind.salon]. See [FirebaseGamesRepository.rootCollection].
+  /// Same shape as [gamesRepo]/[matchesRepo]/[tournamentsRepo] but rooted
+  /// under `servers/` instead of `groups/` — used only while [activeContext]
+  /// is [ActiveContextKind.salon]. See
+  /// [FirebaseGamesRepository.rootCollection].
   final GamesRepository serverGamesRepo;
   final MatchesRepository serverMatchesRepo;
+  final TournamentsRepository serverTournamentsRepo;
+
+  /// Scheduled events (see `lib/models/scheduled_event.dart`) — Salon-only,
+  /// so unlike the repos above there's no Group-side counterpart to mirror.
+  final EventsRepository eventsRepo;
   final NotificationsService? notificationsService;
 
   AppState({
@@ -95,6 +103,8 @@ class AppState extends ChangeNotifier {
     required this.serversRepo,
     required this.serverGamesRepo,
     required this.serverMatchesRepo,
+    required this.serverTournamentsRepo,
+    required this.eventsRepo,
     this.notificationsService,
   }) {
     _applyTheme();
@@ -259,6 +269,10 @@ class AppState extends ChangeNotifier {
   List<Tournament> tournaments = [];
   StreamSubscription? _tournamentsSub;
 
+  // ---- scheduled events (Salon-only — see lib/models/scheduled_event.dart) ----
+  List<ScheduledEvent> events = [];
+  StreamSubscription? _eventsSub;
+
   // Flips to true the moment each subscription's first snapshot arrives for
   // the current group — Firestore can take a moment after sign-in/switching
   // groups, so the UI shows "X/4 récupérées" in the meantime instead of
@@ -271,8 +285,13 @@ class AppState extends ChangeNotifier {
   bool matchesLoaded = false;
   bool liveSessionsLoaded = false;
   bool tournamentsLoaded = false;
-  static const groupDataTotalCount = 4;
-  int get groupDataFetchedCount => (gamesLoaded ? 1 : 0) + (matchesLoaded ? 1 : 0) + (liveSessionsLoaded ? 1 : 0) + (tournamentsLoaded ? 1 : 0);
+  // Always immediately true for a Group (see _resubscribeGroupData) — events
+  // are Salon-only, but the counter stays uniform across both contexts
+  // rather than branching groupDataTotalCount on activeContext.
+  bool eventsLoaded = false;
+  static const groupDataTotalCount = 5;
+  int get groupDataFetchedCount =>
+      (gamesLoaded ? 1 : 0) + (matchesLoaded ? 1 : 0) + (liveSessionsLoaded ? 1 : 0) + (tournamentsLoaded ? 1 : 0) + (eventsLoaded ? 1 : 0);
   bool get groupDataFullyLoaded => groupDataFetchedCount == groupDataTotalCount;
 
   // A live session doc is considered abandoned (app crashed/killed mid-score
@@ -402,6 +421,7 @@ class AppState extends ChangeNotifier {
     _matchesSub?.cancel();
     _liveSessionsSub?.cancel();
     _tournamentsSub?.cancel();
+    _eventsSub?.cancel();
     _toastTimer?.cancel();
     _liveUpdateDebounce?.cancel();
     _liveSessionHoldTimer?.cancel();
@@ -421,6 +441,7 @@ class AppState extends ChangeNotifier {
     _matchesSub?.cancel();
     _liveSessionsSub?.cancel();
     _tournamentsSub?.cancel();
+    _eventsSub?.cancel();
     _currentUserSub?.cancel();
     groups = [];
     servers = [];
@@ -429,11 +450,13 @@ class AppState extends ChangeNotifier {
     matches = [];
     _rawLiveSessions = [];
     tournaments = [];
+    events = [];
     friends = [];
     gamesLoaded = false;
     matchesLoaded = false;
     liveSessionsLoaded = false;
     tournamentsLoaded = false;
+    eventsLoaded = false;
     currentGroupId = null;
     currentServerId = null;
     currentSalonId = null;
@@ -1061,10 +1084,16 @@ class AppState extends ChangeNotifier {
     _matchesSub?.cancel();
     _liveSessionsSub?.cancel();
     _tournamentsSub?.cancel();
+    _eventsSub?.cancel();
     gamesLoaded = false;
     matchesLoaded = false;
     liveSessionsLoaded = false;
     tournamentsLoaded = false;
+    // No Group equivalent for scheduled events (see
+    // lib/models/scheduled_event.dart) — nothing to fetch, so this is
+    // trivially "loaded" right away rather than left forever pending.
+    events = [];
+    eventsLoaded = true;
     if (root == null) {
       games = [];
       matches = [];
@@ -1102,32 +1131,41 @@ class AppState extends ChangeNotifier {
 
   /// Mirrors [_resubscribeGroupData] but for the active Salon (see
   /// [currentSalonId]/[currentSalonServerId]) — populates the exact same
-  /// `games`/`matches`/`tournaments` fields, so every read call site written
-  /// against those keeps working unchanged regardless of which context is
-  /// active. Live sessions and tournaments aren't supported in a Salon yet,
-  /// so those two are just left empty/"loaded".
+  /// `games`/`matches`/`tournaments`/`_rawLiveSessions` fields, so every read
+  /// call site written against those keeps working unchanged regardless of
+  /// which context is active.
   void _resubscribeSalonData() {
     _gamesSub?.cancel();
     _matchesSub?.cancel();
     _liveSessionsSub?.cancel();
     _tournamentsSub?.cancel();
+    _eventsSub?.cancel();
     gamesLoaded = false;
     matchesLoaded = false;
-    tournaments = [];
-    tournamentsLoaded = true;
-    _rawLiveSessions = [];
-    liveSessionsLoaded = true;
+    tournamentsLoaded = false;
+    liveSessionsLoaded = false;
+    eventsLoaded = false;
     final serverId = currentSalonServerId;
     final salonId = currentSalonId;
     if (serverId == null || salonId == null) {
       games = [];
       matches = [];
+      tournaments = [];
+      tournamentsLoaded = true;
+      _rawLiveSessions = [];
+      liveSessionsLoaded = true;
+      events = [];
+      eventsLoaded = true;
       return;
     }
     _gamesSub = serverGamesRepo.watchGames(serverId).listen((gs) {
-      games = gs;
+      // Each Salon gets its own catalog carved out of the Server's games
+      // (see Game.salonId) — a game created before this field existed
+      // (salonId == null) stays visible in every Salon, as a shared legacy
+      // catalog.
+      games = gs.where((g) => g.salonId == null || g.salonId == salonId).toList();
       gamesLoaded = true;
-      if (gameFilter != null && !gs.any((g) => g.id == gameFilter)) {
+      if (gameFilter != null && !games.any((g) => g.id == gameFilter)) {
         gameFilter = null;
       }
       notifyListeners();
@@ -1135,6 +1173,21 @@ class AppState extends ChangeNotifier {
     _matchesSub = serverMatchesRepo.watchMatches(serverId, [salonId], bySalon: true).listen((ms) {
       matches = ms;
       matchesLoaded = true;
+      notifyListeners();
+    });
+    _tournamentsSub = serverTournamentsRepo.watchTournaments(serverId, [salonId], bySalon: true).listen((ts) {
+      tournaments = ts;
+      tournamentsLoaded = true;
+      notifyListeners();
+    });
+    _liveSessionsSub = serverMatchesRepo.watchLiveSessions(serverId, [salonId], bySalon: true).listen((ss) {
+      _rawLiveSessions = ss;
+      liveSessionsLoaded = true;
+      notifyListeners();
+    });
+    _eventsSub = eventsRepo.watchEvents(serverId, salonId).listen((es) {
+      events = es;
+      eventsLoaded = true;
       notifyListeners();
     });
   }
@@ -1212,12 +1265,168 @@ class AppState extends ChangeNotifier {
   Server? get currentSalonServer => currentSalonServerId == null ? null : servers.where((s) => s.id == currentSalonServerId).firstOrNull;
   Server? serverById(String id) => servers.where((s) => s.id == id).firstOrNull;
 
+  // ---- scheduled events (Salon-only — see lib/models/scheduled_event.dart) ----
+
+  /// Same reasoning as [canManageSalons] — "who's allowed to program the
+  /// café's schedule" is the server's own admin/owner list, not something
+  /// every member can touch. Signing up for an already-scheduled event is
+  /// separate (see [registerForEvent]) and open to any Salon member.
+  bool canManageEvents(Server server) => isServerAdmin(server);
+
+  Future<ScheduledEvent?> createScheduledEvent({
+    required String serverId,
+    required String salonId,
+    required String gameId,
+    String? ruleId,
+    required String kind,
+    required String name,
+    required DateTime scheduledAt,
+    int? capacity,
+  }) async {
+    final server = serverById(serverId);
+    final uid = currentUser?.uid;
+    if (server == null || uid == null || !canManageEvents(server)) return null;
+    busy = true;
+    flowError = null;
+    notifyListeners();
+    ScheduledEvent? saved;
+    try {
+      saved = await eventsRepo.addEvent(
+        serverId,
+        ScheduledEvent(
+          id: '',
+          salonId: salonId,
+          gameId: gameId,
+          ruleId: ruleId,
+          kind: kind,
+          name: name.trim().isEmpty ? (gameById(gameId)?.name ?? 'Évènement') : name.trim(),
+          scheduledAt: scheduledAt,
+          capacity: capacity,
+          signups: const [],
+          createdByUid: uid,
+          createdAt: DateTime.now(),
+        ),
+      );
+      showToast('Évènement planifié !');
+    } catch (e) {
+      flowError = e.toString();
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+    return saved;
+  }
+
+  Future<bool> deleteScheduledEvent(ScheduledEvent event) async {
+    final server = currentSalonServer;
+    if (server == null || !canManageEvents(server)) return false;
+    busy = true;
+    notifyListeners();
+    var ok = false;
+    try {
+      await eventsRepo.deleteEvent(server.id, event.id);
+      ok = true;
+    } catch (e) {
+      flowError = e.toString();
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+    return ok;
+  }
+
+  /// Signs the current user up for `event` — any Salon member can, whether
+  /// or not it's already full (see [ScheduledEvent.confirmedIds]/
+  /// [ScheduledEvent.waitlistIds]: past capacity, a sign-up just lands on
+  /// the waitlist instead of being rejected).
+  Future<void> registerForEvent(ScheduledEvent event) async {
+    final server = currentSalonServer;
+    final uid = currentUser?.uid;
+    if (server == null || uid == null || event.signups.contains(uid)) return;
+    try {
+      await eventsRepo.register(serverId: server.id, eventId: event.id, uid: uid);
+    } catch (e) {
+      flowError = e.toString();
+      notifyListeners();
+    }
+  }
+
+  /// Cancels the current user's sign-up — whoever was first on the waitlist
+  /// becomes confirmed automatically, just by virtue of the slice in
+  /// [ScheduledEvent.confirmedIds] shifting once `uid` is gone from
+  /// [ScheduledEvent.signups].
+  Future<void> unregisterFromEvent(ScheduledEvent event) async {
+    final server = currentSalonServer;
+    final uid = currentUser?.uid;
+    if (server == null || uid == null) return;
+    try {
+      await eventsRepo.unregister(serverId: server.id, eventId: event.id, uid: uid);
+    } catch (e) {
+      flowError = e.toString();
+      notifyListeners();
+    }
+  }
+
+  /// Set while the sheet is filling in the match/tournament that `startEvent`
+  /// opened — consumed by [saveGame]/[createTournament] to stamp the event
+  /// as 'started' with the resulting id once it's actually saved, the same
+  /// way [_activeTournamentId] gets consumed by [_recordTournamentResult].
+  String? _activeEventId;
+
+  /// Opens the normal new-game wizard pre-filled from `event` — game, rule,
+  /// and every currently-confirmed sign-up already checked off (see
+  /// [ScheduledEvent.confirmedIds]) — landing on the players step so an
+  /// admin can still adjust for no-shows/walk-ins before continuing exactly
+  /// like a from-scratch match/tournament. Nothing is marked 'started' yet;
+  /// that only happens once the resulting match/tournament is actually
+  /// saved (see [_activeEventId]/[saveGame]/[createTournament]).
+  void startEvent(ScheduledEvent event) {
+    final server = currentSalonServer;
+    if (server == null || !canManageEvents(server)) return;
+    openSheet();
+    _activeEventId = event.id;
+    draft.creationKind = event.kind;
+    pickGame(event.gameId);
+    if (event.ruleId != null) pickRule(event.ruleId!);
+    draft.playerIds = event.confirmedIds.where((id) => playerById(id) != null).toList();
+    for (final id in draft.playerIds) {
+      draft.team.putIfAbsent(id, () => 'A');
+      draft.points.putIfAbsent(id, () => 0);
+    }
+    draft.rankOrder = List.of(draft.playerIds);
+    _syncDetailedScores();
+    step = event.kind == 'tournament' ? 2 : stepSequence.indexOf(WizardStepKind.players) + 1;
+    notifyListeners();
+  }
+
+  /// Marks the event `startEvent` was launched from as 'started' once the
+  /// match/tournament it produced is actually saved — best-effort, mirrors
+  /// [_recordTournamentResult]'s own error handling (the match/tournament
+  /// itself is already safely saved either way).
+  Future<void> _markEventStarted({String? resultMatchId, String? resultTournamentId}) async {
+    final eventId = _activeEventId;
+    final server = currentSalonServer;
+    if (eventId == null || server == null) return;
+    _activeEventId = null;
+    final event = events.where((e) => e.id == eventId).firstOrNull;
+    if (event == null) return;
+    try {
+      await eventsRepo.updateEvent(
+        server.id,
+        event.copyWith(status: 'started', resultMatchId: resultMatchId, resultTournamentId: resultTournamentId),
+      );
+    } catch (_) {
+      // Best-effort — see doc comment above.
+    }
+  }
+
   // ---- generic "active context" accessors — let game-catalog/match write
   // paths work unchanged for both a Group and a Salon context, instead of
   // duplicating every method (see ActiveContextKind doc comment). ----
 
   GamesRepository get _activeGamesRepo => activeContext == ActiveContextKind.salon ? serverGamesRepo : gamesRepo;
   MatchesRepository get _activeMatchesRepo => activeContext == ActiveContextKind.salon ? serverMatchesRepo : matchesRepo;
+  TournamentsRepository get _activeTournamentsRepo => activeContext == ActiveContextKind.salon ? serverTournamentsRepo : tournamentsRepo;
 
   /// The Firestore root id backing the active context — a group id, or (for
   /// a Salon) the server id its catalog/matches actually live under.
@@ -1696,13 +1905,22 @@ class AppState extends ChangeNotifier {
     return matches.where((m) => ids.contains(m.groupId)).toList();
   }
 
-  /// Tournaments recorded in the currently-viewed group — Salons don't
-  /// support the bracket-tournament feature (yet), so always empty there.
+  /// Tournaments recorded in the currently-viewed group/salon — for a Salon,
+  /// [tournaments] is already scoped to it (see [_resubscribeSalonData]), so
+  /// nothing more to filter there, unlike a Group's subgroups.
   List<Tournament> get viewTournaments {
-    if (activeContext == ActiveContextKind.salon) return const [];
+    if (activeContext == ActiveContextKind.salon) return tournaments;
     if (currentGroupId == null) return const [];
     final ids = getAllGroupIds(currentGroupId!).toSet();
     return tournaments.where((t) => ids.contains(t.groupId)).toList();
+  }
+
+  /// Scheduled events for the currently-viewed Salon, soonest-first — always
+  /// empty for a Group (see [ScheduledEvent], Salon-only). [events] is
+  /// already scoped by [_resubscribeSalonData], so nothing more to filter.
+  List<ScheduledEvent> get viewEvents {
+    if (activeContext != ActiveContextKind.salon) return const [];
+    return List.of(events)..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
   }
 
   List<String> get viewPlayerIds => activeContext == ActiveContextKind.salon
@@ -1865,9 +2083,11 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Points [profileId] at `uid` — callers are responsible for actually
+  /// showing `ProfileScreen` (push it, or rely on one already on screen
+  /// re-reading `profileId` reactively), since Profile isn't a bottom tab.
   void openProfile(String uid) {
     profileId = uid;
-    tab = AppTab.profile;
     notifyListeners();
   }
 
@@ -1926,6 +2146,7 @@ class AppState extends ChangeNotifier {
     _editingGameId = null;
     _activeTournamentId = null;
     _activeTournamentMatchId = null;
+    _activeEventId = null;
     _liveSessionId = null;
     _draftHasProgress = false;
     _justSaved = false;
@@ -1979,11 +2200,11 @@ class AppState extends ChangeNotifier {
     _liveSessionHoldTimer?.cancel();
     _liveSessionHoldTimer = null;
     _liveSessionHeldAt = null;
-    final root = currentRootId;
+    final root = _activeRootId;
     final sessionId = _liveSessionId;
     _liveSessionId = null;
     if (root == null || sessionId == null) return;
-    unawaited(matchesRepo.endLiveSession(rootGroupId: root, sessionId: sessionId));
+    unawaited(_activeMatchesRepo.endLiveSession(rootGroupId: root, sessionId: sessionId));
   }
 
   /// Puts the current live session "on hold" instead of ending it outright
@@ -1993,12 +2214,12 @@ class AppState extends ChangeNotifier {
   /// comes back in time. [_liveSessionId] itself is left untouched so
   /// resuming can reattach to the very same Firestore doc.
   void _holdLiveSession() {
-    final root = currentRootId;
+    final root = _activeRootId;
     final sessionId = _liveSessionId;
     if (root == null || sessionId == null) return;
     _liveSessionHeldAt = DateTime.now();
     unawaited(_persistDraftLocally());
-    unawaited(matchesRepo.setLiveSessionHeld(rootGroupId: root, sessionId: sessionId, held: true));
+    unawaited(_activeMatchesRepo.setLiveSessionHeld(rootGroupId: root, sessionId: sessionId, held: true));
     _liveSessionHoldTimer?.cancel();
     _liveSessionHoldTimer = Timer(_liveSessionGrace, () {
       _liveSessionHoldTimer = null;
@@ -2006,7 +2227,7 @@ class AppState extends ChangeNotifier {
       _liveSessionHeldAt = null;
       _liveSessionId = null;
       unawaited(_persistDraftLocally());
-      unawaited(matchesRepo.endLiveSession(rootGroupId: root, sessionId: sessionId));
+      unawaited(_activeMatchesRepo.endLiveSession(rootGroupId: root, sessionId: sessionId));
     });
   }
 
@@ -2264,7 +2485,11 @@ class AppState extends ChangeNotifier {
     flowError = null;
     notifyListeners();
     try {
-      final game = await _activeGamesRepo.importGame(root, libraryGame);
+      final game = await _activeGamesRepo.importGame(
+        root,
+        libraryGame,
+        salonId: activeContext == ActiveContextKind.salon ? currentSalonId : null,
+      );
       // Not `pickGame(game.id)`: the watchGames stream may not have caught
       // up with this just-created doc yet, so `gameById` could still miss
       // it — apply its (already known) default rule directly instead.
@@ -2372,6 +2597,8 @@ class AppState extends ChangeNotifier {
       bottomPoints: isRanks ? f.derivedBottomPoints : null,
       multiRound: multiRound,
       scoreFields: scoreFields,
+      // A classement has no notion of a shared group outcome — see GameRule.coop.
+      coop: isRanks ? false : f.coop,
     );
   }
 
@@ -2392,6 +2619,11 @@ class AppState extends ChangeNotifier {
           emoji: gameForm.emoji,
           category: gameForm.category,
           rules: rules,
+          // Carried over from the existing doc, not re-derived from
+          // whichever Salon happens to be active right now — editing a
+          // game must not silently move it to another Salon's catalog or
+          // turn it into a shared one (see Game.salonId).
+          salonId: gameById(_editingGameId!)?.salonId,
         );
         await _activeGamesRepo.updateGame(root, game);
         showToast('Jeu mis à jour.');
@@ -2403,6 +2635,7 @@ class AppState extends ChangeNotifier {
           emoji: gameForm.emoji,
           category: gameForm.category,
           rules: rules,
+          salonId: activeContext == ActiveContextKind.salon ? currentSalonId : null,
         );
       }
       // Not `pickGame(game.id)`: the watchGames stream may not have caught
@@ -2439,10 +2672,18 @@ class AppState extends ChangeNotifier {
     // multi-round rule can't leak into one that doesn't support it (its
     // option wouldn't even be shown).
     draft.inputMode = 'quick';
-    // Ranks and win/loss rules are always solo scoring — force it so a
-    // stale 'team' choice from a previously-picked rule can't leak in
-    // (their step-2 UI never shows the mode/team pickers to change it back).
-    if (rule != null && (rule.isRanks || rule.isWinLoss)) draft.mode = 'ffa';
+    // A rule flagged GameRule.coop picks the draft's mode automatically —
+    // the players step never shows the "Chacun pour soi"/"Équipes" choice
+    // to override it (every match is the whole group against the game).
+    // Every other rule keeps that choice exactly as before: ranks and
+    // win/loss default to solo scoring, but the player can still change it
+    // on the players step for anything that isn't ranks (see
+    // Step2Players.modeFixed).
+    if (rule != null && rule.coop) {
+      draft.mode = 'coop';
+    } else if (rule != null && (rule.isRanks || rule.isWinLoss)) {
+      draft.mode = 'ffa';
+    }
     draft.scoreBreakdown.clear();
     _syncDetailedScores();
   }
@@ -2729,6 +2970,30 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Coop mode's single shared score/outcome ("Le groupe" — see
+  /// [NewGameDraft.mode]): every player's [NewGameDraft.points] entry is
+  /// kept equal by construction, so [coopPoints]/[coopIsWin] can read any
+  /// one of them and [GameMatch.winnerIds] can treat the shared value as a
+  /// single group result instead of a per-player comparison.
+  int get coopPoints => draft.playerIds.isEmpty ? 0 : (draft.points[draft.playerIds.first] ?? 0);
+
+  bool get coopIsWin => coopPoints > 0;
+
+  void bumpCoop(int delta) {
+    setCoopPoints(coopPoints + delta);
+  }
+
+  void setCoopPoints(int value) {
+    final v = value.clamp(0, 1 << 30);
+    for (final uid in draft.playerIds) {
+      draft.points[uid] = v;
+    }
+    _pushLiveUpdate();
+    notifyListeners();
+  }
+
+  void setCoopWin(bool win) => setCoopPoints(win ? 1 : 0);
+
   /// Adds `delta` (any positive or negative amount, not just +1) to a
   /// player's live-mode score and records the new cumulative total in the
   /// timeline.
@@ -2864,6 +3129,7 @@ class AppState extends ChangeNotifier {
   /// [matchResultLine] but name-only, used for the series recap banner/toast.
   String legWinnerLabel(GameMatch leg) {
     final winners = leg.winnerIds();
+    if (leg.isCoop) return winners.isEmpty ? 'Défaite' : 'Le groupe';
     if (winners.isEmpty) return 'Égalité';
     if (leg.isTeam) {
       final teamId = leg.entries.where((e) => winners.contains(e.playerId)).firstOrNull?.teamId ?? 'A';
@@ -2891,6 +3157,7 @@ class AppState extends ChangeNotifier {
   String get draftSeriesLeaderLabel {
     final t = seriesTally(draftSeriesLegs);
     if (t.leaders.isEmpty) return '';
+    if (draft.mode == 'coop') return 'Le groupe';
     final id = t.leaders.first;
     return t.isTeam ? 'L\'équipe $id' : (playerById(id)?.displayName ?? '?');
   }
@@ -2912,7 +3179,7 @@ class AppState extends ChangeNotifier {
   /// finished instead of showing "En cours" forever — then finalizes the
   /// sheet exactly like a normal final-leg save.
   Future<void> endSeriesEarly() async {
-    final root = currentRootId;
+    final root = _activeRootId;
     final sid = draft.seriesId;
     if (root == null || sid == null) return;
     savingMatch = true;
@@ -2922,7 +3189,7 @@ class AppState extends ChangeNotifier {
       final legs = draftSeriesLegs;
       for (final leg in legs) {
         if (leg.seriesEndedEarly) continue;
-        await matchesRepo.updateMatch(root, leg.copyWith(seriesEndedEarly: true));
+        await _activeMatchesRepo.updateMatch(root, leg.copyWith(seriesEndedEarly: true));
       }
       showToast('Série terminée après ${legs.length} partie${legs.length > 1 ? 's' : ''}.');
       _editingMatchId = null;
@@ -2974,6 +3241,11 @@ class AppState extends ChangeNotifier {
           // submitted (see the "Valider la manche" button) — just require at
           // least one to have actually been played.
           if (draft.inputMode == 'rounds') return draftRounds.isNotEmpty;
+          // Coop's shared Victoire/Défaite toggle is always a definite,
+          // deliberately-chosen answer (defaults to "Défaite") — unlike FFA,
+          // an all-zero board here is a real, save-able result (see
+          // GameMatch.winnerIds's coop branch), not an unset one.
+          if (draft.mode == 'coop') return true;
           // Single manche (winLoss only — "Manches gagnées" always forces
           // rounds mode, see setUnit): at least one player must be marked
           // "Victoire", or every score sits at 0 and winnerIds() would
@@ -3062,15 +3334,18 @@ class AppState extends ChangeNotifier {
     // direct"/spectator list too would just be confusing duplication for a
     // match nobody outside the tournament necessarily cares to watch.
     if (_editingMatchId != null || _activeTournamentId != null || _liveSessionId != null || !isOnline) return;
-    final root = currentRootId;
-    final groupId = currentGroupId;
+    final inSalon = activeContext == ActiveContextKind.salon;
+    final root = _activeRootId;
+    final groupId = inSalon ? null : currentGroupId;
+    final salonId = inSalon ? currentSalonId : null;
     final uid = currentUser?.uid;
     final gameId = draft.gameId;
-    if (root == null || groupId == null || uid == null || gameId == null) return;
+    if (root == null || (inSalon ? salonId == null : groupId == null) || uid == null || gameId == null) return;
     try {
-      _liveSessionId = await matchesRepo.startLiveSession(
+      _liveSessionId = await _activeMatchesRepo.startLiveSession(
         rootGroupId: root,
-        groupId: groupId,
+        groupId: groupId ?? '',
+        salonId: salonId,
         gameId: gameId,
         startedByUid: uid,
         startedByName: currentUser?.displayName ?? 'Un joueur',
@@ -3097,10 +3372,10 @@ class AppState extends ChangeNotifier {
     _liveUpdateDebounce?.cancel();
     void sync() {
       unawaited(_persistDraftLocally());
-      final root = currentRootId;
+      final root = _activeRootId;
       final sessionId = _liveSessionId;
       if (root == null || sessionId == null) return;
-      unawaited(matchesRepo.updateLiveSession(
+      unawaited(_activeMatchesRepo.updateLiveSession(
         rootGroupId: root,
         sessionId: sessionId,
         entries: _currentDraftEntries(),
@@ -3363,12 +3638,14 @@ class AppState extends ChangeNotifier {
         if (_activeTournamentId != null) {
           tournamentWarning = await _recordTournamentResult(match);
         }
+        if (_activeEventId != null) unawaited(_markEventStarted(resultMatchId: match.id));
         showToast(tournamentWarning == null ? 'Partie mise à jour ! Classement mis à jour.' : 'Partie mise à jour, mais $tournamentWarning.');
       } else {
         final saved = await _activeMatchesRepo.addMatch(root, match);
         if (_activeTournamentId != null) {
           await _recordTournamentResult(saved);
         }
+        if (_activeEventId != null) unawaited(_markEventStarted(resultMatchId: saved.id));
         if (isNewSeries && !isFinalLeg) {
           showToast('Partie ${draft.seriesLegIndex} enregistrée — gagnée par ${legWinnerLabel(match)}. Partie suivante !');
         } else if (inSalon && saved.isPending) {
@@ -3533,7 +3810,9 @@ class AppState extends ChangeNotifier {
   /// [canDeleteMatch]: the group's owner.
   bool canDeleteTournament(Tournament tournament) {
     final uid = currentUser?.uid;
-    return uid != null && groupById(tournament.groupId)?.ownerId == uid;
+    if (uid == null) return false;
+    if (tournament.isSalonTournament) return currentSalonServer?.isAdmin(uid) ?? false;
+    return groupById(tournament.groupId)?.ownerId == uid;
   }
 
   /// Deletes `tournament` and every match recorded against one of its
@@ -3545,7 +3824,7 @@ class AppState extends ChangeNotifier {
   /// leaves, at worst, a tournament with dangling match links rather than
   /// stray tournament-tagged matches with nothing to point back to.
   Future<bool> deleteTournament(Tournament tournament) async {
-    final root = currentRootId;
+    final root = _activeRootId;
     if (root == null || !canDeleteTournament(tournament)) return false;
     busy = true;
     flowError = null;
@@ -3554,9 +3833,9 @@ class AppState extends ChangeNotifier {
     try {
       final linkedMatches = matches.where((m) => m.tournamentId == tournament.id).toList();
       for (final m in linkedMatches) {
-        await matchesRepo.deleteMatch(root, m.id);
+        await _activeMatchesRepo.deleteMatch(root, m.id);
       }
-      await tournamentsRepo.deleteTournament(root, tournament.id);
+      await _activeTournamentsRepo.deleteTournament(root, tournament.id);
       showToast('Tournoi et ses parties supprimés.');
       ok = true;
     } catch (e) {
@@ -3582,10 +3861,12 @@ class AppState extends ChangeNotifier {
     int groupsCount = 1,
     int qualifiersPerGroup = 2,
   }) async {
-    final root = currentRootId;
-    final groupId = currentGroupId;
-    if (root == null || groupId == null || entrantPlayerIds.length < 2) return null;
-    if (_rejectIfGroupClosed(groupId)) return null;
+    final inSalon = activeContext == ActiveContextKind.salon;
+    final root = _activeRootId;
+    final groupId = inSalon ? null : currentGroupId;
+    final salonId = inSalon ? currentSalonId : null;
+    if (root == null || (inSalon ? salonId == null : groupId == null) || entrantPlayerIds.length < 2) return null;
+    if (_rejectIfActiveContextClosed()) return null;
     final entrants = [for (final (i, ids) in entrantPlayerIds.indexed) TournamentEntrant(id: 'e$i', playerIds: ids)];
     final entrantIds = entrants.map((e) => e.id).toList();
     final isGroups = format == TournamentFormat.groupsThenElimination;
@@ -3596,7 +3877,8 @@ class AppState extends ChangeNotifier {
     };
     final tournament = Tournament(
       id: '',
-      groupId: groupId,
+      groupId: groupId ?? '',
+      salonId: salonId,
       gameId: gameId,
       ruleId: ruleId,
       name: name.trim().isEmpty ? (gameById(gameId)?.name ?? 'Tournoi') : name.trim(),
@@ -3613,7 +3895,8 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     Tournament? saved;
     try {
-      saved = await tournamentsRepo.addTournament(root, tournament);
+      saved = await _activeTournamentsRepo.addTournament(root, tournament);
+      if (_activeEventId != null) unawaited(_markEventStarted(resultTournamentId: saved.id));
       showToast('Tournoi créé !');
     } catch (e) {
       flowError = e.toString();
@@ -3637,7 +3920,11 @@ class AppState extends ChangeNotifier {
     final entrantB = tournament.entrantById(match.entrantBId);
     if (entrantA == null || entrantB == null) return;
     openSheet();
-    if (currentGroupId != tournament.groupId) {
+    // A Salon tournament is only ever reached while that Salon is already
+    // the active context (see viewTournaments) — nothing to switch, unlike
+    // a Group tournament, which can live in a subgroup other than the one
+    // currently being viewed.
+    if (!tournament.isSalonTournament && currentGroupId != tournament.groupId) {
       currentGroupId = tournament.groupId;
       _resubscribeGroupData();
     }
@@ -3686,7 +3973,7 @@ class AppState extends ChangeNotifier {
   /// on a clean save, which is always the case the first time a match is
   /// recorded (only a correction can leave a stale downstream match).
   Future<String?> _recordTournamentResult(GameMatch saved) async {
-    final root = currentRootId;
+    final root = _activeRootId;
     final tournamentId = _activeTournamentId;
     final matchId = _activeTournamentMatchId;
     if (root == null || tournamentId == null || matchId == null) return null;
@@ -3700,7 +3987,7 @@ class AppState extends ChangeNotifier {
     final winnerEntrantId = entrantA.playerIds.any(winnerIds.contains) ? entrantA.id : entrantB.id;
     final result = correctResult(tournament, matchId: matchId, winnerEntrantId: winnerEntrantId, gameMatchId: saved.id);
     try {
-      await tournamentsRepo.updateTournament(root, result.tournament);
+      await _activeTournamentsRepo.updateTournament(root, result.tournament);
     } catch (_) {
       // Best-effort — the match itself is already safely saved either way;
       // worst case the bracket just doesn't reflect this until a retry.
@@ -3715,7 +4002,7 @@ class AppState extends ChangeNotifier {
   /// [computeGroupStandings]), takes [Tournament.qualifiersPerGroup] from
   /// each, and appends the elimination bracket built from them.
   Future<void> generateEliminationStage(Tournament tournament) async {
-    final root = currentRootId;
+    final root = _activeRootId;
     if (root == null || !groupStageComplete(tournament)) return;
     final qualifiers = [
       for (var g = 0; g < tournament.groupsCount; g++)
@@ -3728,7 +4015,7 @@ class AppState extends ChangeNotifier {
     busy = true;
     notifyListeners();
     try {
-      await tournamentsRepo.updateTournament(root, updated);
+      await _activeTournamentsRepo.updateTournament(root, updated);
     } catch (e) {
       flowError = e.toString();
     } finally {

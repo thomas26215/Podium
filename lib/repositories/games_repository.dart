@@ -27,13 +27,14 @@ abstract class GamesRepository {
     required String emoji,
     required String category,
     required List<GameRule> rules,
+    String? salonId,
   });
 
   /// Copies a game definition (typically from the online library) into this
   /// root's own catalog as a brand new doc — this is how "download a
   /// special-rules game" works: the whole config (roles, points, etc.)
   /// comes along, no per-field wiring needed at the call site.
-  Future<Game> importGame(String rootGroupId, Game source);
+  Future<Game> importGame(String rootGroupId, Game source, {String? salonId});
 
   /// Overwrites an existing game's settings in place (`game.id` must already
   /// exist) — e.g. adjusting its point limit or roles after the fact.
@@ -77,6 +78,7 @@ class FirebaseGamesRepository implements GamesRepository {
     required String emoji,
     required String category,
     required List<GameRule> rules,
+    String? salonId,
   }) async {
     final ref = _col(rootGroupId).doc();
     final game = Game(
@@ -85,13 +87,14 @@ class FirebaseGamesRepository implements GamesRepository {
       emoji: emoji,
       category: category,
       rules: rules,
+      salonId: salonId,
     );
     await ref.set(game.toMap());
     return game;
   }
 
   @override
-  Future<Game> importGame(String rootGroupId, Game source) async {
+  Future<Game> importGame(String rootGroupId, Game source, {String? salonId}) async {
     final ref = _col(rootGroupId).doc();
     final game = Game(
       id: ref.id,
@@ -99,6 +102,7 @@ class FirebaseGamesRepository implements GamesRepository {
       emoji: source.emoji,
       category: source.category,
       rules: source.rules,
+      salonId: salonId,
     );
     await ref.set(game.toMap());
     return game;

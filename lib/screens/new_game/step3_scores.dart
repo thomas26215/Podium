@@ -247,6 +247,34 @@ class _WinLossScoreList extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final d = app.draft;
+    if (d.mode == 'coop') {
+      final members = d.playerIds.map(app.playerById).whereType<AppUser>().toList();
+      final isWin = app.coopIsWin;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Le groupe a-t-il gagné ou perdu ?', style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.mut)),
+          const SizedBox(height: 14),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isWin ? AppColors.greenSoft : AppColors.card,
+              border: Border.all(color: isWin ? AppColors.green : AppColors.line, width: 1.5),
+              borderRadius: BorderRadius.circular(AppRadius.lg),
+            ),
+            child: Row(
+              children: [
+                AvatarCluster(avatars: [for (final p in members.take(4)) (initial: p.initial, color: Color(p.color))]),
+                const SizedBox(width: 12),
+                Expanded(child: Text('Le groupe', style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink))),
+                _WinLossToggle(isWin: isWin, onChanged: (win) => app.setCoopWin(win)),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -298,16 +326,25 @@ class _WinLossRoundsInput extends StatefulWidget {
 }
 
 class _WinLossRoundsInputState extends State<_WinLossRoundsInput> {
-  // Keyed by uid in FFA, by team id ('A'..'D') in team mode — see _submitRound.
+  // Keyed by uid in FFA, by team id ('A'..'D') in team mode, or the fixed
+  // key below in coop mode — see _submitRound.
+  static const _coopKey = 'coop';
   final Map<String, bool> _roundWinners = {};
 
   void _submitRound(AppState app) {
     final d = app.draft;
-    final deltas = d.mode == 'team'
-        // A whole team wins or loses a manche together — every member gets
-        // the same +1/0, not just whoever happened to be toggled.
-        ? <String, int>{for (final uid in d.playerIds) uid: (_roundWinners[d.team[uid] ?? 'A'] ?? false) ? 1 : 0}
-        : <String, int>{for (final uid in d.playerIds) uid: (_roundWinners[uid] ?? false) ? 1 : 0};
+    final Map<String, int> deltas;
+    if (d.mode == 'coop') {
+      // The whole group succeeds or fails this round together — every
+      // player gets the same +1/0.
+      deltas = <String, int>{for (final uid in d.playerIds) uid: (_roundWinners[_coopKey] ?? false) ? 1 : 0};
+    } else if (d.mode == 'team') {
+      // A whole team wins or loses a manche together — every member gets
+      // the same +1/0, not just whoever happened to be toggled.
+      deltas = <String, int>{for (final uid in d.playerIds) uid: (_roundWinners[d.team[uid] ?? 'A'] ?? false) ? 1 : 0};
+    } else {
+      deltas = <String, int>{for (final uid in d.playerIds) uid: (_roundWinners[uid] ?? false) ? 1 : 0};
+    }
     app.addRound(deltas);
     setState(() => _roundWinners.clear());
   }
@@ -317,15 +354,35 @@ class _WinLossRoundsInputState extends State<_WinLossRoundsInput> {
     final app = context.watch<AppState>();
     final d = app.draft;
     final rounds = app.draftRounds;
-    final hasWinner = _roundWinners.values.any((v) => v);
     final isTeam = d.mode == 'team';
+    final isCoop = d.mode == 'coop';
+    // A coop round is a valid, save-able outcome either way (the group can
+    // fail a round and still keep playing) — only FFA/team require an
+    // explicit winner to be marked before the round can be submitted.
+    final hasWinner = isCoop || _roundWinners.values.any((v) => v);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('Manche ${rounds.length + 1} — marquez qui a gagné.', style: bodyFont(size: 13, weight: FontWeight.w800, color: AppColors.ink2)),
         const SizedBox(height: 9),
-        if (isTeam)
+        if (isCoop)
+          Builder(builder: (_) {
+            final members = d.playerIds.map(app.playerById).whereType<AppUser>().toList();
+            final isWin = _roundWinners[_coopKey] ?? false;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  AvatarCluster(avatars: [for (final p in members.take(4)) (initial: p.initial, color: Color(p.color))]),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text('Le groupe', style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink))),
+                  _WinLossToggle(isWin: isWin, onChanged: (win) => setState(() => _roundWinners[_coopKey] = win)),
+                ],
+              ),
+            );
+          })
+        else if (isTeam)
           for (var i = 0; i < d.teamCount; i++)
             Builder(builder: (_) {
               final teamId = String.fromCharCode(65 + i);
@@ -490,8 +547,8 @@ class _DetailedScoreInputState extends State<_DetailedScoreInput> {
               margin: const EdgeInsets.only(bottom: 10),
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: isLead ? AppColors.greenSoft : AppColors.card,
-                border: Border.all(color: isLead ? AppColors.green : AppColors.line, width: 1.5),
+                color: AppColors.card,
+                border: Border.all(color: AppColors.line, width: 1.5),
                 borderRadius: BorderRadius.circular(AppRadius.lg),
               ),
               child: Column(
@@ -514,40 +571,81 @@ class _DetailedScoreInputState extends State<_DetailedScoreInput> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  for (final field in fields) ...[
+                  for (var i = 0; i < fields.length; i += 2)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(width: 10, height: 10, decoration: BoxDecoration(color: Color(field.color), shape: BoxShape.circle)),
-                          const SizedBox(width: 8),
-                          Expanded(child: Text(field.label, style: bodyFont(size: 13.5, weight: FontWeight.w700, color: AppColors.ink2))),
-                          const SizedBox(width: 8),
-                          SizedBox(
-                            width: 88,
-                            child: TextField(
-                              controller: _ctrlFor(uid, field.id, d.scoreBreakdown[uid]?[field.id] ?? 0),
-                              keyboardType: const TextInputType.numberWithOptions(signed: true),
-                              textAlign: TextAlign.center,
-                              style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink),
-                              decoration: appFieldDecoration(
-                                hintText: '0',
-                                fillColor: AppColors.bg,
-                                contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                                focusColor: Color(field.color),
-                              ),
-                              onChanged: (text) => app.setDetailedScore(uid, field.id, int.tryParse(text.trim()) ?? 0),
+                          Expanded(
+                            child: _CategoryTile(
+                              field: fields[i],
+                              controller: _ctrlFor(uid, fields[i].id, d.scoreBreakdown[uid]?[fields[i].id] ?? 0),
+                              onChanged: (v) => app.setDetailedScore(uid, fields[i].id, v),
                             ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: i + 1 < fields.length
+                                ? _CategoryTile(
+                                    field: fields[i + 1],
+                                    controller: _ctrlFor(uid, fields[i + 1].id, d.scoreBreakdown[uid]?[fields[i + 1].id] ?? 0),
+                                    onChanged: (v) => app.setDetailedScore(uid, fields[i + 1].id, v),
+                                  )
+                                : const SizedBox.shrink(),
                           ),
                         ],
                       ),
                     ),
-                  ],
                 ],
               ),
             );
           }),
       ],
+    );
+  }
+}
+
+/// One category's tile inside [_DetailedScoreInput]'s per-player card: a
+/// compact, category-colored input — two per row — so a hand of several
+/// categories reads as a small grid instead of a tall list of full-width
+/// rows.
+class _CategoryTile extends StatelessWidget {
+  final GameScoreField field;
+  final TextEditingController controller;
+  final ValueChanged<int> onChanged;
+  const _CategoryTile({required this.field, required this.controller, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Color(field.color);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(field.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: bodyFont(size: 11.5, weight: FontWeight.w800, color: AppColors.ink2, letterSpacing: 0.1)),
+          TextField(
+            controller: controller,
+            keyboardType: const TextInputType.numberWithOptions(signed: true),
+            textAlign: TextAlign.center,
+            style: dispFont(size: 21, weight: FontWeight.w800, color: AppColors.ink),
+            decoration: InputDecoration(
+              isDense: true,
+              hintText: '0',
+              hintStyle: dispFont(size: 21, weight: FontWeight.w800, color: color.withValues(alpha: 0.35)),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.only(top: 2),
+            ),
+            onChanged: (text) => onChanged(int.tryParse(text.trim()) ?? 0),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -575,10 +673,14 @@ class _RoundsScoreInputState extends State<_RoundsScoreInput> {
     super.dispose();
   }
 
+  static const _coopKey = 'coop';
+
   void _submitRound(AppState app) {
-    final deltas = <String, int>{
-      for (final uid in app.draft.playerIds) uid: int.tryParse(_ctrlFor(uid).text.trim()) ?? 0,
-    };
+    final isCoop = app.draft.mode == 'coop';
+    final deltas = isCoop
+        // One shared delta applied to every player — see AppState.bumpCoop.
+        ? <String, int>{for (final uid in app.draft.playerIds) uid: int.tryParse(_ctrlFor(_coopKey).text.trim()) ?? 0}
+        : <String, int>{for (final uid in app.draft.playerIds) uid: int.tryParse(_ctrlFor(uid).text.trim()) ?? 0};
     app.addRound(deltas);
     for (final c in _controllers.values) {
       c.clear();
@@ -590,27 +692,27 @@ class _RoundsScoreInputState extends State<_RoundsScoreInput> {
     final app = context.watch<AppState>();
     final d = app.draft;
     final rounds = app.draftRounds;
+    final isCoop = d.mode == 'coop';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('Manche ${rounds.length + 1}', style: bodyFont(size: 13, weight: FontWeight.w800, color: AppColors.ink2)),
         const SizedBox(height: 9),
-        for (final uid in d.playerIds)
+        if (isCoop)
           Builder(builder: (_) {
-            final p = app.playerById(uid);
-            if (p == null) return const SizedBox.shrink();
+            final members = d.playerIds.map(app.playerById).whereType<AppUser>().toList();
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Row(
                 children: [
-                  Avatar(initial: p.initial, color: Color(p.color), size: 34, fontSize: 13),
+                  AvatarCluster(avatars: [for (final p in members.take(4)) (initial: p.initial, color: Color(p.color))]),
                   const SizedBox(width: 10),
-                  Expanded(child: Text(p.displayName, style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink))),
+                  Expanded(child: Text('Le groupe', style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink))),
                   SizedBox(
                     width: 90,
                     child: TextField(
-                      controller: _ctrlFor(uid),
+                      controller: _ctrlFor(_coopKey),
                       keyboardType: const TextInputType.numberWithOptions(signed: true),
                       textAlign: TextAlign.center,
                       style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink),
@@ -620,7 +722,33 @@ class _RoundsScoreInputState extends State<_RoundsScoreInput> {
                 ],
               ),
             );
-          }),
+          })
+        else
+          for (final uid in d.playerIds)
+            Builder(builder: (_) {
+              final p = app.playerById(uid);
+              if (p == null) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    Avatar(initial: p.initial, color: Color(p.color), size: 34, fontSize: 13),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text(p.displayName, style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink))),
+                    SizedBox(
+                      width: 90,
+                      child: TextField(
+                        controller: _ctrlFor(uid),
+                        keyboardType: const TextInputType.numberWithOptions(signed: true),
+                        textAlign: TextAlign.center,
+                        style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink),
+                        decoration: appFieldDecoration(hintText: '0', contentPadding: const EdgeInsets.symmetric(vertical: 10)),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
         const SizedBox(height: 6),
         PrimaryButton(label: 'Valider la manche', onPressed: () => _submitRound(app)),
         if (rounds.isNotEmpty) ...[
@@ -767,6 +895,10 @@ class Step3Scores extends StatelessWidget {
         ],
       );
     }
+    // Not coop-aware: a coop game with score categories still enters them
+    // per player rather than as one shared breakdown — an accepted gap,
+    // since combining categories with a shared-group score isn't a common
+    // real-world combination.
     if (rule?.hasScoreFields == true && !rule!.isWinLoss && !rule.isRanks && rule.countType != CountType.wins) {
       return _DetailedScoreInput(rule: rule);
     }
@@ -844,6 +976,8 @@ class Step3Scores extends StatelessWidget {
           const _RoundsScoreInput()
         else if (d.inputMode == 'quick' && d.mode == 'team' && d.teamScoreMode == 'global')
           ..._teamQuickRows(context, app)
+        else if (d.inputMode == 'quick' && d.mode == 'coop')
+          _coopQuickRow(context, app)
         else if (d.inputMode == 'quick')
           for (final uid in d.playerIds)
             Builder(builder: (_) {
@@ -1058,6 +1192,50 @@ class Step3Scores extends StatelessWidget {
           );
         }),
     ];
+  }
+
+  /// Coop mode's "Saisie rapide" row: one shared score for the whole group
+  /// instead of one per player (see `AppState.bumpCoop`/`setCoopPoints`) —
+  /// the single-team equivalent of [_teamQuickRows].
+  Widget _coopQuickRow(BuildContext context, AppState app) {
+    final d = app.draft;
+    final members = d.playerIds.map(app.playerById).whereType<AppUser>().toList();
+    final score = app.coopPoints;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      margin: const EdgeInsets.only(bottom: 9),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+      child: Row(
+        children: [
+          AvatarCluster(avatars: [for (final p in members.take(4)) (initial: p.initial, color: Color(p.color))]),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Le groupe', style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
+                Text(
+                  members.map((p) => p.displayName).join(', '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: bodyFont(size: 11, weight: FontWeight.w600, color: AppColors.mut),
+                ),
+              ],
+            ),
+          ),
+          _stepperButton(Icons.remove, () => app.bumpCoop(-1)),
+          Pressable(
+            onTap: () => _showEditScoreDialog(context, app, 'coop', 'Le groupe', score, onSubmit: (v) => app.setCoopPoints(v)),
+            child: SizedBox(
+              width: 40,
+              child: AnimatedCounter(value: score, textAlign: TextAlign.center, style: dispFont(size: 20, weight: FontWeight.w700, color: AppColors.ink)),
+            ),
+          ),
+          _stepperButton(Icons.add, () => app.bumpCoop(1)),
+        ],
+      ),
+    );
   }
 
   Widget _stepperButton(IconData icon, VoidCallback onTap) {

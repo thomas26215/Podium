@@ -278,6 +278,7 @@ String ruleSummaryLine(GameRuleFormDraft rule) {
       CountType.winLoss => 'Victoire / défaite',
     },
     if (rule.parsedPointLimit != null) '${rule.parsedPointLimit} pts max',
+    if (rule.coop) 'Coopératif',
   ];
   return bits.join(' · ');
 }
@@ -366,12 +367,64 @@ class _RuleFields extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+          // Main branch, decided before anything else: coop hides the
+          // "Chacun pour soi"/"Équipes" choice entirely at match time (see
+          // Step2Players.modeFixed) and rules out a classement (a coop game
+          // has no ranking between players) — everything below adapts to it.
+          Pressable(
+            onTap: () => app.setGameForm((f) {
+              final r = f.rules[index];
+              r.coop = !r.coop;
+              if (r.coop && r.countType == CountType.ranks) r.countType = CountType.highWins;
+              return f;
+            }),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: f.coop ? AppColors.accentSoft : AppColors.bg,
+                border: Border.all(color: f.coop ? AppColors.accent : AppColors.line, width: 1.5),
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Partie coopérative', style: bodyFont(size: 14.5, weight: FontWeight.w800, color: AppColors.ink)),
+                        Text(
+                          f.coop
+                              ? 'Tout le groupe joue ensemble contre le jeu — pas de compétition entre joueurs, le choix "Chacun pour soi"/"Équipes" disparaît.'
+                              : 'Les joueurs s\'affrontent — le choix "Chacun pour soi"/"Équipes" se fait à chaque partie.',
+                          style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: f.coop,
+                    activeThumbColor: AppColors.accent,
+                    onChanged: (v) => app.setGameForm((f) {
+                      final r = f.rules[index];
+                      r.coop = v;
+                      if (r.coop && r.countType == CountType.ranks) r.countType = CountType.highWins;
+                      return f;
+                    }),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
           _label('Type de comptage'),
           const SizedBox(height: 9),
           _countOption(app, CountType.highWins, 'Points — le plus haut gagne', 'Catan, Time’s Up, Mario Kart…'),
           _countOption(app, CountType.lowWins, 'Points — le plus bas gagne', 'Skyjo, golf, Uno cumulé…'),
           _countOption(app, CountType.wins, 'Manches gagnées', 'Président, belote, ping-pong…'),
-          _countOption(app, CountType.ranks, 'Classement', 'Simple classement, ou avec des places nommées (Président…)'),
+          // No ranking between players in a coop game — hidden while the
+          // toggle above is on (see AppState._ruleFromForm's matching guard).
+          if (!f.coop) _countOption(app, CountType.ranks, 'Classement', 'Simple classement, ou avec des places nommées (Président…)'),
           _countOption(app, CountType.winLoss, 'Victoire / défaite', 'Marquez qui a gagné et qui a perdu, sans compter de points — échecs, matchs 1 contre 1…'),
           if (f.countType == CountType.highWins || f.countType == CountType.lowWins) ...[
             const SizedBox(height: 18),

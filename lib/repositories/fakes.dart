@@ -5,9 +5,11 @@ import '../models/game.dart';
 import '../models/group.dart';
 import '../models/match.dart';
 import '../models/salon.dart';
+import '../models/scheduled_event.dart';
 import '../models/server.dart';
 import '../models/tournament.dart';
 import 'auth_repository.dart';
+import 'events_repository.dart';
 import 'games_repository.dart';
 import 'groups_repository.dart';
 import 'matches_repository.dart';
@@ -404,6 +406,7 @@ class FakeGamesRepository implements GamesRepository {
     required String emoji,
     required String category,
     required List<GameRule> rules,
+    String? salonId,
   }) async {
     final list = byGroup.putIfAbsent(rootGroupId, () => []);
     final game = Game(
@@ -412,6 +415,7 @@ class FakeGamesRepository implements GamesRepository {
       emoji: emoji,
       category: category,
       rules: rules,
+      salonId: salonId,
     );
     list.add(game);
     _ctrl(rootGroupId).add(list);
@@ -419,7 +423,7 @@ class FakeGamesRepository implements GamesRepository {
   }
 
   @override
-  Future<Game> importGame(String rootGroupId, Game source) async {
+  Future<Game> importGame(String rootGroupId, Game source, {String? salonId}) async {
     final list = byGroup.putIfAbsent(rootGroupId, () => []);
     final game = Game(
       id: 'game${list.length + 1}',
@@ -427,6 +431,7 @@ class FakeGamesRepository implements GamesRepository {
       emoji: source.emoji,
       category: source.category,
       rules: source.rules,
+      salonId: salonId,
     );
     list.add(game);
     _ctrl(rootGroupId).add(list);
@@ -589,6 +594,7 @@ class FakeMatchesRepository implements MatchesRepository {
   Future<String> startLiveSession({
     required String rootGroupId,
     required String groupId,
+    String? salonId,
     required String gameId,
     required String startedByUid,
     required String startedByName,
@@ -602,6 +608,7 @@ class FakeMatchesRepository implements MatchesRepository {
       id: 'session${++_sessionCounter}',
       gameId: gameId,
       groupId: groupId,
+      salonId: salonId,
       startedByUid: startedByUid,
       startedByName: startedByName,
       mode: mode,
@@ -619,11 +626,11 @@ class FakeMatchesRepository implements MatchesRepository {
   }
 
   @override
-  Stream<List<LiveMatchSession>> watchLiveSessions(String rootGroupId, List<String> groupIds) {
+  Stream<List<LiveMatchSession>> watchLiveSessions(String rootGroupId, List<String> groupIds, {bool bySalon = false}) {
     final c = _sessionCtrl(rootGroupId);
     Future.microtask(() {
       final all = liveSessionsByGroup[rootGroupId] ?? const [];
-      c.add(all.where((s) => groupIds.contains(s.groupId)).toList());
+      c.add(all.where((s) => groupIds.contains(bySalon ? s.salonId : s.groupId)).toList());
     });
     return c.stream;
   }
@@ -646,6 +653,7 @@ class FakeMatchesRepository implements MatchesRepository {
       id: old.id,
       gameId: old.gameId,
       groupId: old.groupId,
+      salonId: old.salonId,
       startedByUid: old.startedByUid,
       startedByName: old.startedByName,
       mode: old.mode,
@@ -680,6 +688,7 @@ class FakeMatchesRepository implements MatchesRepository {
       id: old.id,
       gameId: old.gameId,
       groupId: old.groupId,
+      salonId: old.salonId,
       startedByUid: old.startedByUid,
       startedByName: old.startedByName,
       mode: old.mode,
@@ -705,11 +714,11 @@ class FakeTournamentsRepository implements TournamentsRepository {
   StreamController<List<Tournament>> _ctrl(String id) => _controllers.putIfAbsent(id, () => StreamController.broadcast());
 
   @override
-  Stream<List<Tournament>> watchTournaments(String rootGroupId, List<String> groupIds) {
+  Stream<List<Tournament>> watchTournaments(String rootGroupId, List<String> groupIds, {bool bySalon = false}) {
     final c = _ctrl(rootGroupId);
     Future.microtask(() {
       final all = byGroup[rootGroupId] ?? const [];
-      c.add(all.where((t) => groupIds.contains(t.groupId)).toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt)));
+      c.add(all.where((t) => groupIds.contains(bySalon ? t.salonId : t.groupId)).toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt)));
     });
     return c.stream;
   }
@@ -740,5 +749,81 @@ class FakeTournamentsRepository implements TournamentsRepository {
     if (list == null) return;
     list.removeWhere((t) => t.id == tournamentId);
     _ctrl(rootGroupId).add(list);
+  }
+}
+
+class FakeEventsRepository implements EventsRepository {
+  final Map<String, List<ScheduledEvent>> byServer = {};
+  final _controllers = <String, StreamController<List<ScheduledEvent>>>{};
+  int _counter = 0;
+
+  StreamController<List<ScheduledEvent>> _ctrl(String key) => _controllers.putIfAbsent(key, () => StreamController.broadcast());
+
+  @override
+  Stream<List<ScheduledEvent>> watchEvents(String serverId, String salonId) {
+    final key = '$serverId $salonId';
+    final c = _ctrl(key);
+    Future.microtask(() {
+      final all = byServer[serverId] ?? const [];
+      final filtered = all.where((e) => e.salonId == salonId).toList()..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+      c.add(filtered);
+    });
+    return c.stream;
+  }
+
+  void _emitAll(String serverId) {
+    final all = byServer[serverId] ?? const [];
+    for (final key in _controllers.keys.where((k) => k.startsWith('$serverId '))) {
+      final salonId = key.substring(serverId.length + 1);
+      final filtered = all.where((e) => e.salonId == salonId).toList()..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+      _ctrl(key).add(filtered);
+    }
+  }
+
+  @override
+  Future<ScheduledEvent> addEvent(String serverId, ScheduledEvent event) async {
+    final list = byServer.putIfAbsent(serverId, () => []);
+    final saved = ScheduledEvent.fromDoc('event${++_counter}', event.toMap());
+    list.add(saved);
+    _emitAll(serverId);
+    return saved;
+  }
+
+  @override
+  Future<void> updateEvent(String serverId, ScheduledEvent event) async {
+    final list = byServer.putIfAbsent(serverId, () => []);
+    final i = list.indexWhere((e) => e.id == event.id);
+    if (i == -1) return;
+    list[i] = event;
+    _emitAll(serverId);
+  }
+
+  @override
+  Future<void> deleteEvent(String serverId, String eventId) async {
+    final list = byServer[serverId];
+    if (list == null) return;
+    list.removeWhere((e) => e.id == eventId);
+    _emitAll(serverId);
+  }
+
+  @override
+  Future<void> register({required String serverId, required String eventId, required String uid}) async {
+    final list = byServer[serverId];
+    if (list == null) return;
+    final i = list.indexWhere((e) => e.id == eventId);
+    if (i == -1) return;
+    if (list[i].signups.contains(uid)) return;
+    list[i] = list[i].copyWith(signups: [...list[i].signups, uid]);
+    _emitAll(serverId);
+  }
+
+  @override
+  Future<void> unregister({required String serverId, required String eventId, required String uid}) async {
+    final list = byServer[serverId];
+    if (list == null) return;
+    final i = list.indexWhere((e) => e.id == eventId);
+    if (i == -1) return;
+    list[i] = list[i].copyWith(signups: list[i].signups.where((id) => id != uid).toList());
+    _emitAll(serverId);
   }
 }

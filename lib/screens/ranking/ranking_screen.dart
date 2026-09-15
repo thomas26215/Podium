@@ -8,9 +8,15 @@ import '../../widgets/common.dart';
 import '../../widgets/podium.dart';
 import '../../widgets/rank_row.dart';
 import '../../widgets/segmented_control.dart';
+import '../profile/profile_screen.dart';
 
 const _modes = ['wins', 'points', 'ratio', 'avg'];
 const _modeLabels = ['Victoires', 'Points', 'Ratio', 'Par jeu'];
+
+void _openProfile(BuildContext context, AppState app, String uid) {
+  app.openProfile(uid);
+  Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileScreen()));
+}
 
 class RankingScreen extends StatelessWidget {
   const RankingScreen({super.key});
@@ -115,10 +121,10 @@ class RankingScreen extends StatelessWidget {
               key: ValueKey(podiumRows.map((r) => r.player.uid).join(',')),
               child: PodiumWidget(columns: [
                 if (podiumRows.length > 1)
-                  PodiumColumn(row: podiumRows[1], metric: app.metricFor(podiumRows[1], app.rankMode), place: 2, onTap: () => app.openProfile(podiumRows[1].player.uid)),
-                PodiumColumn(row: podiumRows[0], metric: app.metricFor(podiumRows[0], app.rankMode), place: 1, onTap: () => app.openProfile(podiumRows[0].player.uid)),
+                  PodiumColumn(row: podiumRows[1], metric: app.metricFor(podiumRows[1], app.rankMode), place: 2, onTap: () => _openProfile(context, app, podiumRows[1].player.uid)),
+                PodiumColumn(row: podiumRows[0], metric: app.metricFor(podiumRows[0], app.rankMode), place: 1, onTap: () => _openProfile(context, app, podiumRows[0].player.uid)),
                 if (podiumRows.length > 2)
-                  PodiumColumn(row: podiumRows[2], metric: app.metricFor(podiumRows[2], app.rankMode), place: 3, onTap: () => app.openProfile(podiumRows[2].player.uid)),
+                  PodiumColumn(row: podiumRows[2], metric: app.metricFor(podiumRows[2], app.rankMode), place: 3, onTap: () => _openProfile(context, app, podiumRows[2].player.uid)),
               ]),
             ),
             if (rest.isNotEmpty)
@@ -138,7 +144,7 @@ class RankingScreen extends StatelessWidget {
                             sub: app.metricFor(rest[i], app.rankMode).sub,
                             metric: app.metricFor(rest[i], app.rankMode).metric,
                             unit: app.metricFor(rest[i], app.rankMode).unit,
-                            onTap: () => app.openProfile(rest[i].player.uid),
+                            onTap: () => _openProfile(context, app, rest[i].player.uid),
                           ),
                         ),
                     ],

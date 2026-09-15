@@ -4,16 +4,16 @@ import 'package:provider/provider.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
+import '../games/games_catalog_screen.dart';
 import '../history/history_screen.dart';
 import '../home/home_screen.dart';
 import '../new_game/new_game_sheet.dart';
-import '../profile/profile_screen.dart';
 import '../ranking/ranking_screen.dart';
 
 class MainShell extends StatelessWidget {
   const MainShell({super.key});
 
-  static const _tabs = [AppTab.home, AppTab.ranking, AppTab.history, AppTab.profile];
+  static const _tabs = [AppTab.home, AppTab.ranking, AppTab.history, AppTab.games];
 
   Future<void> _openNewGameSheet(BuildContext context, AppState app) async {
     if (app.activeContextClosed) {
@@ -41,7 +41,7 @@ class MainShell extends StatelessWidget {
                 HomeScreen(),
                 RankingScreen(),
                 HistoryScreen(),
-                ProfileScreen(),
+                GamesCatalogScreen(),
               ],
             ),
             Positioned(
@@ -105,7 +105,7 @@ class MainShell extends StatelessWidget {
                 ),
               ),
               _NavItem(icon: Icons.schedule_rounded, label: 'Parties', selected: app.tab == AppTab.history, onTap: () => app.setTab(AppTab.history)),
-              _NavItem(icon: Icons.person_rounded, label: 'Profil', selected: app.tab == AppTab.profile, onTap: () => app.setTab(AppTab.profile)),
+              _NavItem(icon: Icons.casino_rounded, label: 'Jeux', selected: app.tab == AppTab.games, onTap: () => app.setTab(AppTab.games)),
             ],
           ),
         ),

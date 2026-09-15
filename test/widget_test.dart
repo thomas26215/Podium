@@ -11,6 +11,7 @@ import 'package:podium/models/app_user.dart';
 import 'package:podium/models/game.dart';
 import 'package:podium/models/group.dart';
 import 'package:podium/models/match.dart';
+import 'package:podium/models/tournament.dart';
 import 'package:podium/repositories/fakes.dart';
 import 'package:podium/repositories/game_library_repository.dart';
 import 'package:podium/repositories/games_repository.dart';
@@ -68,6 +69,8 @@ const _tom = AppUser(uid: 'tom', email: 'tom@test.fr', displayName: 'Tom', color
     serversRepo: FakeServersRepository(users: users),
     serverGamesRepo: FakeGamesRepository(),
     serverMatchesRepo: FakeMatchesRepository(),
+    serverTournamentsRepo: FakeTournamentsRepository(),
+    eventsRepo: FakeEventsRepository(),
   );
   return (state: state, auth: auth);
 }
@@ -345,6 +348,8 @@ void main() {
       serversRepo: FakeServersRepository(users: users),
       serverGamesRepo: FakeGamesRepository(),
       serverMatchesRepo: FakeMatchesRepository(),
+      serverTournamentsRepo: FakeTournamentsRepository(),
+      eventsRepo: FakeEventsRepository(),
     );
 
     await tester.pumpWidget(
@@ -580,6 +585,347 @@ void main() {
     await tester.pump();
     expect(find.text('Pas encore de partie. Lancez-vous avec le bouton +.'), findsNothing, reason: 'the new match should show up in the history list, not the empty state');
     expect(find.textContaining('Catan'), findsWidgets);
+
+    await tester.pump(const Duration(milliseconds: 2700));
+  });
+
+  testWidgets('a coop game auto-picks the coop mode and saves a shared group result', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    final before = seeded.state.matches.length;
+
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Partie simple'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continuer'));
+    await tester.pumpAndSettle();
+
+    // Create a brand-new game configured as coop right from the "Partie
+    // coopérative" switch on the game-creation form (see GameRule.coop).
+    await tester.ensureVisible(find.text('Nouveau jeu'));
+    await tester.tap(find.text('Nouveau jeu'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Créer un jeu personnalisé'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).first, 'Pandemic');
+    await tester.ensureVisible(find.text('Victoire / défaite'));
+    await tester.tap(find.text('Victoire / défaite'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Partie coopérative'));
+    await tester.tap(find.text('Partie coopérative'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Créer le jeu'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Continuer'));
+    await tester.pumpAndSettle();
+
+    // Players step: the rule's coop style should already have picked the
+    // draft's mode by itself — no "Chacun pour soi"/"Équipes" choice to
+    // make, just the coop explainer banner.
+    expect(find.text('Chacun pour soi'), findsNothing, reason: 'coop rule skips the mode choice entirely');
+    expect(find.textContaining('Partie coopérative'), findsOneWidget);
+
+    await tester.tap(find.text('Léa').last);
+    await tester.tap(find.text('Tom').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continuer'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    // Scores step: one shared Victoire/Défaite for the whole group.
+    expect(find.text('Le groupe a-t-il gagné ou perdu ?'), findsOneWidget);
+    await tester.tap(find.text('Victoire'));
+    await tester.pump();
+
+    expect(find.text('Enregistrer la partie'), findsOneWidget);
+    await tester.tap(find.text('Enregistrer la partie'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(seeded.state.matches.length, before + 1);
+    // AppState.matches is sorted newest-first (see FakeMatchesRepository's
+    // createdAt-descending _filtered) — the just-saved match is .first.
+    final saved = seeded.state.matches.first;
+    expect(saved.mode, 'coop');
+    expect(saved.entries.map((e) => e.points), everyElement(1), reason: 'every player shares the same group outcome');
+    expect(saved.winnerIds().toSet(), {'lea', 'tom'}, reason: 'a coop win credits the whole group');
+
+    await tester.pump();
+    expect(find.textContaining('Victoire du groupe'), findsWidgets);
+
+    await tester.pump(const Duration(milliseconds: 2700));
+  });
+
+  testWidgets('a game created inside one salon is not visible from another salon of the same server', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    final state = seeded.state;
+    await state.createServer(name: 'Café Test', emoji: '☕', emojiBg: 0);
+    await tester.pumpAndSettle();
+    final server = state.servers.single;
+
+    await state.createSalon(serverId: server.id, name: 'Salon A', emoji: '🎮', emojiBg: 0);
+    await state.createSalon(serverId: server.id, name: 'Salon B', emoji: '🎯', emojiBg: 0);
+    await tester.pumpAndSettle();
+    final salonA = state.salons.firstWhere((s) => s.name == 'Salon A');
+    final salonB = state.salons.firstWhere((s) => s.name == 'Salon B');
+
+    state.selectSalon(server.id, salonA.id);
+    await tester.pumpAndSettle();
+    // The server's starter catalog (seeded on creation, no salonId) is
+    // shared legacy — visible from every salon.
+    expect(state.games.any((g) => g.id == 'catan'), isTrue);
+
+    state.startNewGame();
+    state.setGameForm((f) => f..name = 'Jeu du Salon A');
+    await state.createGame();
+    await tester.pumpAndSettle();
+    expect(
+      state.games.any((g) => g.name == 'Jeu du Salon A'),
+      isTrue,
+      reason: 'the just-created game is visible from the salon it was created in',
+    );
+
+    state.selectSalon(server.id, salonB.id);
+    await tester.pumpAndSettle();
+    expect(
+      state.games.any((g) => g.name == 'Jeu du Salon A'),
+      isFalse,
+      reason: 'a game created in Salon A must not leak into Salon B\'s catalog',
+    );
+    expect(state.games.any((g) => g.id == 'catan'), isTrue, reason: 'the shared legacy catalog still shows up everywhere');
+
+    state.selectSalon(server.id, salonA.id);
+    await tester.pumpAndSettle();
+    expect(state.games.any((g) => g.name == 'Jeu du Salon A'), isTrue, reason: 'still there when switching back to Salon A');
+  });
+
+  testWidgets('scoring a match inside a salon broadcasts a live session scoped to that salon', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    final state = seeded.state;
+    await state.createServer(name: 'Café Test', emoji: '☕', emojiBg: 0);
+    await tester.pumpAndSettle();
+    final server = state.servers.single;
+    await state.createSalon(serverId: server.id, name: 'Tournoi', emoji: '🎮', emojiBg: 0);
+    await tester.pumpAndSettle();
+    final salon = state.salons.single;
+    await state.addSalonMemberByEmail(serverId: server.id, salonId: salon.id, email: 'tom@test.fr');
+    await tester.pumpAndSettle();
+
+    state.selectSalon(server.id, salon.id);
+    await tester.pumpAndSettle();
+    expect(state.liveSessions, isEmpty);
+
+    // Drive the wizard directly through AppState (kind -> game -> players ->
+    // scores) instead of tapping through the sheet's UI — reaching the
+    // scores step via primaryAction() is what actually matters here (it's
+    // what fires _startLiveSessionIfNeeded), and the wizard's own navigation
+    // is already covered by the plain-match UI test.
+    state.openSheet();
+    state.setCreationKind('game');
+    await state.primaryAction();
+    state.pickGame('catan');
+    await state.primaryAction();
+    state.togglePlayer('lea');
+    state.togglePlayer('tom');
+    await state.primaryAction();
+    // Same reasoning as the group live-session test: don't pumpAndSettle
+    // through the "EN DIRECT" pulsing dot's endless animation.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(state.liveSessions, hasLength(1), reason: 'reaching the scores step in a salon must now broadcast a live session too');
+    final session = state.liveSessions.single;
+    expect(session.salonId, salon.id);
+    expect(session.groupId, isEmpty);
+
+    // Bump a score and let the debounced push go through.
+    state.bump('lea', 5);
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(state.liveSessions.single.entries.firstWhere((e) => e.playerId == 'lea').points, 5);
+
+    state.draft.points['lea'] = 10;
+    state.draft.points['tom'] = 8;
+    await state.saveGame();
+    await tester.pumpAndSettle();
+    expect(state.liveSessions, isEmpty, reason: 'saving ends the live session');
+
+    await tester.pump(const Duration(milliseconds: 2700));
+  });
+
+  testWidgets('a scheduled event handles sign-ups, a waitlist, and pre-fills the wizard when started', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    final state = seeded.state;
+    await state.createServer(name: 'Café Test', emoji: '☕', emojiBg: 0);
+    await tester.pumpAndSettle();
+    final server = state.servers.single;
+    await state.createSalon(serverId: server.id, name: 'Tournoi', emoji: '🎮', emojiBg: 0);
+    await tester.pumpAndSettle();
+    final salon = state.salons.single;
+    await state.addSalonMemberByEmail(serverId: server.id, salonId: salon.id, email: 'tom@test.fr');
+    await tester.pumpAndSettle();
+
+    state.selectSalon(server.id, salon.id);
+    await tester.pumpAndSettle();
+    expect(state.canManageEvents(server), isTrue, reason: 'the creator is the owner, always an admin');
+
+    final event = await state.createScheduledEvent(
+      serverId: server.id,
+      salonId: salon.id,
+      gameId: 'catan',
+      kind: 'game',
+      name: 'Catan du samedi',
+      scheduledAt: DateTime.now().add(const Duration(days: 3)),
+      capacity: 1,
+    );
+    await tester.pumpAndSettle();
+    expect(event, isNotNull);
+    expect(state.viewEvents, hasLength(1));
+
+    // Two sign-ups against a capacity of 1: the first is confirmed, the
+    // second lands on the waitlist.
+    await state.registerForEvent(event!);
+    await tester.pumpAndSettle();
+    var current = state.events.firstWhere((e) => e.id == event.id);
+    expect(current.confirmedIds, ['lea']);
+    expect(current.waitlistIds, isEmpty);
+
+    // Simulate tom signing up too, straight through the repository — the
+    // same path AppState.registerForEvent would take on his behalf (mirrors
+    // how the salon-match confirmation test simulates another device).
+    await state.eventsRepo.register(serverId: server.id, eventId: event.id, uid: 'tom');
+    await tester.pumpAndSettle();
+    current = state.events.firstWhere((e) => e.id == event.id);
+    expect(current.confirmedIds, ['lea']);
+    expect(current.waitlistIds, ['tom']);
+
+    // Léa cancels — tom is promoted automatically, no separate step needed.
+    await state.unregisterFromEvent(current);
+    await tester.pumpAndSettle();
+    current = state.events.firstWhere((e) => e.id == event.id);
+    expect(current.confirmedIds, ['tom']);
+    expect(current.waitlistIds, isEmpty);
+
+    // Starting the event pre-fills the wizard with whoever is confirmed.
+    state.startEvent(current);
+    await tester.pumpAndSettle();
+    expect(state.sheetOpen, isTrue);
+    expect(state.draft.creationKind, 'game');
+    expect(state.draft.gameId, 'catan');
+    expect(state.draft.playerIds, ['tom']);
+    expect(state.currentStepKind, WizardStepKind.players);
+
+    await tester.pump(const Duration(milliseconds: 2700));
+  });
+
+  testWidgets('a tournament created inside a salon is salon-scoped and its matches stay pending until confirmed', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    final state = seeded.state;
+    await state.createServer(name: 'Café Test', emoji: '☕', emojiBg: 0);
+    await tester.pumpAndSettle();
+    final server = state.servers.single;
+    await state.createSalon(serverId: server.id, name: 'Tournoi', emoji: '🎮', emojiBg: 0);
+    await tester.pumpAndSettle();
+    final salon = state.salons.single;
+    await state.addSalonMemberByEmail(serverId: server.id, salonId: salon.id, email: 'tom@test.fr');
+    await tester.pumpAndSettle();
+
+    state.selectSalon(server.id, salon.id);
+    await tester.pumpAndSettle();
+    expect(state.games.any((g) => g.id == 'catan'), isTrue, reason: 'the server\'s shared starter catalog is available here');
+
+    final tournament = await state.createTournament(
+      name: 'Tournoi Catan',
+      gameId: 'catan',
+      format: TournamentFormat.singleElimination,
+      entrantPlayerIds: const [
+        ['lea'],
+        ['tom'],
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    expect(tournament, isNotNull, reason: 'tournaments must actually work from within a salon now');
+    expect(tournament!.isSalonTournament, isTrue);
+    expect(tournament.groupId, isEmpty);
+    expect(state.tournaments, contains(predicate<Tournament>((t) => t.id == tournament.id)), reason: 'the salon subscription picks it up');
+
+    final bracketMatch = tournament.matches.single;
+    state.startTournamentMatch(tournament, bracketMatch);
+    state.draft.points['lea'] = 10;
+    state.draft.points['tom'] = 5;
+    await state.saveGame();
+    await tester.pumpAndSettle();
+
+    final saved = state.matches.firstWhere((m) => m.tournamentId == tournament.id);
+    expect(saved.isSalonMatch, isTrue);
+    expect(saved.salonId, salon.id);
+    expect(saved.status, 'pending', reason: 'lea authored it (auto-confirmed) but tom still needs to confirm');
+
+    // The bracket itself already advanced off the real (if not yet fully
+    // confirmed) result — mirrors how a Group tournament always has.
+    final updatedTournament = state.tournaments.firstWhere((t) => t.id == tournament.id);
+    final leaEntrantId = updatedTournament.entrants.firstWhere((e) => e.playerIds.contains('lea')).id;
+    expect(updatedTournament.matchById(bracketMatch.id)?.winnerId, leaEntrantId);
+
+    // lea (the author) already auto-confirmed on save — simulate tom's
+    // confirmation arriving from another device, same as the plain-salon-match
+    // test above.
+    await state.serverMatchesRepo.confirmMatch(rootId: server.id, matchId: saved.id, uid: 'tom');
+    await tester.pumpAndSettle();
+    final confirmed = state.matches.firstWhere((m) => m.id == saved.id);
+    expect(confirmed.status, 'confirmed');
 
     await tester.pump(const Duration(milliseconds: 2700));
   });

@@ -107,6 +107,8 @@ void main() {
     serversRepo: FakeServersRepository(users: users),
     serverGamesRepo: FakeGamesRepository(),
     serverMatchesRepo: FakeMatchesRepository(),
+    serverTournamentsRepo: FakeTournamentsRepository(),
+    eventsRepo: FakeEventsRepository(),
   );
 
   runApp(ChangeNotifierProvider.value(

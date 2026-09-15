@@ -12,7 +12,7 @@ class NewGameDraft {
   /// règle ?" step) or when the game only has its one default rule (see
   /// `AppState.draftRule`/`Game.resolveRule`).
   String? ruleId;
-  String mode; // 'ffa' | 'team'
+  String mode; // 'ffa' | 'team' | 'coop'
   String unit; // 'points' | 'wins'
   int teamCount;
   List<String> playerIds;
@@ -221,6 +221,9 @@ class GameRuleFormDraft {
   /// accumulating — applies to every count type, not just ranks.
   bool multiRound;
 
+  /// See [GameRule.coop].
+  bool coop;
+
   GameRuleFormDraft({
     String? id,
     this.name = 'Standard',
@@ -230,6 +233,7 @@ class GameRuleFormDraft {
     List<String>? bottomRoles,
     List<GameScoreField>? scoreFields,
     this.multiRound = false,
+    this.coop = false,
   })  : id = id ?? newId(),
         topRoles = topRoles ?? [''],
         bottomRoles = bottomRoles ?? [''],
@@ -246,6 +250,7 @@ class GameRuleFormDraft {
         bottomRoles: (rule.bottomRoles == null || rule.bottomRoles!.isEmpty) ? null : List.of(rule.bottomRoles!),
         scoreFields: (rule.scoreFields == null || rule.scoreFields!.isEmpty) ? null : List.of(rule.scoreFields!),
         multiRound: rule.multiRound,
+        coop: rule.coop,
       );
 
   bool get isValid => name.trim().isNotEmpty;

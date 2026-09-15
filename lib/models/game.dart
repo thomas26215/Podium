@@ -133,6 +133,14 @@ class GameRule {
   /// Optional color-coded score breakdown used by point-based rules.
   final List<GameScoreField>? scoreFields;
 
+  /// Whether every match scored under this rule is played by the whole
+  /// group together against the game itself, sharing one outcome — as
+  /// opposed to the default competitive rule, where the "Chacun pour
+  /// soi"/"Équipes" choice is still made per-match on the players step (see
+  /// [NewGameDraft.mode] and `AppState._applyRule`). Meaningless (and left
+  /// false) for [CountType.ranks], which is always a solo classement.
+  final bool coop;
+
   const GameRule({
     required this.id,
     required this.name,
@@ -144,6 +152,7 @@ class GameRule {
     this.bottomPoints,
     this.multiRound = false,
     this.scoreFields,
+    this.coop = false,
   });
 
   bool get lowWins => countType == CountType.lowWins;
@@ -194,6 +203,7 @@ class GameRule {
         if (bottomPoints != null) 'bottomPoints': bottomPoints,
         if (multiRound) 'multiRound': multiRound,
         if (scoreFields != null && scoreFields!.isNotEmpty) 'scoreFields': scoreFields!.map((f) => f.toMap()).toList(),
+        if (coop) 'coop': coop,
       };
 
   factory GameRule.fromMap(Map<String, dynamic> m) => GameRule(
@@ -209,6 +219,7 @@ class GameRule {
         scoreFields: ((m['scoreFields'] as List?) ?? const [])
             .map((e) => GameScoreField.fromMap(Map<String, dynamic>.from(e as Map)))
             .toList(),
+        coop: (m['coop'] as bool?) ?? false,
       );
 }
 
@@ -227,6 +238,15 @@ class Game {
   /// one (see [hasMultipleRules]).
   final List<GameRule> rules;
 
+  /// Only meaningful for a Server's catalog (see
+  /// `FirebaseGamesRepository.rootCollection` — a Group's own catalog never
+  /// sets this): which Salon this game belongs to, so each Salon gets its
+  /// own carved-out catalog instead of sharing the whole Server's. Null
+  /// means the game predates this field and stays visible in every Salon of
+  /// the Server (see `AppState._resubscribeSalonData`), or that it lives in
+  /// a Group, where the concept doesn't apply.
+  final String? salonId;
+
   const Game({
     required this.id,
     required this.name,
@@ -234,6 +254,7 @@ class Game {
     required this.category,
     required this.rules,
     this.ruleSections = const [],
+    this.salonId,
   });
 
   /// Convenience constructor for the common case of a game with exactly one
@@ -294,6 +315,7 @@ class Game {
         category: category,
         ruleSections: ruleSections ?? this.ruleSections,
         rules: rules ?? this.rules,
+        salonId: salonId,
       );
 
   Map<String, dynamic> toMap() => {
@@ -302,6 +324,7 @@ class Game {
         'category': category,
         'rules': rules.map((r) => r.toMap()).toList(),
         if (ruleSections.isNotEmpty) 'ruleSections': ruleSections.map((s) => s.toMap()).toList(),
+        if (salonId != null) 'salonId': salonId,
       };
 
   factory Game.fromDoc(String id, Map<String, dynamic> data) {
@@ -318,6 +341,7 @@ class Game {
       ruleSections: ((data['ruleSections'] as List?) ?? const [])
           .map((e) => GameRuleSection.fromMap(Map<String, dynamic>.from(e as Map)))
           .toList(),
+      salonId: data['salonId'] as String?,
     );
   }
 

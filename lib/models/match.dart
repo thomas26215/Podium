@@ -80,9 +80,15 @@ class LiveMatchSession {
   final String id;
   final String gameId;
   final String groupId;
+
+  /// Set only for a live session broadcasting a match being scored in a
+  /// Salon — mutually exclusive with the ordinary use of [groupId] for one
+  /// in a friend Group. Null for every Group session, past or future.
+  final String? salonId;
+
   final String startedByUid;
   final String startedByName;
-  final String mode; // 'ffa' | 'team'
+  final String mode; // 'ffa' | 'team' | 'coop'
   final String unit; // 'points' | 'wins'
   final bool lowWins;
   final List<MatchEntry> entries;
@@ -107,6 +113,7 @@ class LiveMatchSession {
     required this.id,
     required this.gameId,
     required this.groupId,
+    this.salonId,
     required this.startedByUid,
     required this.startedByName,
     required this.mode,
@@ -121,12 +128,14 @@ class LiveMatchSession {
   });
 
   bool get isTeam => mode == 'team';
+  bool get isSalonSession => salonId != null;
 
   factory LiveMatchSession.fromDoc(String id, Map<String, dynamic> data) {
     return LiveMatchSession(
       id: id,
       gameId: data['gameId'] as String? ?? '',
       groupId: data['groupId'] as String? ?? '',
+      salonId: data['salonId'] as String?,
       startedByUid: data['startedBy'] as String? ?? '',
       startedByName: data['startedByName'] as String? ?? 'Un joueur',
       mode: data['mode'] as String? ?? 'ffa',
@@ -150,7 +159,7 @@ class GameMatch {
   final String id;
   final String gameId;
   final String groupId; // the exact group/subgroup this was played in
-  final String mode; // 'ffa' | 'team'
+  final String mode; // 'ffa' | 'team' | 'coop'
   final String unit; // 'points' | 'wins'
   final bool lowWins;
   final List<MatchEntry> entries;
@@ -243,6 +252,7 @@ class GameMatch {
   });
 
   bool get isTeam => mode == 'team';
+  bool get isCoop => mode == 'coop';
   bool get hasTimeline => timeline.isNotEmpty;
   bool get isSeriesLeg => seriesId != null;
   bool get hasScoreBreakdown => entries.any((e) => e.scoreBreakdown != null && e.scoreBreakdown!.isNotEmpty);
@@ -412,6 +422,19 @@ class GameMatch {
   /// player tied for the best individual score in FFA — ported from the
   /// prototype's `winnerIds()`.
   List<String> winnerIds() {
+    if (isCoop) {
+      // Every entry shares the exact same points value by construction (see
+      // AppState.setCoopPoints) — the whole group succeeds or fails
+      // together, so there's nothing to compare entries against each other
+      // for. A positive shared value (a win/loss game's "Victoire", a
+      // "manches gagnées" tally with at least one round won, or a
+      // highWins-style shared score above zero) counts everyone as a
+      // winner; zero counts as a shared loss. lowWins coop has no such
+      // failure signal (a lower shared score is the *better* one, and 0 is
+      // the best possible), so it's always credited as a group win.
+      if (entries.isEmpty) return const [];
+      return (lowWins || entries.first.points > 0) ? entries.map((e) => e.playerId).toList() : const [];
+    }
     if (isTeam) {
       final sums = <String, int>{};
       for (final e in entries) {

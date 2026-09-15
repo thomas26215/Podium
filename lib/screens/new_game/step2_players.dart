@@ -16,9 +16,12 @@ class Step2Players extends StatelessWidget {
     final d = app.draft;
     final players = app.viewPlayers;
     final rule = app.draftRule;
-    // Ranks and win/loss rules are always solo scoring — no team split to
-    // offer (see AppState._applyRule, which forces mode back to 'ffa' for them).
-    final soloOnly = (rule?.isRanks ?? false) || (rule?.isWinLoss ?? false);
+    // Ranks and win/loss rules are always solo scoring, and a rule flagged
+    // GameRule.coop picks the mode by itself — none of these ever show the
+    // "Chacun pour soi"/"Équipes" choice (see AppState._applyRule, which
+    // sets draft.mode accordingly up front). Every other rule keeps that
+    // choice exactly as before.
+    final modeFixed = rule != null && (rule.isRanks || rule.isWinLoss || rule.coop);
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
@@ -110,7 +113,7 @@ class Step2Players extends StatelessWidget {
               style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
             ),
           ),
-        if (!soloOnly) ...[
+        if (!modeFixed) ...[
           Row(
             children: [
               Expanded(child: _ModeCard(label: 'Chacun pour soi', sub: 'Score individuel', selected: d.mode == 'ffa', onTap: () => app.setMode('ffa'))),
@@ -120,7 +123,25 @@ class Step2Players extends StatelessWidget {
           ),
           const SizedBox(height: 18),
         ],
-        if (d.mode == 'team' && !soloOnly)
+        if (d.mode == 'coop')
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(color: AppColors.accentSoft, border: Border.all(color: AppColors.accent.withValues(alpha: 0.35), width: 1.2), borderRadius: BorderRadius.circular(AppRadius.lg)),
+              child: Row(
+                children: [
+                  Icon(Icons.diversity_3_rounded, size: 16, color: AppColors.accent),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Partie coopérative : tout le groupe gagne ou perd ensemble contre le jeu.', style: bodyFont(size: 12.5, weight: FontWeight.w700, color: AppColors.ink)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        if (d.mode == 'team')
           Padding(
             padding: const EdgeInsets.only(bottom: 16),
             child: Row(

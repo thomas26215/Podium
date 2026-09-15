@@ -63,8 +63,17 @@ class _GroupsPageState extends State<GroupsPage> {
 /// created and joined from — tapping either kind of card selects it as the
 /// active recording context (a Group directly, a Server by drilling into
 /// one of its salons first, see [ServerDetailScreen]).
-class GroupsScreen extends StatelessWidget {
+class GroupsScreen extends StatefulWidget {
   const GroupsScreen({super.key});
+
+  @override
+  State<GroupsScreen> createState() => _GroupsScreenState();
+}
+
+class _GroupsScreenState extends State<GroupsScreen> {
+  // Collapsed by default — closed groups/servers are reachable but
+  // shouldn't compete with the active list for attention on first open.
+  bool _archivedExpanded = false;
 
   Future<void> _chooseCreateKind(BuildContext context, AppState app) async {
     final kind = await showModalBottomSheet<String>(
@@ -107,13 +116,20 @@ class GroupsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
-    // Closed groups stay reachable (history, reopening…) but shouldn't sit
-    // mixed in with the ones you're actively playing in — a separate,
-    // clearly-labelled section underneath instead.
-    final activeRoots = app.groups.where((g) => !g.closed).toList();
-    final closedRoots = app.groups.where((g) => g.closed).toList();
+    // Closed groups/servers stay reachable (history, reopening…) but
+    // shouldn't compete with the active list for attention — merged into
+    // one collapsible "ARCHIVÉS" section underneath instead of scattered
+    // "X CLOS" sub-sections (see _ArchivedSection).
+    final activeGroups = app.groups.where((g) => !g.closed).toList();
+    final closedGroups = app.groups.where((g) => g.closed).toList();
     final activeServers = app.servers.where((s) => !s.closed).toList();
     final closedServers = app.servers.where((s) => s.closed).toList();
+    final hasArchived = closedGroups.isNotEmpty || closedServers.isNotEmpty;
+    final nothingAtAll = !app.groupsLoading &&
+        !app.serversLoading &&
+        activeGroups.isEmpty &&
+        activeServers.isEmpty &&
+        !hasArchived;
 
     return Column(
       children: [
@@ -126,37 +142,29 @@ class GroupsScreen extends StatelessWidget {
                 const ScreenHeading(eyebrow: 'Vos communautés', title: 'Mes groupes & serveurs'),
                 if (app.groupsLoading)
                   Padding(padding: EdgeInsets.symmetric(vertical: 40), child: Center(child: CircularProgressIndicator(color: AppColors.accent)))
-                else if (app.groups.isEmpty)
+                else if (nothingAtAll)
                   const EmptyState(emoji: '👥', message: 'Créez votre premier groupe pour commencer.')
                 else ...[
-                  for (final (i, g) in activeRoots.indexed) FadeSlideIn(delay: Duration(milliseconds: i * 60), child: _RootGroupCard(group: g)),
-                  if (closedRoots.isNotEmpty) ...[
-                    if (activeRoots.isNotEmpty) const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 2, bottom: 10),
-                      child: Text('GROUPES CLOS', style: bodyFont(size: 11.5, weight: FontWeight.w800, color: AppColors.mut, letterSpacing: 0.5)),
-                    ),
-                    for (final g in closedRoots) _RootGroupCard(group: g),
+                  if (activeGroups.isNotEmpty) ...[
+                    const _SectionLabel('GROUPES'),
+                    for (final (i, g) in activeGroups.indexed) FadeSlideIn(delay: Duration(milliseconds: i * 60), child: _RootGroupCard(group: g)),
                   ],
-                ],
-                if (app.servers.isNotEmpty || app.serversLoading) ...[
-                  const SizedBox(height: 24),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 2, bottom: 10),
-                    child: Text('SERVEURS', style: bodyFont(size: 11.5, weight: FontWeight.w800, color: AppColors.mut, letterSpacing: 0.5)),
-                  ),
-                  if (app.serversLoading)
-                    Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: CircularProgressIndicator(color: AppColors.accent)))
-                  else ...[
-                    for (final (i, s) in activeServers.indexed) FadeSlideIn(delay: Duration(milliseconds: i * 60), child: ServerCard(server: s)),
-                    if (closedServers.isNotEmpty) ...[
-                      if (activeServers.isNotEmpty) const SizedBox(height: 8),
-                      Padding(
-                        padding: const EdgeInsets.only(left: 2, bottom: 10),
-                        child: Text('SERVEURS CLOS', style: bodyFont(size: 11.5, weight: FontWeight.w800, color: AppColors.mut, letterSpacing: 0.5)),
-                      ),
-                      for (final s in closedServers) ServerCard(server: s),
-                    ],
+                  if (activeServers.isNotEmpty || app.serversLoading) ...[
+                    if (activeGroups.isNotEmpty) const SizedBox(height: 12),
+                    const _SectionLabel('SERVEURS'),
+                    if (app.serversLoading)
+                      Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: CircularProgressIndicator(color: AppColors.accent)))
+                    else
+                      for (final (i, s) in activeServers.indexed) FadeSlideIn(delay: Duration(milliseconds: i * 60), child: ServerCard(server: s)),
+                  ],
+                  if (hasArchived) ...[
+                    if (activeGroups.isNotEmpty || activeServers.isNotEmpty || app.serversLoading) const SizedBox(height: 12),
+                    _ArchivedSection(
+                      expanded: _archivedExpanded,
+                      onToggle: () => setState(() => _archivedExpanded = !_archivedExpanded),
+                      closedGroups: closedGroups,
+                      closedServers: closedServers,
+                    ),
                   ],
                 ],
               ],
@@ -206,6 +214,71 @@ class GroupsScreen extends StatelessWidget {
             ],
           ),
         ),
+      ],
+    );
+  }
+}
+
+/// A section's small caps label (GROUPES / SERVEURS) — factored out so both
+/// sections stay visually identical.
+class _SectionLabel extends StatelessWidget {
+  final String label;
+  const _SectionLabel(this.label);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 2, bottom: 10),
+      child: Text(label, style: bodyFont(size: 11.5, weight: FontWeight.w800, color: AppColors.mut, letterSpacing: 0.5)),
+    );
+  }
+}
+
+/// Every closed group and closed server, merged into one collapsible
+/// section — closed items stay reachable (history, reopening…) without
+/// splitting the page into several separate "X CLOS" sub-sections.
+/// Collapsed by default so the active list stays front and center.
+class _ArchivedSection extends StatelessWidget {
+  final bool expanded;
+  final VoidCallback onToggle;
+  final List<Group> closedGroups;
+  final List<Server> closedServers;
+  const _ArchivedSection({required this.expanded, required this.onToggle, required this.closedGroups, required this.closedServers});
+
+  @override
+  Widget build(BuildContext context) {
+    final count = closedGroups.length + closedServers.length;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Pressable(
+          onTap: onToggle,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                AnimatedRotation(
+                  turns: expanded ? 0.25 : 0,
+                  duration: const Duration(milliseconds: 180),
+                  child: Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.mut),
+                ),
+                const SizedBox(width: 2),
+                Text('ARCHIVÉS', style: bodyFont(size: 11.5, weight: FontWeight.w800, color: AppColors.mut, letterSpacing: 0.5)),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(20)),
+                  child: Text('$count', style: bodyFont(size: 10.5, weight: FontWeight.w800, color: AppColors.mut)),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (expanded) ...[
+          const SizedBox(height: 8),
+          for (final g in closedGroups) _RootGroupCard(group: g),
+          for (final s in closedServers) ServerCard(server: s),
+        ],
       ],
     );
   }

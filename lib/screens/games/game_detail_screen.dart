@@ -96,6 +96,11 @@ class GameDetailScreen extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 4),
                         child: Text('Manches multiples activées', style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)),
                       ),
+                    if (rule.coop)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text('Partie coopérative', style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)),
+                      ),
                     if (rule.isRanks && ((rule.topRoles?.isNotEmpty ?? false) || (rule.bottomRoles?.isNotEmpty ?? false))) ...[
                       const SizedBox(height: 8),
                       for (final r in rule.topRoles ?? const <String>[])

@@ -31,6 +31,13 @@ String hhmm(DateTime dt) => '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.t
 /// [MatchCard] and [HomeMatchTile].
 String matchResultLine(Game game, GameMatch match, AppState appState) {
   final winners = match.winnerIds();
+  if (match.isCoop) {
+    if (game.resolveRule(match.ruleId).isWinLoss || match.unit == 'wins') {
+      return winners.isNotEmpty ? 'Victoire du groupe' : 'Défaite du groupe';
+    }
+    final score = match.entries.firstOrNull?.points;
+    return score != null ? 'Score du groupe : $score pts' : '';
+  }
   if (match.isTeam) {
     final teamIds = <String>[];
     for (final e in match.entries) {
@@ -59,6 +66,7 @@ String seriesResultLine(List<GameMatch> legs, AppState appState) {
   final t = seriesTally(legs);
   final total = legs.first.seriesLength ?? legs.length;
   if (t.leaders.isEmpty) return '0/$total parties jouées';
+  if (legs.first.isCoop) return 'Le groupe · ${t.leaderWins}/$total parties';
   final names = t.isTeam ? t.leaders.map((id) => 'Équipe $id').join(' & ') : t.leaders.map((id) => appState.playerById(id)?.displayName ?? '?').join(' & ');
   final verb = t.leaders.length > 1 ? 'Égalité entre' : 'Gagné par';
   return '$verb $names · ${t.leaderWins}/$total parties';
@@ -230,7 +238,15 @@ class HomeMatchTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final line = match.isTeam ? 'Victoire en équipe' : (winner != null ? 'Gagné par ${winner!.displayName}' : '');
+    String coopLine() {
+      if (game.resolveRule(match.ruleId).isWinLoss || match.unit == 'wins') {
+        return match.winnerIds().isNotEmpty ? 'Victoire du groupe' : 'Défaite du groupe';
+      }
+      final score = match.entries.firstOrNull?.points;
+      return score != null ? 'Score du groupe : $score pts' : '';
+    }
+
+    final line = match.isCoop ? coopLine() : (match.isTeam ? 'Victoire en équipe' : (winner != null ? 'Gagné par ${winner!.displayName}' : ''));
     return _CardShell(child: matchHeader(game, line, match.createdAt));
   }
 }
@@ -248,7 +264,7 @@ class MatchCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final unitLabel = match.unit == 'wins' ? ' · Manches' : '';
-    final modeLabel = match.isTeam ? ' · Équipes$unitLabel' : unitLabel;
+    final modeLabel = match.isCoop ? ' · Coopératif$unitLabel' : (match.isTeam ? ' · Équipes$unitLabel' : unitLabel);
     final resultLine = matchResultLine(game, match, appState);
     final players = match.entries.map((e) => appState.playerById(e.playerId)).whereType<AppUser>().toList();
 

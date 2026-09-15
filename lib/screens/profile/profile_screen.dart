@@ -8,6 +8,9 @@ import '../../widgets/common.dart';
 import '../settings/settings_screen.dart';
 import 'friends_screen.dart';
 
+/// Reached by tapping the avatar button in the group/salon header (see
+/// `HomeScreen`) or another player's name in the ranking/history —
+/// always pushed as its own route, never a bottom tab.
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
@@ -19,9 +22,20 @@ class ProfileScreen extends StatelessWidget {
     final profile = profileId == null ? null : app.playerById(profileId);
 
     if (profile == null) {
-      return const SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(20, 6, 20, 116),
-        child: ScreenHeadingAndEmpty(),
+      return Scaffold(
+        backgroundColor: AppColors.bg,
+        appBar: AppBar(
+          backgroundColor: AppColors.bg,
+          elevation: 0,
+          foregroundColor: AppColors.ink,
+          title: Text('Profil', style: bodyFont(size: 17, weight: FontWeight.w800, color: AppColors.ink)),
+        ),
+        body: const SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(20, 6, 20, 116),
+            child: EmptyState(emoji: '👤', message: 'Aucun joueur à afficher.'),
+          ),
+        ),
       );
     }
 
@@ -35,201 +49,211 @@ class ProfileScreen extends StatelessWidget {
     final points = mine.isNotEmpty ? mine.first.points : 0;
     final breakdown = app.profileGameBreakdown(profileId!);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 6, 20, 116),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const ScreenHeading(eyebrow: 'Profil joueur', title: 'Statistiques'),
-          FadeSlideIn(
-            child: SizedBox(
-              height: 44,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: [
-                  for (final p in players)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: Pressable(
-                        onTap: () => app.openProfile(p.uid),
-                        child: Container(
-                          padding: const EdgeInsets.fromLTRB(6, 6, 12, 6),
-                          decoration: BoxDecoration(
-                            color: p.uid == profileId ? AppColors.ink : AppColors.card,
-                            border: Border.all(color: p.uid == profileId ? AppColors.ink : AppColors.line),
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                          child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            Avatar(initial: p.initial, color: Color(p.color), size: 26, fontSize: 11),
-                            const SizedBox(width: 7),
-                            Text(p.displayName, style: bodyFont(size: 13, weight: FontWeight.w700, color: p.uid == profileId ? Colors.white : AppColors.ink2)),
-                          ]),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 18),
-          FadeSlideIn(
-            delay: const Duration(milliseconds: 60),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Avatar(initial: profile.initial, color: Color(profile.color), size: 72, fontSize: 30),
-                const SizedBox(width: 16),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(profile.displayName, style: dispFont(size: 26, weight: FontWeight.w800, color: AppColors.ink, letterSpacing: -0.4)),
-                    Text('${rank}e du classement · $points pts cumulés', style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.mut)),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 22),
-          FadeSlideIn(
-            delay: const Duration(milliseconds: 100),
-            child: Row(children: [
-              _stat('$wins', 'Victoires', AppColors.green),
-              const SizedBox(width: 10),
-              _stat('$played', 'Parties', AppColors.ink),
-              const SizedBox(width: 10),
-              _stat('${(ratio * 100).round()}%', 'Winrate', AppColors.accent),
-            ]),
-          ),
-          const SizedBox(height: 22),
-          const SectionHeader(title: 'Par jeu'),
-          FadeSlideIn(
-            delay: const Duration(milliseconds: 140),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-              decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
-              child: breakdown.isEmpty
-                  ? const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: EmptyState(emoji: '🎮', message: "Pas encore de partie jouée."))
-                  : Column(
-                      children: [
-                        for (final b in breakdown)
-                          Container(
-                            padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 4),
-                            decoration: BoxDecoration(border: Border(top: BorderSide(color: AppColors.line))),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 38,
-                                  height: 38,
-                                  alignment: Alignment.center,
-                                  decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(11)),
-                                  child: Text(b.game.emoji, style: const TextStyle(fontSize: 19)),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(b.game.name, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
-                                      Text('${b.played} parties · ${b.wins} V', style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
-                                    ],
-                                  ),
-                                ),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Text(b.avg.toStringAsFixed(1), style: dispFont(size: 16, weight: FontWeight.w700, color: AppColors.ink)),
-                                    Text('moy. pts', style: bodyFont(size: 11, weight: FontWeight.w600, color: AppColors.mut)),
-                                  ],
-                                ),
-                              ],
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      appBar: AppBar(
+        backgroundColor: AppColors.bg,
+        elevation: 0,
+        foregroundColor: AppColors.ink,
+        title: Text('Profil', style: bodyFont(size: 17, weight: FontWeight.w800, color: AppColors.ink)),
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 6, 20, 116),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              FadeSlideIn(
+                child: SizedBox(
+                  height: 44,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: [
+                      for (final p in players)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: Pressable(
+                            onTap: () => app.openProfile(p.uid),
+                            child: Container(
+                              padding: const EdgeInsets.fromLTRB(6, 6, 12, 6),
+                              decoration: BoxDecoration(
+                                color: p.uid == profileId ? AppColors.ink : AppColors.card,
+                                border: Border.all(color: p.uid == profileId ? AppColors.ink : AppColors.line),
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                Avatar(initial: p.initial, color: Color(p.color), size: 26, fontSize: 11),
+                                const SizedBox(width: 7),
+                                Text(p.displayName, style: bodyFont(size: 13, weight: FontWeight.w700, color: p.uid == profileId ? Colors.white : AppColors.ink2)),
+                              ]),
                             ),
                           ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              FadeSlideIn(
+                delay: const Duration(milliseconds: 60),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Avatar(initial: profile.initial, color: Color(profile.color), size: 72, fontSize: 30),
+                    const SizedBox(width: 16),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(profile.displayName, style: dispFont(size: 26, weight: FontWeight.w800, color: AppColors.ink, letterSpacing: -0.4)),
+                        Text('${rank}e du classement · $points pts cumulés', style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.mut)),
                       ],
                     ),
-            ),
-          ),
-          const SizedBox(height: 22),
-          FadeSlideIn(
-            delay: const Duration(milliseconds: 180),
-            child: Pressable(
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FriendsScreen())),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.lg)),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 38,
-                      height: 38,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(color: AppColors.accentSoft, borderRadius: BorderRadius.circular(11)),
-                      child: Icon(Icons.people_alt_rounded, size: 19, color: AppColors.accent),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(child: Text('Mes amis', style: bodyFont(size: 14.5, weight: FontWeight.w700, color: AppColors.ink))),
-                    if (app.friends.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: Text('${app.friends.length}', style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.mut)),
-                      ),
-                    Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.mut),
                   ],
                 ),
               ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          FadeSlideIn(
-            delay: const Duration(milliseconds: 200),
-            child: Pressable(
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.lg)),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 38,
-                      height: 38,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(color: AppColors.accentSoft, borderRadius: BorderRadius.circular(11)),
-                      child: Icon(Icons.palette_rounded, size: 19, color: AppColors.accent),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(child: Text('Personnalisation', style: bodyFont(size: 14.5, weight: FontWeight.w700, color: AppColors.ink))),
-                    Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.mut),
-                  ],
+              const SizedBox(height: 22),
+              FadeSlideIn(
+                delay: const Duration(milliseconds: 100),
+                child: Row(children: [
+                  _stat('$wins', 'Victoires', AppColors.green),
+                  const SizedBox(width: 10),
+                  _stat('$played', 'Parties', AppColors.ink),
+                  const SizedBox(width: 10),
+                  _stat('${(ratio * 100).round()}%', 'Winrate', AppColors.accent),
+                ]),
+              ),
+              const SizedBox(height: 22),
+              const SectionHeader(title: 'Par jeu'),
+              FadeSlideIn(
+                delay: const Duration(milliseconds: 140),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                  decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
+                  child: breakdown.isEmpty
+                      ? const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: EmptyState(emoji: '🎮', message: "Pas encore de partie jouée."))
+                      : Column(
+                          children: [
+                            for (final b in breakdown)
+                              Container(
+                                padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 4),
+                                decoration: BoxDecoration(border: Border(top: BorderSide(color: AppColors.line))),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 38,
+                                      height: 38,
+                                      alignment: Alignment.center,
+                                      decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(11)),
+                                      child: Text(b.game.emoji, style: const TextStyle(fontSize: 19)),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(b.game.name, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
+                                          Text('${b.played} parties · ${b.wins} V', style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
+                                        ],
+                                      ),
+                                    ),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      children: [
+                                        Text(b.avg.toStringAsFixed(1), style: dispFont(size: 16, weight: FontWeight.w700, color: AppColors.ink)),
+                                        Text('moy. pts', style: bodyFont(size: 11, weight: FontWeight.w600, color: AppColors.mut)),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
                 ),
               ),
-            ),
+              const SizedBox(height: 22),
+              FadeSlideIn(
+                delay: const Duration(milliseconds: 180),
+                child: Pressable(
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FriendsScreen())),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.lg)),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 38,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(color: AppColors.accentSoft, borderRadius: BorderRadius.circular(11)),
+                          child: Icon(Icons.people_alt_rounded, size: 19, color: AppColors.accent),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(child: Text('Mes amis', style: bodyFont(size: 14.5, weight: FontWeight.w700, color: AppColors.ink))),
+                        if (app.friends.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: Text('${app.friends.length}', style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.mut)),
+                          ),
+                        Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.mut),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              FadeSlideIn(
+                delay: const Duration(milliseconds: 200),
+                child: Pressable(
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.lg)),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 38,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(color: AppColors.accentSoft, borderRadius: BorderRadius.circular(11)),
+                          child: Icon(Icons.palette_rounded, size: 19, color: AppColors.accent),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(child: Text('Personnalisation', style: bodyFont(size: 14.5, weight: FontWeight.w700, color: AppColors.ink))),
+                        Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.mut),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: () => _confirmSignOut(context, app),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.accent,
+                  side: BorderSide(color: AppColors.accent, width: 1.5),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+                  minimumSize: const Size.fromHeight(0),
+                ),
+                icon: const Icon(Icons.logout_rounded, size: 20),
+                label: Text('Changer de compte', style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.accent)),
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: () => showDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: const _DeleteAccountDialog())),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  side: const BorderSide(color: Colors.red, width: 1.5),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+                  minimumSize: const Size.fromHeight(0),
+                ),
+                icon: const Icon(Icons.delete_forever_rounded, size: 20),
+                label: Text('Supprimer mon compte', style: bodyFont(size: 14, weight: FontWeight.w700, color: Colors.red)),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
-          OutlinedButton.icon(
-            onPressed: () => _confirmSignOut(context, app),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.accent,
-              side: BorderSide(color: AppColors.accent, width: 1.5),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
-              minimumSize: const Size.fromHeight(0),
-            ),
-            icon: const Icon(Icons.logout_rounded, size: 20),
-            label: Text('Changer de compte', style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.accent)),
-          ),
-          const SizedBox(height: 10),
-          OutlinedButton.icon(
-            onPressed: () => showDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: const _DeleteAccountDialog())),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.red,
-              side: const BorderSide(color: Colors.red, width: 1.5),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
-              minimumSize: const Size.fromHeight(0),
-            ),
-            icon: const Icon(Icons.delete_forever_rounded, size: 20),
-            label: Text('Supprimer mon compte', style: bodyFont(size: 14, weight: FontWeight.w700, color: Colors.red)),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -349,20 +373,6 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
           ],
         ),
       ),
-    );
-  }
-}
-
-class ScreenHeadingAndEmpty extends StatelessWidget {
-  const ScreenHeadingAndEmpty({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: const [
-        ScreenHeading(eyebrow: 'Profil joueur', title: 'Statistiques'),
-        EmptyState(emoji: '👤', message: 'Aucun joueur à afficher.'),
-      ],
     );
   }
 }

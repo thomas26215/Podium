@@ -26,7 +26,7 @@ class MatchDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final unitLabel = match.unit == 'wins' ? ' · Manches' : '';
-    final modeLabel = match.isTeam ? ' · Équipes$unitLabel' : unitLabel;
+    final modeLabel = match.isCoop ? ' · Coopératif$unitLabel' : (match.isTeam ? ' · Équipes$unitLabel' : unitLabel);
     final rounds = _rounds();
     final isRoundSynced = match.resolvedInputMode == 'rounds';
 
@@ -61,7 +61,7 @@ class MatchDetailScreen extends StatelessWidget {
                 FadeSlideIn(delay: const Duration(milliseconds: 40), child: _confirmationCard(context)),
               ],
               const SizedBox(height: 22),
-              FadeSlideIn(delay: const Duration(milliseconds: 60), child: match.isTeam ? _teamBlocks() : _ffaCard()),
+              FadeSlideIn(delay: const Duration(milliseconds: 60), child: match.isCoop ? _coopCard() : (match.isTeam ? _teamBlocks() : _ffaCard())),
               if (match.hasTimeline) ...[
                 const SizedBox(height: 22),
                 FadeSlideIn(
@@ -390,6 +390,41 @@ class MatchDetailScreen extends StatelessWidget {
                 ],
               ),
             ),
+        ],
+      ),
+    );
+  }
+
+  /// Single shared-outcome card for a coop match — every entry carries the
+  /// same points value by construction (see AppState.setCoopPoints), so
+  /// there's nothing to break down per player.
+  Widget _coopCard() {
+    final isWin = _winners.isNotEmpty;
+    final isWinLoss = _isWinLoss || match.unit == 'wins';
+    final score = match.entries.firstOrNull?.points ?? 0;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        border: Border.all(color: isWinLoss && isWin ? AppColors.green : AppColors.line, width: 1.5),
+        color: isWinLoss && isWin ? AppColors.greenSoft : AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+      ),
+      child: Row(
+        children: [
+          Row(children: [for (final e in match.entries) Padding(padding: const EdgeInsets.only(right: 7), child: _memberAvatar(e.playerId))]),
+          const SizedBox(width: 10),
+          Expanded(child: Text('Le groupe', style: bodyFont(size: 14.5, weight: FontWeight.w700, color: AppColors.ink))),
+          if (isWinLoss)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(color: isWin ? AppColors.green : AppColors.bg, borderRadius: BorderRadius.circular(999)),
+              child: Text(
+                isWin ? 'VICTOIRE' : 'DÉFAITE',
+                style: bodyFont(size: 11, weight: FontWeight.w800, color: isWin ? Colors.white : AppColors.mut, letterSpacing: 0.3),
+              ),
+            )
+          else
+            AnimatedCounter(value: score, style: dispFont(size: 18, weight: FontWeight.w700, color: AppColors.ink)),
         ],
       ),
     );

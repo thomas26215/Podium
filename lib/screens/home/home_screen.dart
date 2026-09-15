@@ -10,13 +10,16 @@ import '../../widgets/live_match_card.dart';
 import '../../widgets/match_card.dart';
 import '../../models/game.dart';
 import '../../models/match.dart';
+import '../../models/scheduled_event.dart';
 import '../../models/tournament.dart';
 import '../../widgets/rank_row.dart';
-import '../games/games_catalog_screen.dart';
+import '../events/scheduled_event_detail_screen.dart';
+import '../events/scheduled_events_list_screen.dart';
 import '../groups/groups_screen.dart';
 import '../history/match_detail_screen.dart';
 import '../live/live_match_screen.dart';
 import '../new_game/new_game_sheet.dart';
+import '../profile/profile_screen.dart';
 import '../tournaments/tournament_detail_screen.dart';
 import '../tournaments/tournaments_list_screen.dart';
 
@@ -78,18 +81,14 @@ class HomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GamesCatalogScreen())),
-                  child: Container(
-                    width: 38,
-                    height: 38,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(12)),
-                    child: Icon(Icons.casino_rounded, size: 19, color: AppColors.ink2),
-                  ),
+                  borderRadius: BorderRadius.circular(19),
+                  onTap: () {
+                    final uid = app.currentUser?.uid;
+                    if (uid != null) app.openProfile(uid);
+                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileScreen()));
+                  },
+                  child: AvatarCluster(avatars: [for (final p in players.take(3)) (initial: p.initial, color: Color(p.color))]),
                 ),
-                const SizedBox(width: 10),
-                AvatarCluster(avatars: [for (final p in players.take(4)) (initial: p.initial, color: Color(p.color))]),
               ],
             ),
           ),
@@ -229,7 +228,7 @@ class HomeScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: app.dashboardStyle == DashboardStyle.simple ? _simpleSections(app, winRows) : _completeSections(app, stats, winRows),
+                children: app.dashboardStyle == DashboardStyle.simple ? _simpleSections(app, winRows) : _completeSections(context, app, stats, winRows),
               ),
             ),
             if (app.viewTournaments.any((t) => !t.isCompleted))
@@ -239,6 +238,15 @@ class HomeScreen extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: _tournamentsSection(context, app),
+                ),
+              ),
+            if (app.viewEvents.any((e) => !e.isStarted))
+              KeyedSubtree(
+                key: const ValueKey('events-section'),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: _eventsSection(context, app),
                 ),
               ),
           ],
@@ -296,6 +304,38 @@ List<Widget> _tournamentsSection(BuildContext context, AppState app) {
   ];
 }
 
+/// Upcoming scheduled events for the active Salon (see
+/// `AppState.viewEvents`) — Salon-only, so this section (and `viewEvents`
+/// itself) is always empty for a Group. Same reasoning as
+/// [_tournamentsSection]: creating one is admin-only, reached from
+/// `ScheduledEventsListScreen`'s own "+", not from here.
+List<Widget> _eventsSection(BuildContext context, AppState app) {
+  final upcoming = app.viewEvents.where((e) => !e.isStarted).toList();
+  return [
+    SectionHeader(
+      title: 'Évènements à venir',
+      actionLabel: 'Tout voir',
+      onAction: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ScheduledEventsListScreen())),
+    ),
+    SizedBox(
+      height: 128,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: upcoming.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
+        itemBuilder: (_, i) {
+          final e = upcoming[i];
+          return _EventCard(
+            event: e,
+            game: app.gameById(e.gameId),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ScheduledEventDetailScreen(eventId: e.id))),
+          );
+        },
+      ),
+    ),
+  ];
+}
+
 /// Épuré: just who's leading and the very last game — the rest of the
 /// dashboard (stat chips, full mini-ranking, recent-matches list) is
 /// dropped for a calmer, less busy home screen.
@@ -323,7 +363,7 @@ List<Widget> _simpleSections(AppState app, List<PlayerRow> winRows) {
 
 /// Complet: the full hero + stat chips + top-3 ranking + recent-matches
 /// dashboard.
-List<Widget> _completeSections(AppState app, Map<String, int> stats, List<PlayerRow> winRows) {
+List<Widget> _completeSections(BuildContext context, AppState app, Map<String, int> stats, List<PlayerRow> winRows) {
   return [
     FadeSlideIn(child: winRows.isEmpty ? const _NoDataHero() : _LeaderHero(row: winRows.first)),
     const SizedBox(height: 14),
@@ -350,7 +390,15 @@ List<Widget> _completeSections(AppState app, Map<String, int> stats, List<Player
             : Column(
                 children: [
                   for (var i = 0; i < winRows.length && i < 3; i++)
-                    MiniRankRow(rank: i + 1, player: winRows[i].player, wins: winRows[i].wins, onTap: () => app.openProfile(winRows[i].player.uid)),
+                    MiniRankRow(
+                      rank: i + 1,
+                      player: winRows[i].player,
+                      wins: winRows[i].wins,
+                      onTap: () {
+                        app.openProfile(winRows[i].player.uid);
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileScreen()));
+                      },
+                    ),
                 ],
               ),
       ),
@@ -598,6 +646,41 @@ class _TournamentCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: bodyFont(size: 11.5, weight: FontWeight.w600, color: AppColors.mut),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EventCard extends StatelessWidget {
+  final ScheduledEvent event;
+  final Game? game;
+  final VoidCallback onTap;
+  const _EventCard({required this.event, required this.game, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final capacityLabel = event.capacity == null ? '${event.signups.length} inscrits' : '${event.confirmedIds.length}/${event.capacity}';
+    return Pressable(
+      onTap: onTap,
+      child: Container(
+        width: 150,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.xl)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(game?.emoji ?? '📅', style: const TextStyle(fontSize: 22)),
+            const Spacer(),
+            Text(event.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: bodyFont(size: 13.5, weight: FontWeight.w800, color: AppColors.ink)),
+            Text(
+              '${frenchDayMonth(event.scheduledAt)} · ${hhmm(event.scheduledAt)}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: bodyFont(size: 11.5, weight: FontWeight.w600, color: AppColors.mut),
+            ),
+            Text(capacityLabel, maxLines: 1, overflow: TextOverflow.ellipsis, style: bodyFont(size: 11.5, weight: FontWeight.w600, color: AppColors.mut)),
           ],
         ),
       ),

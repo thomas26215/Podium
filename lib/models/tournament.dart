@@ -165,7 +165,18 @@ class BracketMatch {
 
 class Tournament {
   final String id;
+
+  /// The exact group/subgroup this was created in — empty for a Salon
+  /// tournament, which uses [salonId] instead (mutually exclusive, mirrors
+  /// [GameMatch.groupId]/[GameMatch.salonId]).
   final String groupId;
+
+  /// Set only for a tournament created in a Salon (see
+  /// `lib/models/salon.dart`) — mutually exclusive with the ordinary use of
+  /// [groupId] for a tournament created in a friend Group. Null for every
+  /// Group tournament, past or future.
+  final String? salonId;
+
   final String gameId;
 
   /// Which of the game's [GameRule]s this tournament is scored under — fixed
@@ -190,6 +201,7 @@ class Tournament {
   const Tournament({
     required this.id,
     required this.groupId,
+    this.salonId,
     required this.gameId,
     this.ruleId,
     required this.name,
@@ -205,6 +217,7 @@ class Tournament {
   });
 
   bool get isCompleted => status == 'completed';
+  bool get isSalonTournament => salonId != null;
 
   TournamentEntrant? entrantById(String? id) => id == null ? null : entrants.where((e) => e.id == id).firstOrNull;
 
@@ -213,6 +226,7 @@ class Tournament {
   Tournament copyWith({List<BracketMatch>? matches, String? status, String? winnerEntrantId}) => Tournament(
         id: id,
         groupId: groupId,
+        salonId: salonId,
         gameId: gameId,
         ruleId: ruleId,
         name: name,
@@ -229,6 +243,7 @@ class Tournament {
 
   Map<String, dynamic> toMap() => {
         'groupId': groupId,
+        if (salonId != null) 'salonId': salonId,
         'gameId': gameId,
         if (ruleId != null) 'ruleId': ruleId,
         'name': name,
@@ -246,6 +261,7 @@ class Tournament {
   factory Tournament.fromDoc(String id, Map<String, dynamic> data) => Tournament(
         id: id,
         groupId: (data['groupId'] as String?) ?? '',
+        salonId: data['salonId'] as String?,
         gameId: (data['gameId'] as String?) ?? '',
         ruleId: data['ruleId'] as String?,
         name: (data['name'] as String?) ?? 'Tournoi',
