@@ -1,7 +1,9 @@
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
+const { getAuth } = require("firebase-admin/auth");
 const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { logger } = require("firebase-functions");
 
 initializeApp();
@@ -221,3 +223,59 @@ function computeWinnerIds(match) {
   const best = match.lowWins ? Math.min(...points) : Math.max(...points);
   return entries.filter((e) => (e.points || 0) === best).map((e) => e.playerId);
 }
+
+/**
+ * Callable from the public "supprimer mes données" web page (see
+ * public/app.js) as the browser-based equivalent of AppState.deleteAccount
+ * in the Flutter app. Runs with Admin SDK privileges (bypasses
+ * firestore.rules entirely) so it can use recursiveDelete to wipe every
+ * subcollection of an owned group/server — games, matches, tournaments,
+ * live sessions, scheduled events, whatever exists — without having to
+ * enumerate each one by hand like the Dart client does.
+ */
+exports.deleteMyAccount = onCall(async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Vous devez être connecté.");
+
+  const userSnap = await db.collection("users").doc(uid).get();
+  const email = (userSnap.exists && userSnap.data().email) || request.auth.token.email || "";
+
+  // Groups: owned outright -> delete with all their history; otherwise just
+  // leave the roster.
+  const groupsSnap = await db.collection("groups").where("memberIds", "array-contains", uid).get();
+  for (const doc of groupsSnap.docs) {
+    if (doc.data().ownerId === uid) {
+      await db.recursiveDelete(doc.ref);
+    } else {
+      await doc.ref.update({ memberIds: FieldValue.arrayRemove(uid) });
+    }
+  }
+
+  // Servers: same idea, plus scrub salon membership on servers left behind.
+  const serversSnap = await db.collection("servers").where("memberIds", "array-contains", uid).get();
+  for (const doc of serversSnap.docs) {
+    if (doc.data().ownerId === uid) {
+      await db.recursiveDelete(doc.ref);
+      continue;
+    }
+    await doc.ref.update({
+      memberIds: FieldValue.arrayRemove(uid),
+      adminIds: FieldValue.arrayRemove(uid),
+    });
+    const salonsSnap = await doc.ref.collection("salons").where("memberIds", "array-contains", uid).get();
+    for (const salonDoc of salonsSnap.docs) {
+      await salonDoc.ref.update({ memberIds: FieldValue.arrayRemove(uid) });
+    }
+  }
+
+  const batch = db.batch();
+  batch.delete(db.collection("users").doc(uid));
+  if (email) batch.delete(db.collection("emailIndex").doc(email.trim().toLowerCase()));
+  await batch.commit();
+
+  // Last: once the Auth user is gone, request.auth no longer exists to
+  // authorize anything above, so the Firestore cleanup has to come first.
+  await getAuth().deleteUser(uid);
+
+  return { ok: true };
+});

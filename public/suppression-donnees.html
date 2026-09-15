@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Supprimer mes données — Podium</title>
+  <link rel="icon" href="assets/favicon-32.png" />
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="site">
+      <img src="assets/logo-64.png" alt="Logo Podium" />
+      <span class="brand">Podium</span>
+      <nav>
+        <a href="index.html">Accueil</a>
+        <a href="confidentialite.html">Confidentialité</a>
+        <a href="suppression-donnees.html" class="active">Supprimer mes données</a>
+      </nav>
+    </header>
+
+    <main>
+      <h1>Supprimer mon compte et mes données</h1>
+      <p>
+        Vous pouvez supprimer définitivement votre compte Podium et toutes les données associées de deux façons.
+      </p>
+
+      <div class="card">
+        <h3>Depuis l'application</h3>
+        <p>
+          Ouvrez Podium, allez dans l'onglet <strong>Profil</strong>, puis <strong>Supprimer mon compte</strong>.
+          La suppression est immédiate.
+        </p>
+      </div>
+
+      <div class="card danger">
+        <h3>Depuis cette page</h3>
+        <p>
+          Connectez-vous avec l'e-mail et le mot de passe de votre compte Podium pour supprimer vos données
+          directement depuis votre navigateur, sans avoir besoin de l'application.
+        </p>
+
+        <!-- Step 1: sign in -->
+        <form id="step-signin" class="step active" novalidate>
+          <label for="email">Adresse e-mail</label>
+          <input type="email" id="email" name="email" autocomplete="email" required />
+
+          <label for="password">Mot de passe</label>
+          <input type="password" id="password" name="password" autocomplete="current-password" required />
+
+          <div class="btn-row">
+            <button type="submit" class="btn btn-secondary" id="signin-btn">Se connecter</button>
+          </div>
+          <div id="signin-msg"></div>
+        </form>
+
+        <!-- Step 2: confirm -->
+        <div id="step-confirm" class="step">
+          <p>
+            Connecté en tant que <strong id="confirm-email"></strong>. Cette action est <strong>définitive</strong> :
+            votre profil sera supprimé, vous quitterez tous vos groupes et salons, et ceux dont vous êtes
+            propriétaire seront supprimés avec tout leur historique.
+          </p>
+          <div class="checkbox-row">
+            <input type="checkbox" id="confirm-check" />
+            <label for="confirm-check">Je comprends que cette action est irréversible.</label>
+          </div>
+          <div class="btn-row">
+            <button type="button" class="btn btn-danger" id="delete-btn" disabled>Supprimer définitivement mes données</button>
+            <button type="button" class="btn btn-secondary" id="cancel-btn">Annuler</button>
+          </div>
+          <div id="delete-msg"></div>
+        </div>
+
+        <!-- Step 3: done -->
+        <div id="step-done" class="step">
+          <div class="msg success">
+            Votre compte et toutes vos données ont été supprimés. Vous pouvez fermer cette page.
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Vous n'avez plus accès à votre compte ?</h3>
+        <p>
+          Si vous ne pouvez plus vous connecter (mot de passe oublié, adresse e-mail inaccessible), écrivez-nous à
+          <a href="mailto:venouilthomas123456@gmail.com?subject=Suppression%20de%20mon%20compte%20Podium">venouilthomas123456@gmail.com</a>
+          depuis l'adresse associée à votre compte, en précisant l'e-mail utilisé sur Podium. Nous traitons ces
+          demandes sous 30 jours.
+        </p>
+      </div>
+    </main>
+
+    <footer class="site">
+      <p>Podium — développé par Thomas Venouil.
+        Contact : <a href="mailto:venouilthomas123456@gmail.com">venouilthomas123456@gmail.com</a>
+      </p>
+    </footer>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
