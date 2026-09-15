@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js";
 
 // Same public web config as lib/firebase_options.dart — safe to expose,
@@ -25,6 +25,7 @@ const stepConfirm = document.getElementById("step-confirm");
 const stepDone = document.getElementById("step-done");
 
 const signinBtn = document.getElementById("signin-btn");
+const forgotBtn = document.getElementById("forgot-btn");
 const signinMsg = document.getElementById("signin-msg");
 const confirmEmail = document.getElementById("confirm-email");
 const confirmCheck = document.getElementById("confirm-check");
@@ -75,6 +76,33 @@ stepSignin.addEventListener("submit", async (e) => {
     signinBtn.disabled = false;
     signinBtn.textContent = "Se connecter";
   }
+});
+
+forgotBtn.addEventListener("click", async () => {
+  signinMsg.innerHTML = "";
+  const email = document.getElementById("email").value.trim();
+  if (!email) {
+    showMessage(signinMsg, "Entrez votre adresse e-mail ci-dessus, puis cliquez à nouveau.", "error");
+    return;
+  }
+
+  forgotBtn.disabled = true;
+  forgotBtn.textContent = "Envoi…";
+  try {
+    await sendPasswordResetEmail(auth, email);
+  } catch (err) {
+    // Don't leak whether the address has an account — show the same
+    // success message either way (only a malformed address is reported).
+    if (err.code === "auth/invalid-email") {
+      showMessage(signinMsg, authErrorMessage(err), "error");
+      forgotBtn.disabled = false;
+      forgotBtn.textContent = "Mot de passe oublié ?";
+      return;
+    }
+  }
+  showMessage(signinMsg, "Si un compte existe avec cette adresse, un e-mail de réinitialisation vient d'être envoyé.", "success");
+  forgotBtn.disabled = false;
+  forgotBtn.textContent = "Mot de passe oublié ?";
 });
 
 confirmCheck.addEventListener("change", () => {
