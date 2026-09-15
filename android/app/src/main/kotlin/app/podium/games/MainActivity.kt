@@ -1,4 +1,4 @@
-package app.podium.com
+package app.podium.games
 
 import io.flutter.embedding.android.FlutterActivity
 

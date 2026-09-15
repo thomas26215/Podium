@@ -36,7 +36,7 @@ class DefaultFirebaseOptions {
 
   static const android = FirebaseOptions(
     apiKey: 'AIzaSyAzn7Iis8J6nW3yZaeekSg91nSbs7mUF8s',
-    appId: '1:392494713569:android:a78fdeb4e7fa6319cf45a0',
+    appId: '1:392494713569:android:c304c0998b6a8de6cf45a0',
     messagingSenderId: '392494713569',
     projectId: 'podium-9b4bf',
     storageBucket: 'podium-9b4bf.firebasestorage.app',

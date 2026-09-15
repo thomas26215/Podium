@@ -44,3 +44,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Release signing key — never commit, needed forever to publish app updates
+/android/key.properties
+/android/app/upload-keystore.jks

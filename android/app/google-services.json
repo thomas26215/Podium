@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:392494713569:android:a78fdeb4e7fa6319cf45a0",
+        "mobilesdk_app_id": "1:392494713569:android:c304c0998b6a8de6cf45a0",
         "android_client_info": {
-          "package_name": "app.podium.com"
+          "package_name": "app.podium.games"
         }
       },
       "oauth_client": [],
