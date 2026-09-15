@@ -48,3 +48,6 @@ app.*.map.json
 # Release signing key — never commit, needed forever to publish app updates
 /android/key.properties
 /android/app/upload-keystore.jks
+
+# Firebase CLI local cache
+/.firebase/
