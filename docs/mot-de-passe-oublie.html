@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mot de passe oublié — Podium</title>
+  <link rel="icon" href="assets/favicon-32.png" />
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="site">
+      <img src="assets/logo-64.png" alt="Logo Podium" />
+      <span class="brand">Podium</span>
+      <nav>
+        <a href="index.html">Accueil</a>
+        <a href="confidentialite.html">Confidentialité</a>
+        <a href="mot-de-passe-oublie.html" class="active">Mot de passe oublié</a>
+        <a href="suppression-donnees.html">Supprimer mes données</a>
+      </nav>
+    </header>
+
+    <main>
+      <h1>Mot de passe oublié</h1>
+      <p>
+        Entrez l'adresse e-mail de votre compte Podium : si elle correspond à un compte, vous recevrez un lien
+        pour choisir un nouveau mot de passe.
+      </p>
+
+      <div class="card">
+        <form id="reset-form" novalidate>
+          <label for="reset-email">Adresse e-mail</label>
+          <input type="email" id="reset-email" name="email" autocomplete="email" required />
+
+          <div class="btn-row">
+            <button type="submit" class="btn btn-primary" id="reset-btn">Envoyer le lien de réinitialisation</button>
+          </div>
+          <div id="reset-msg"></div>
+        </form>
+      </div>
+    </main>
+
+    <footer class="site">
+      <p>Podium — développé par Thomas Venouil.
+        Contact : <a href="mailto:venouilthomas123456@gmail.com">venouilthomas123456@gmail.com</a>
+      </p>
+    </footer>
+  </div>
+
+  <script type="module" src="reset.js"></script>
+</body>
+</html>
