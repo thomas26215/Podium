@@ -29,6 +29,10 @@ form.addEventListener("submit", async (e) => {
     } else if (err.code === "auth/too-many-requests") {
       showMessage("Trop de tentatives — réessayez dans quelques minutes.", "error");
     } else {
+      // Still logged for debugging — auth/user-not-found is expected and
+      // fine to hide, but anything else (network, config, quota) would be
+      // silently swallowed here otherwise.
+      console.error("sendPasswordResetEmail failed:", err.code, err.message);
       showMessage("Si un compte existe avec cette adresse, un e-mail de réinitialisation vient d'être envoyé.", "success");
     }
   } finally {
