@@ -6,19 +6,11 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import 'firebase_options.dart';
-import 'repositories/auth_repository.dart';
-import 'repositories/events_repository.dart';
-import 'repositories/game_library_repository.dart';
-import 'repositories/games_repository.dart';
-import 'repositories/groups_repository.dart';
-import 'repositories/guests_repository.dart';
-import 'repositories/matches_repository.dart';
-import 'repositories/servers_repository.dart';
-import 'repositories/tournaments_repository.dart';
 import 'repositories/users_repository.dart';
 import 'screens/auth/auth_gate.dart';
 import 'services/notifications_service.dart';
 import 'state/app_state.dart';
+import 'state/session_manager.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
@@ -29,45 +21,45 @@ void main() async {
     return;
   }
 
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  final defaultApp = await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  final usersRepo = FirebaseUsersRepository();
-  final notificationsService = NotificationsService(usersRepo: usersRepo);
+  final notificationsService = NotificationsService(usersRepo: FirebaseUsersRepository());
   unawaited(notificationsService.init());
 
-  runApp(PodiumApp(usersRepo: usersRepo, notificationsService: notificationsService));
+  final sessionManager = SessionManager(notificationsService: notificationsService);
+  await sessionManager.bootstrapDefault(defaultApp);
+
+  runApp(PodiumApp(sessionManager: sessionManager));
 }
 
 class PodiumApp extends StatelessWidget {
-  final UsersRepository usersRepo;
-  final NotificationsService notificationsService;
+  final SessionManager sessionManager;
 
-  const PodiumApp({super.key, required this.usersRepo, required this.notificationsService});
+  const PodiumApp({super.key, required this.sessionManager});
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(
-          create: (_) => AppState(
-            authRepo: FirebaseAuthRepository(),
-            groupsRepo: FirebaseGroupsRepository(),
-            gamesRepo: FirebaseGamesRepository(),
-            matchesRepo: FirebaseMatchesRepository(),
-            tournamentsRepo: FirebaseTournamentsRepository(),
-            usersRepo: usersRepo,
-            guestsRepo: FirebaseGuestsRepository(),
-            gameLibraryRepo: FirebaseGameLibraryRepository(),
-            serversRepo: FirebaseServersRepository(),
-            serverGamesRepo: FirebaseGamesRepository(rootCollection: 'servers'),
-            serverMatchesRepo: FirebaseMatchesRepository(rootCollection: 'servers'),
-            serverTournamentsRepo: FirebaseTournamentsRepository(rootCollection: 'servers'),
-            eventsRepo: FirebaseEventsRepository(),
-            notificationsService: notificationsService,
-          ),
+    return ChangeNotifierProvider<SessionManager>.value(
+      value: sessionManager,
+      // Rebuilds whenever SessionManager changes (switching/opening/closing
+      // an account) and re-exposes sessionManager.active as a plain
+      // AppState via `.value` — NOT `ChangeNotifierProxyProvider`, which
+      // would call .dispose() on the outgoing AppState every time `active`
+      // changes identity (confirmed in provider's source: it disposes the
+      // previous value whenever `update` returns a different instance).
+      // That would kill a still-open background session's subscriptions
+      // the moment you switch away from it. `.value` providers never
+      // dispose what they're given, so switching accounts is safe — every
+      // existing screen's context.watch<AppState>() keeps working
+      // unchanged either way.
+      child: ListenableBuilder(
+        listenable: sessionManager,
+        builder: (context, child) => ChangeNotifierProvider<AppState>.value(
+          value: sessionManager.active,
+          child: child,
         ),
-      ],
-      child: const _ThemedMaterialApp(),
+        child: const _ThemedMaterialApp(),
+      ),
     );
   }
 }

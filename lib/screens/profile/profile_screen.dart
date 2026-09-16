@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/app_user.dart';
 import '../../state/app_state.dart';
+import '../../state/session_manager.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/avatar.dart';
 import '../../widgets/common.dart';
@@ -227,7 +229,7 @@ class ProfileScreen extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               OutlinedButton.icon(
-                onPressed: () => _confirmSignOut(context, app),
+                onPressed: () => showDialog(context: context, builder: (_) => const _SwitchAccountDialog()),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.accent,
                   side: BorderSide(color: AppColors.accent, width: 1.5),
@@ -235,8 +237,15 @@ class ProfileScreen extends StatelessWidget {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
                   minimumSize: const Size.fromHeight(0),
                 ),
-                icon: const Icon(Icons.logout_rounded, size: 20),
+                icon: const Icon(Icons.swap_horiz_rounded, size: 20),
                 label: Text('Changer de compte', style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.accent)),
+              ),
+              const SizedBox(height: 10),
+              TextButton.icon(
+                onPressed: () => _confirmSignOut(context, app),
+                style: TextButton.styleFrom(foregroundColor: AppColors.mut),
+                icon: const Icon(Icons.logout_rounded, size: 18),
+                label: Text('Se déconnecter', style: bodyFont(size: 13.5, weight: FontWeight.w700, color: AppColors.mut)),
               ),
               const SizedBox(height: 10),
               OutlinedButton.icon(
@@ -373,6 +382,143 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Lists every account actually signed in this app run (see
+/// [SessionManager.openAccounts]) — tapping a different one switches to it
+/// instantly, no password, since it's already got a live session running in
+/// the background. "Ajouter un compte" is the only way to get a *second*
+/// account into that list in the first place: it opens a brand new session
+/// alongside the current one via [SessionManager.openSession], rather than
+/// replacing it the way signing in from the login screen would.
+class _SwitchAccountDialog extends StatefulWidget {
+  const _SwitchAccountDialog();
+
+  @override
+  State<_SwitchAccountDialog> createState() => _SwitchAccountDialogState();
+}
+
+class _SwitchAccountDialogState extends State<_SwitchAccountDialog> {
+  bool _addingAccount = false;
+  final _emailCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    _passCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _addAccount(SessionManager sessionManager) async {
+    if (_emailCtrl.text.trim().isEmpty || _passCtrl.text.isEmpty) return;
+    final ok = await sessionManager.openSession(email: _emailCtrl.text, password: _passCtrl.text);
+    if (ok && mounted) Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sessionManager = context.watch<SessionManager>();
+    final app = context.watch<AppState>();
+    final accounts = sessionManager.openAccounts;
+    final activeUid = app.currentUser?.uid;
+
+    return Dialog(
+      backgroundColor: AppColors.bg,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Changer de compte', style: dispFont(size: 20, weight: FontWeight.w700, color: AppColors.ink)),
+            const SizedBox(height: 16),
+            for (final account in accounts) _accountTile(context, sessionManager, account, isActive: account.uid == activeUid),
+            const SizedBox(height: 4),
+            if (!_addingAccount)
+              TextButton.icon(
+                onPressed: () => setState(() => _addingAccount = true),
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('Ajouter un compte'),
+              )
+            else
+              _addAccountForm(sessionManager),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _accountTile(BuildContext context, SessionManager sessionManager, AppUser account, {required bool isActive}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Pressable(
+        onTap: isActive
+            ? null
+            : () {
+                sessionManager.switchTo(account.uid);
+                Navigator.of(context).pop();
+              },
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isActive ? AppColors.accentSoft : AppColors.card,
+            border: Border.all(color: AppColors.line),
+            borderRadius: BorderRadius.circular(AppRadius.md),
+          ),
+          child: Row(
+            children: [
+              Avatar(initial: account.initial, color: Color(account.color), size: 32, fontSize: 13),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(account.displayName, style: bodyFont(size: 14, weight: FontWeight.w800, color: AppColors.ink)),
+                    Text(account.email, style: bodyFont(size: 11.5, weight: FontWeight.w600, color: AppColors.mut)),
+                  ],
+                ),
+              ),
+              if (isActive) Text('Actif', style: bodyFont(size: 12, weight: FontWeight.w700, color: AppColors.accent)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _addAccountForm(SessionManager sessionManager) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('E-mail', style: bodyFont(size: 12.5, weight: FontWeight.w800, color: AppColors.ink2)),
+        const SizedBox(height: 9),
+        TextField(
+          controller: _emailCtrl,
+          keyboardType: TextInputType.emailAddress,
+          style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink),
+          decoration: appFieldDecoration(),
+        ),
+        const SizedBox(height: 12),
+        Text('Mot de passe', style: bodyFont(size: 12.5, weight: FontWeight.w800, color: AppColors.ink2)),
+        const SizedBox(height: 9),
+        TextField(
+          controller: _passCtrl,
+          obscureText: true,
+          style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink),
+          decoration: appFieldDecoration(),
+        ),
+        if (sessionManager.lastError != null) ...[
+          const SizedBox(height: 8),
+          Text(sessionManager.lastError!, style: bodyFont(size: 13, weight: FontWeight.w600, color: Colors.red)),
+        ],
+        const SizedBox(height: 16),
+        PrimaryButton(label: 'Se connecter', loading: sessionManager.busy, onPressed: () => _addAccount(sessionManager)),
+      ],
     );
   }
 }

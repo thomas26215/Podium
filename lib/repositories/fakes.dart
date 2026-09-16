@@ -73,6 +73,11 @@ class FakeAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<void> sendPasswordResetEmail(String email) async {
+    if (!email.contains('@')) throw AuthException('Adresse e-mail invalide.');
+  }
+
+  @override
   Future<void> reauthenticate(String password) async {
     final current = _current;
     if (current == null) throw AuthException('Aucun utilisateur connecté.');

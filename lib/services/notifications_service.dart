@@ -20,7 +20,12 @@ import '../repositories/users_repository.dart';
 /// running on web — the rest of the app (live sessions, in-app history,
 /// etc.) works the same regardless.
 class NotificationsService {
-  final UsersRepository usersRepo;
+  /// Mutable rather than `final` — [SessionManager] (see
+  /// lib/state/session_manager.dart) repoints this at whichever session is
+  /// currently active before registering/unregistering, since Firestore
+  /// security rules only let a client write `users/{uid}.fcmTokens` for the
+  /// uid its own Firebase Auth instance is signed in as.
+  UsersRepository usersRepo;
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   final FlutterLocalNotificationsPlugin   _local = FlutterLocalNotificationsPlugin();
 

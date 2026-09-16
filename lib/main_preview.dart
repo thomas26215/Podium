@@ -17,6 +17,7 @@ import 'repositories/guests_repository.dart';
 import 'repositories/users_repository.dart';
 import 'screens/auth/auth_gate.dart';
 import 'state/app_state.dart';
+import 'state/session_manager.dart';
 import 'theme/app_theme.dart';
 
 const _lea = AppUser(uid: 'lea', email: 'lea@podium.dev', displayName: 'Léa', color: 0xFFFF5B34);
@@ -111,8 +112,16 @@ void main() {
     eventsRepo: FakeEventsRepository(),
   );
 
-  runApp(ChangeNotifierProvider.value(
-    value: state,
+  final sessionManager = SessionManager.single(state);
+
+  runApp(MultiProvider(
+    providers: [
+      ChangeNotifierProvider.value(value: state),
+      // login_screen.dart reads SessionManager for the saved-accounts
+      // instant-switch affordance — this preview only ever has the one
+      // seeded account, so it's a no-op stand-in (see SessionManager.single).
+      ChangeNotifierProvider<SessionManager>.value(value: sessionManager),
+    ],
     child: MaterialApp(
       title: 'Podium (preview)',
       debugShowCheckedModeBanner: false,

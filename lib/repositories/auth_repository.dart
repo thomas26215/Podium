@@ -17,6 +17,12 @@ abstract class AuthRepository {
   Future<AppUser> signIn({required String email, required String password});
   Future<void> signOut();
 
+  /// Sends a password-reset e-mail to `email`, if it belongs to an account.
+  /// Firebase's own email-enumeration protection keeps this from revealing
+  /// whether the address actually has an account (it resolves the same way
+  /// either way) — see the equivalent flow in docs/reset.js.
+  Future<void> sendPasswordResetEmail(String email);
+
   /// Re-proves the current password before a sensitive operation (account
   /// deletion) — Firebase requires a "recent login" for `User.delete()`.
   Future<void> reauthenticate(String password);
@@ -117,6 +123,15 @@ class FirebaseAuthRepository implements AuthRepository {
 
   @override
   Future<void> signOut() => _auth.signOut();
+
+  @override
+  Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email.trim());
+    } catch (e) {
+      throw AuthException(_friendlyAuthError(e));
+    }
+  }
 
   @override
   Future<void> reauthenticate(String password) async {

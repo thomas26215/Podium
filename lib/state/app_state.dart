@@ -537,6 +537,23 @@ class AppState extends ChangeNotifier {
 
   Future<void> signOut() => authRepo.signOut();
 
+  Future<bool> sendPasswordResetEmail(String email) async {
+    flowError = null;
+    busy = true;
+    notifyListeners();
+    var ok = false;
+    try {
+      await authRepo.sendPasswordResetEmail(email);
+      ok = true;
+    } catch (e) {
+      flowError = e.toString();
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+    return ok;
+  }
+
   Future<void> _loadSavedAccounts() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -560,7 +577,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> _rememberAccount(AppUser user) async {
     await _savedAccountsReady;
-    final remembered = SavedAccount(email: user.email.trim().toLowerCase(), displayName: user.displayName, color: user.color);
+    final remembered = SavedAccount(email: user.email.trim().toLowerCase(), displayName: user.displayName, color: user.color, uid: user.uid);
     savedAccounts = [
       remembered,
       for (final account in savedAccounts)
