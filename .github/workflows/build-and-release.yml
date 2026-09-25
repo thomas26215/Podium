@@ -1,0 +1,169 @@
+# Builds a signed release APK of Podium and publishes it as a GitHub
+# Release — the same as running, from a terminal:
+#   flutter build apk --release
+#   gh release create v<version> app-release.apk --notes "…"
+# Setup (keystore secrets) is described in CI_SETUP.md.
+name: Build & release (Android)
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      release_notes:
+        description: "Notes de version (facultatif, remplace le changelog automatique)"
+        required: false
+        type: string
+
+# A newer push on the same branch cancels the build still running.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  # Needed to create the release and its tag.
+  contents: write
+
+env:
+  # Same version as the one used locally (flutter --version).
+  FLUTTER_VERSION: '3.44.8'
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Vérifier les secrets
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          missing=0
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Secret GitHub manquant : $name (voir CI_SETUP.md)"
+              missing=1
+            fi
+          done
+          exit $missing
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history and tags, for the changelog.
+          fetch-depth: 0
+
+      - name: Installer Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Installer Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: flutter pub get
+        run: flutter pub get
+
+      # Only errors fail the build; infos and warnings are just reported.
+      - name: flutter analyze
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: flutter test
+        run: flutter test
+
+      - name: Restaurer le keystore et key.properties
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
+          # storeFile is resolved relative to android/app (see android/app/build.gradle).
+          {
+            echo "storeFile=upload-keystore.jks"
+            echo "storePassword=$ANDROID_KEYSTORE_PASSWORD"
+            echo "keyAlias=$ANDROID_KEY_ALIAS"
+            echo "keyPassword=$ANDROID_KEY_PASSWORD"
+          } > android/key.properties
+
+      - name: Build APK release
+        run: flutter build apk --release
+
+      - name: Vérifier la signature de l’APK
+        run: keytool -printcert -jarfile build/app/outputs/flutter-apk/app-release.apk | head -n 8
+
+      - name: Déterminer la version
+        id: version
+        run: |
+          full=$(grep -m1 '^version:' pubspec.yaml | awk '{print $2}')   # ex. 3.0.1+41
+          name=${full%%+*}
+          build=${full##*+}
+          # Pushed tag: that tag. Otherwise: v<version of pubspec.yaml>.
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then tag="$GITHUB_REF_NAME"; else tag="v$name"; fi
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "apk=podium-$tag-build$build.apk" >> "$GITHUB_OUTPUT"
+          echo "Version $full → release $tag"
+
+      - name: Générer les notes de version
+        env:
+          MANUAL_NOTES: ${{ inputs.release_notes }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          {
+            echo "Build #${GITHUB_RUN_NUMBER} — commit $(git rev-parse --short HEAD) (${GITHUB_REF_NAME})"
+            echo
+            if [ -n "$MANUAL_NOTES" ]; then
+              echo "$MANUAL_NOTES"
+            else
+              # Commits since the previous release tag (any tag but this one),
+              # or the last 15 commits when there is none yet.
+              prev_tag=$(git describe --tags --abbrev=0 --exclude "$TAG" HEAD 2>/dev/null || true)
+              echo "## Changements${prev_tag:+ depuis $prev_tag}"
+              if [ -n "$prev_tag" ]; then
+                git log "$prev_tag..HEAD" --no-merges --pretty=format:'- %s (%h)' | head -n 40
+              else
+                git log -n 15 --no-merges --pretty=format:'- %s (%h)'
+              fi
+            fi
+          } > release_notes.txt
+          cat release_notes.txt
+
+      - name: Publier la release GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          NAME: ${{ steps.version.outputs.name }}
+          APK: ${{ steps.version.outputs.apk }}
+        run: |
+          cp build/app/outputs/flutter-apk/app-release.apk "$APK"
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            # Tag pushed by hand: publish on that tag (update the APK if the release exists).
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              gh release upload "$TAG" "$APK" --clobber
+              gh release edit "$TAG" --notes-file release_notes.txt
+            else
+              gh release create "$TAG" "$APK" --title "Podium $TAG" --notes-file release_notes.txt --verify-tag
+            fi
+          else
+            # Push on main: same version as before → replace that release, so its
+            # tag moves to the commit that was just built.
+            gh release delete "$TAG" --cleanup-tag --yes 2>/dev/null || true
+            gh release create "$TAG" "$APK" --title "Podium $NAME" --notes-file release_notes.txt --target "$GITHUB_SHA" --latest
+          fi
+          echo "Release : ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/$TAG"
+
+      - name: Nettoyer les fichiers de signature
+        if: always()
+        run: rm -f android/app/upload-keystore.jks android/key.properties

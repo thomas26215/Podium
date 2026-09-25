@@ -51,3 +51,9 @@ app.*.map.json
 
 # Firebase CLI local cache
 /.firebase/
+
+# Android signing / CI secrets — never commit
+key.properties
+*.jks
+*.keystore
+*.jks.base64

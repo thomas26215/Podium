@@ -1,0 +1,96 @@
+# CI/CD Android : build + release GitHub
+
+À chaque push sur `main`, à chaque tag `v*` ou en lancement manuel, le workflow
+[`.github/workflows/build-and-release.yml`](.github/workflows/build-and-release.yml) fait
+exactement ce que tu ferais depuis ton terminal :
+
+```bash
+flutter pub get && flutter analyze && flutter test
+flutter build apk --release                                  # signé avec ton keystore
+gh release create v1.0.0 podium-v1.0.0-build1.apk --notes "…"
+```
+
+1. installe Flutter **3.44.8** (stable) et Java 17 ;
+2. lance `flutter analyze` (échoue uniquement sur les *erreurs*) et `flutter test` ;
+3. construit l’APK release signé avec ton keystore (restauré depuis les GitHub Secrets) ;
+4. publie une **release GitHub** avec l’APK en pièce jointe et un changelog tiré des commits.
+
+Projet : package `app.podium.games`, version actuelle `1.0.0+1` (`pubspec.yaml`).
+
+## Quelle release est créée ?
+
+| Déclencheur | Release |
+|---|---|
+| Push sur `main` | `v<version du pubspec>` (ex. `v1.0.0`). Si elle existe déjà, elle est **remplacée** par le nouveau build (le tag est déplacé sur le nouveau commit). |
+| Push d’un tag `v1.0.1` | Release `v1.0.1` sur ce tag. |
+| Lancement manuel (onglet *Actions* → *Run workflow*) | Comme un push sur la branche choisie ; le champ « Notes de version » remplace le changelog. |
+
+Tant que tu ne changes pas `version:` dans `pubspec.yaml`, chaque push met à jour la même release. Quand tu
+passes à `1.0.1+2`, une nouvelle release `v1.0.1` apparaît et `v1.0.0` reste en historique.
+
+Augmente aussi le numéro de build (`+2`) à chaque version : Android refuse d’installer un APK dont le
+`versionCode` est inférieur à celui déjà installé.
+
+---
+
+## 1. Keystore
+
+Tu en as déjà un : `android/app/upload-keystore.jks`, référencé par ton `android/key.properties` local
+(ignorés par git tous les deux). Sauvegarde-les avec leurs mots de passe : perdre la clé empêche de publier des
+mises à jour sur le Play Store.
+
+Nouvelle machine : copie `android/key.properties.example` en `android/key.properties` et remplis-le
+(`storeFile` est relatif à `android/app/`). Sans `key.properties`, les builds release locaux sont signés avec
+la clé de debug.
+
+## 2. Secrets GitHub (4)
+
+Depuis la racine du projet (CLI GitHub connectée : `gh auth status`) :
+
+```bash
+base64 -w 0 android/app/upload-keystore.jks > keystore.jks.base64
+gh secret set ANDROID_KEYSTORE_BASE64 < keystore.jks.base64
+gh secret set ANDROID_KEYSTORE_PASSWORD --body "$(grep '^storePassword=' android/key.properties | cut -d= -f2-)"
+gh secret set ANDROID_KEY_ALIAS         --body "$(grep '^keyAlias='      android/key.properties | cut -d= -f2-)"
+gh secret set ANDROID_KEY_PASSWORD      --body "$(grep '^keyPassword='   android/key.properties | cut -d= -f2-)"
+gh secret list
+rm keystore.jks.base64
+```
+
+Ou à la main : GitHub → dépôt **Podium** → **Settings → Secrets and variables → Actions → New repository secret**.
+
+| Nom du secret | Valeur |
+|---|---|
+| `ANDROID_KEYSTORE_BASE64` | `android/app/upload-keystore.jks` encodé en base64 (une seule ligne) |
+| `ANDROID_KEYSTORE_PASSWORD` | `storePassword` de `android/key.properties` |
+| `ANDROID_KEY_ALIAS` | `keyAlias` de `android/key.properties` |
+| `ANDROID_KEY_PASSWORD` | `keyPassword` de `android/key.properties` |
+
+La publication de la release utilise le jeton `GITHUB_TOKEN` fourni automatiquement.
+
+## 3. Autoriser le workflow à publier
+
+GitHub → dépôt **Podium** → **Settings → Actions → General → Workflow permissions** → **Read and write
+permissions** → **Save**.
+
+## 4. Installer la release sur ton téléphone
+
+1. Sur le téléphone : `https://github.com/thomas26215/Podium/releases` (connecté à GitHub si le dépôt est privé).
+2. Dernière release → **Assets** → `podium-v….apk` → télécharger, puis ouvrir le fichier.
+3. La première fois, autorise l’**installation d’applications inconnues** pour ton navigateur.
+
+**Notifications** : app **GitHub** (Play Store) → dépôt Podium → **Watch → Custom → Releases**.
+
+## Dépannage
+
+| Symptôme | Cause / solution |
+|---|---|
+| Échec à « Vérifier les secrets » | Un des 4 secrets manque ou est mal nommé. |
+| Échec à `flutter analyze` | Une *erreur* d’analyse (les infos et warnings ne bloquent pas) : `flutter analyze --no-fatal-infos --no-fatal-warnings` en local. |
+| Échec à `flutter test` | `flutter test` en local. |
+| « Keystore was tampered with, or password was incorrect » | `ANDROID_KEYSTORE_PASSWORD` incorrect ou base64 cassé. |
+| « Cannot recover key » | `ANDROID_KEY_PASSWORD` ou `ANDROID_KEY_ALIAS` incorrect. |
+| Échec à « Publier la release » (403) | Étape 3 non faite. |
+| « App non installée » | `versionCode` inférieur à celui installé, ou app installée signée avec une autre clé. |
+
+Si le dépôt est **public**, les releases (et donc l’APK) sont téléchargeables par tout le monde.
