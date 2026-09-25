@@ -110,6 +110,8 @@ void main() {
     serverMatchesRepo: FakeMatchesRepository(),
     serverTournamentsRepo: FakeTournamentsRepository(),
     eventsRepo: FakeEventsRepository(),
+    messagesRepo: FakeMessagesRepository(),
+    serverMessagesRepo: FakeMessagesRepository(),
   );
 
   final sessionManager = SessionManager.single(state);

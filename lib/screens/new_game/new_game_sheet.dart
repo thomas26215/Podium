@@ -6,6 +6,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
 import '../tournaments/tournament_detail_screen.dart';
 import 'game_library_browser.dart';
+import 'game_form.dart';
 import 'kind_choice_step.dart';
 import 'other_groups_game_browser.dart';
 import 'step1_game.dart';

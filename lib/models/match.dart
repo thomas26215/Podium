@@ -9,8 +9,12 @@ class MatchEntry {
   final String? teamId; // 'A'..'D', only set in team mode
   final String? role; // e.g. "Président" — only set for CountType.ranks games
   final Map<String, int>? scoreBreakdown; // score field id -> points for this player
+  final String? character; // picked from Game.characters (e.g. a Dice Throne hero), if any
 
-  const MatchEntry({required this.playerId, required this.points, this.teamId, this.role, this.scoreBreakdown});
+  const MatchEntry({required this.playerId, required this.points, this.teamId, this.role, this.scoreBreakdown, this.character});
+
+  MatchEntry withCharacter(String? character) =>
+      MatchEntry(playerId: playerId, points: points, teamId: teamId, role: role, scoreBreakdown: scoreBreakdown, character: character);
 
   Map<String, dynamic> toMap() => {
         'playerId': playerId,
@@ -18,6 +22,7 @@ class MatchEntry {
         if (teamId != null) 'teamId': teamId,
         if (role != null) 'role': role,
         if (scoreBreakdown != null && scoreBreakdown!.isNotEmpty) 'scoreBreakdown': scoreBreakdown,
+        if (character != null) 'character': character,
       };
 
   factory MatchEntry.fromMap(Map<String, dynamic> m) => MatchEntry(
@@ -26,6 +31,7 @@ class MatchEntry {
         teamId: m['teamId'] as String?,
         role: m['role'] as String?,
         scoreBreakdown: (m['scoreBreakdown'] as Map?)?.map((k, v) => MapEntry(k as String, (v as num).toInt())),
+        character: m['character'] as String?,
       );
 }
 

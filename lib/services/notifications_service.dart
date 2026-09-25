@@ -51,6 +51,34 @@ class NotificationsService {
     importance: Importance.high,
   );
 
+  // Discussion-thread pushes (see functions/index.js's onMessageCreated) —
+  // messages, polls and auto-generated highlights all land on this one
+  // channel, separate from match/roster pushes for the same reason as
+  // _groupsChannel above.
+  static const _chatChannel = AndroidNotificationChannel(
+    'podium_chat',
+    'Discussion',
+    description: 'Nouveaux messages, sondages et faits marquants du fil de discussion',
+    importance: Importance.high,
+  );
+
+  // @mentions (see functions/index.js's onMessageCreated) — its own,
+  // maximum-importance channel so a direct mention still gets through even
+  // for a player who's muted the general _chatChannel.
+  static const _mentionsChannel = AndroidNotificationChannel(
+    'podium_mentions',
+    'Mentions',
+    description: 'Quand quelqu\'un vous mentionne dans une discussion',
+    importance: Importance.max,
+  );
+
+  static final _channelsById = {
+    _channel.id: _channel,
+    _groupsChannel.id: _groupsChannel,
+    _chatChannel.id: _chatChannel,
+    _mentionsChannel.id: _mentionsChannel,
+  };
+
   Future<void> init() async {
     if (kIsWeb) return;
     await _local.initialize(
@@ -62,6 +90,8 @@ class NotificationsService {
     final androidPlugin = _local.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
     await androidPlugin?.createNotificationChannel(_channel);
     await androidPlugin?.createNotificationChannel(_groupsChannel);
+    await androidPlugin?.createNotificationChannel(_chatChannel);
+    await androidPlugin?.createNotificationChannel(_mentionsChannel);
 
     await _messaging.requestPermission(alert: true, badge: true, sound: true);
     await _messaging.setForegroundNotificationPresentationOptions(alert: false, badge: true, sound: false);
@@ -78,7 +108,7 @@ class NotificationsService {
     // The server picks the Android channel per notification type (see
     // functions/index.js) — match it here too instead of always showing
     // under _channel, now that there's more than one.
-    final channel = notification.android?.channelId == _groupsChannel.id ? _groupsChannel : _channel;
+    final channel = _channelsById[notification.android?.channelId] ?? _channel;
     _local.show(
       id: notification.hashCode,
       title: notification.title,

@@ -18,6 +18,13 @@ import 'package:podium/repositories/games_repository.dart';
 import 'package:podium/repositories/guests_repository.dart';
 import 'package:podium/repositories/users_repository.dart';
 import 'package:podium/screens/auth/auth_gate.dart';
+import 'package:podium/logic/game_filter.dart';
+import 'package:podium/logic/game_sort.dart';
+import 'package:podium/screens/new_game/game_form.dart';
+import 'package:podium/screens/new_game/step1_game.dart';
+import 'package:podium/screens/profile/profile_screen.dart';
+import 'package:podium/widgets/common.dart';
+import 'package:podium/widgets/game_filter_bar.dart';
 import 'package:podium/state/app_state.dart';
 
 const _lea = AppUser(uid: 'lea', email: 'lea@test.fr', displayName: 'Léa', color: 0xFFFF5B34);
@@ -71,8 +78,18 @@ const _tom = AppUser(uid: 'tom', email: 'tom@test.fr', displayName: 'Tom', color
     serverMatchesRepo: FakeMatchesRepository(),
     serverTournamentsRepo: FakeTournamentsRepository(),
     eventsRepo: FakeEventsRepository(),
+    messagesRepo: FakeMessagesRepository(),
+    serverMessagesRepo: FakeMessagesRepository(),
   );
   return (state: state, auth: auth);
+}
+
+/// Picks [n] in the filter bar's "Joueurs" menu.
+Future<void> pickPlayers(WidgetTester tester, int n) async {
+  await tester.tap(find.descendant(of: find.byType(GameFilterBar), matching: find.byType(PopupMenuButton<int>)));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('$n joueurs').last);
+  await tester.pumpAndSettle();
 }
 
 void main() {
@@ -129,6 +146,259 @@ void main() {
     expect(find.text('Léa'), findsWidgets);
     expect(find.text('Tom'), findsWidgets);
     expect(find.text('Victoires'), findsOneWidget);
+  });
+
+  testWidgets('discussion tab lets a member send a message and see others\' messages', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    seeded.state.setTab(AppTab.games);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Discussion'), findsWidgets);
+
+    await tester.enterText(find.byType(TextField), 'Salut la team !');
+    await tester.tap(find.byIcon(Icons.arrow_upward_rounded));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Salut la team !'), findsOneWidget);
+
+    // A message from someone else shows their name as the author label.
+    await seeded.state.messagesRepo.sendMessage('bandits', authorId: 'tom', text: 'Yo !');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Yo !'), findsOneWidget);
+    expect(find.text('Tom'), findsWidgets);
+  });
+
+  testWidgets('long-pressing your own message lets you edit it', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    seeded.state.setTab(AppTab.games);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'Salut');
+    await tester.tap(find.byIcon(Icons.arrow_upward_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text('Salut'), findsOneWidget);
+
+    await tester.longPress(find.text('Salut'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Modifier'));
+    await tester.pumpAndSettle();
+
+    // Editing pre-fills the compose field and shows the "editing" banner.
+    expect(find.text('Modifier le message'), findsOneWidget);
+    expect(find.text('Salut'), findsWidgets); // banner snippet + the field itself
+
+    await tester.enterText(find.byType(TextField), 'Salut tout le monde');
+    await tester.tap(find.byIcon(Icons.check_rounded));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Salut tout le monde'), findsOneWidget);
+    expect(find.textContaining('modifié'), findsOneWidget);
+    expect(find.text('Modifier le message'), findsNothing);
+  });
+
+  testWidgets('swiping a message opens a reply to it, quoted in the sent message', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    seeded.state.setTab(AppTab.games);
+    await tester.pumpAndSettle();
+
+    await seeded.state.messagesRepo.sendMessage('bandits', authorId: 'tom', text: 'Yo !');
+    await tester.pumpAndSettle();
+
+    final bubble = find.ancestor(of: find.text('Yo !'), matching: find.byType(Dismissible));
+    await tester.drag(bubble, const Offset(500, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Réponse à'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'Salut !');
+    await tester.tap(find.byIcon(Icons.arrow_upward_rounded));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Salut !'), findsOneWidget);
+    // The reply quotes the original inside its own bubble.
+    expect(find.text('Yo !'), findsNWidgets(2));
+  });
+
+  testWidgets('long-pressing a message lets you react to it, and tapping the pill again clears it', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    seeded.state.setTab(AppTab.games);
+    await tester.pumpAndSettle();
+
+    await seeded.state.messagesRepo.sendMessage('bandits', authorId: 'tom', text: 'Yo !');
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.text('Yo !'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('👍'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('👍 1'), findsOneWidget);
+
+    // Tapping the pill directly (no need to reopen the sheet) toggles it off.
+    await tester.tap(find.text('👍 1'));
+    await tester.pumpAndSettle();
+    expect(find.text('👍 1'), findsNothing);
+  });
+
+  testWidgets('mentioning a member via the @ picker tags them on the sent message', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    seeded.state.setTab(AppTab.games);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.alternate_email_rounded));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tom'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), '@Tom tu confirmes samedi ?');
+    await tester.tap(find.byIcon(Icons.arrow_upward_rounded));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('tu confirmes samedi'), findsOneWidget);
+    final fake = seeded.state.messagesRepo as FakeMessagesRepository;
+    final sent = fake.byRoot['bandits']!.last;
+    expect(sent.mentionedUids, ['tom']);
+  });
+
+  testWidgets('the discussion tab clears its unread badge once opened', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+    expect(seeded.state.tab, AppTab.home);
+
+    await seeded.state.messagesRepo.sendMessage('bandits', authorId: 'tom', text: 'Yo !');
+    await tester.pumpAndSettle();
+    expect(seeded.state.hasUnreadDiscussionMessages, isTrue);
+
+    seeded.state.setTab(AppTab.games);
+    await tester.pumpAndSettle();
+    expect(seeded.state.hasUnreadDiscussionMessages, isFalse);
+  });
+
+  testWidgets('a system highlight renders as a centered pill in the discussion thread', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    seeded.state.setTab(AppTab.games);
+    await tester.pumpAndSettle();
+
+    // Mirrors what the onMatchCreated Cloud Function posts (see
+    // functions/index.js's postMatchHighlights) — authorId 'system'.
+    final fake = seeded.state.messagesRepo as FakeMessagesRepository;
+    fake.debugSeedSystemMessage('bandits', 'Léa prend la tête du classement 👑');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Léa prend la tête du classement 👑'), findsOneWidget);
+  });
+
+  testWidgets('a poll lets the group vote and launch the winning game', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    seeded.state.setTab(AppTab.games);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.how_to_vote_rounded));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Catan'));
+    await tester.tap(find.text('Uno'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Lancer le sondage'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Quel jeu ce soir ?'), findsOneWidget);
+    expect(find.text('Catan'), findsOneWidget);
+    expect(find.text('Uno'), findsOneWidget);
+
+    // Voting for Catan bumps its tally to 1.
+    await tester.tap(find.text('Catan'));
+    await tester.pumpAndSettle();
+    expect(find.text('1'), findsOneWidget);
+
+    // The play button on an option jumps straight into the new-game wizard,
+    // pre-filled with that game, at the players step. Catan is the first
+    // option (selected first above), so its play button is the first match.
+    await tester.tap(find.byIcon(Icons.play_circle_fill_rounded).first);
+    await tester.pumpAndSettle();
+
+    expect(seeded.state.sheetOpen, isTrue);
+    expect(seeded.state.draft.gameId, 'catan');
   });
 
   testWidgets('tapping the home group header opens the groups screen', (tester) async {
@@ -350,6 +620,8 @@ void main() {
       serverMatchesRepo: FakeMatchesRepository(),
       serverTournamentsRepo: FakeTournamentsRepository(),
       eventsRepo: FakeEventsRepository(),
+      messagesRepo: FakeMessagesRepository(),
+      serverMessagesRepo: FakeMessagesRepository(),
     );
 
     await tester.pumpWidget(
@@ -531,6 +803,86 @@ void main() {
     await tester.pump(const Duration(milliseconds: 2700));
   });
 
+  testWidgets('the game form lets the user name the per-player choice and type its options', (tester) async {
+    final seeded = _buildSeededState();
+    final state = seeded.state;
+    state.startNewGame();
+    state.setGameForm((f) => f..name = '7 Wonders');
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: state,
+        child: const MaterialApp(home: Scaffold(body: SingleChildScrollView(child: CreateGameForm()))),
+      ),
+    );
+    expect(find.text('Nom du choix'), findsNothing, reason: 'hidden while the switch is off');
+
+    await tester.tap(find.text('Chacun choisit un élément'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Personnage'), 'Merveille');
+    await tester.tap(find.text('une'));
+    await tester.enterText(find.widgetWithText(TextField, 'Ex. Babylone, Rhodes, Gizeh…'), 'Babylone');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Ajouter un élément'), 'Rhodes');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    final choice = state.gameForm.cleanCharacterChoice!;
+    expect(choice.label, 'Merveille');
+    expect(choice.feminine, isTrue);
+    expect(choice.options, ['Babylone', 'Rhodes']);
+    expect(find.text('Affiché « Choisir une merveille » pendant la partie.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('each player can pick a character, saved on the match and kept when resumed', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    final state = seeded.state;
+    state.openSheet();
+    state.startNewGame();
+    state.setGameForm((f) => f
+      ..name = 'Dice Throne'
+      ..characterEnabled = true
+      ..characterLabel = 'Héros'
+      ..characters = ['Barbare', 'Moine', ' ', 'Barbare']);
+    await state.createGame();
+    await tester.pumpAndSettle();
+    final game = state.games.firstWhere((g) => g.name == 'Dice Throne');
+    expect(game.characterChoice!.label, 'Héros');
+    expect(game.characterChoice!.options, ['Barbare', 'Moine']);
+
+    state.pickGame(game.id);
+    state.togglePlayer('lea');
+    state.togglePlayer('tom');
+    state.setPlayerCharacter('lea', 'Moine');
+    state.setPlayerCharacter('tom', 'Barbare');
+    state.setPlayerCharacter('tom', null);
+    state.setPlayerCharacter('tom', 'Barbare');
+    state.draft.points['lea'] = 10;
+    state.draft.points['tom'] = 8;
+    await state.saveGame();
+    await tester.pumpAndSettle();
+
+    final saved = state.matches.firstWhere((m) => m.gameId == game.id);
+    expect({for (final e in saved.entries) e.playerId: e.character}, {'lea': 'Moine', 'tom': 'Barbare'});
+
+    state.resumeMatch(saved, game);
+    expect(state.draft.characters, {'lea': 'Moine', 'tom': 'Barbare'});
+    state.closeSheet();
+
+    await tester.pump(const Duration(milliseconds: 2700));
+  });
+
   testWidgets('a plain match in a group saves through the full wizard UI', (tester) async {
     final seeded = _buildSeededState();
     await tester.pumpWidget(
@@ -666,6 +1018,377 @@ void main() {
     expect(find.textContaining('Victoire du groupe'), findsWidgets);
 
     await tester.pump(const Duration(milliseconds: 2700));
+  });
+
+  testWidgets('a game keeps its player count and theme tags, and the wizard warns outside the range', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Partie simple'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continuer'));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Nouveau jeu'));
+    await tester.tap(find.text('Nouveau jeu'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Créer un jeu personnalisé'));
+    await tester.pumpAndSettle();
+
+    // Form fields, in tree order: game name, then the min/max player count.
+    await tester.enterText(find.byType(TextFormField).at(0), 'Dixit');
+    await tester.enterText(find.byType(TextFormField).at(1), '3');
+    await tester.enterText(find.byType(TextFormField).at(2), '6');
+    // Themes are picked from a searchable sheet: "Duel" sits in the Format
+    // group, "Stratégie" in Genre.
+    await tester.ensureVisible(find.text('Ajouter des thèmes'));
+    await tester.tap(find.text('Ajouter des thèmes'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Duel'));
+    await tester.tap(find.text('Stratégie'));
+    await tester.enterText(find.byType(TextField).last, 'escape');
+    await tester.pumpAndSettle();
+    expect(find.text('Duel'), findsNothing, reason: 'the search hides non-matching themes');
+    await tester.tap(find.text('Escape game'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Valider'));
+    await tester.pumpAndSettle();
+    expect(seeded.state.gameForm.themes.toSet(), {'duel', 'strategie', 'escapeGame'});
+
+    // Switching category drops the tags the new category doesn't offer —
+    // "Duel" and "Stratégie" exist for Cartes too, "Escape game" doesn't.
+    await tester.ensureVisible(find.text('Cartes'));
+    await tester.tap(find.text('Cartes'));
+    await tester.pumpAndSettle();
+    expect(seeded.state.gameForm.themes.toSet(), {'duel', 'strategie'});
+
+    await tester.tap(find.text('Société'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Créer le jeu'));
+    await tester.pumpAndSettle();
+
+    final dixit = seeded.state.games.firstWhere((g) => g.name == 'Dixit');
+    expect(dixit.minPlayers, 3);
+    expect(dixit.maxPlayers, 6);
+    expect(dixit.themes.toSet(), {'duel', 'strategie'});
+
+    await tester.tap(find.text('Continuer'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Léa').last);
+    await tester.tap(find.text('Tom').last);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Prévu pour 3–6 joueurs — vous en avez sélectionné 2'), findsOneWidget, reason: 'two players is below the minimum');
+  });
+
+  testWidgets('the game grid can be filtered by player count and by theme', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    // The home screen behind the sheet also lists some games — only look at the wizard's grid.
+    Finder inGrid(String name) => find.descendant(of: find.byType(Step1Game), matching: find.text(name));
+
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Partie simple'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continuer'));
+    await tester.pumpAndSettle();
+
+    expect(inGrid('Catan'), findsOneWidget);
+    expect(inGrid('Uno'), findsOneWidget);
+
+    // Catan is 3–4 players, Uno 2–10: two players keeps only Uno.
+    await pickPlayers(tester, 2);
+    expect(inGrid('Catan'), findsNothing);
+    expect(inGrid('Uno'), findsOneWidget);
+
+    await tester.tap(find.text('Réinitialiser'));
+    await tester.pumpAndSettle();
+    expect(inGrid('Catan'), findsOneWidget);
+
+    // The theme picker only offers themes some game carries — "Course" is
+    // Mario Kart's.
+    await tester.tap(find.text('Thèmes'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'cour');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Course'));
+    await tester.tap(find.text('Valider'));
+    await tester.pumpAndSettle();
+    expect(inGrid('Mario Kart'), findsOneWidget);
+    expect(inGrid('Catan'), findsNothing);
+    expect(find.text('Thèmes · 1'), findsOneWidget);
+
+    // Opening the sheet afresh starts unfiltered.
+    expect(seeded.state.gameGridFilter.isActive, isTrue);
+    seeded.state.openSheet();
+    expect(seeded.state.gameGridFilter.isActive, isFalse);
+  });
+
+  testWidgets('the game step can be searched and sorted', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    Finder inGrid(String name) => find.descendant(of: find.byType(Step1Game), matching: find.text(name));
+
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Partie simple'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continuer'));
+    await tester.pumpAndSettle();
+
+    // Default order is by last game: Catan (the only one played) comes first.
+    expect(seeded.state.gameSort, GameSort.lastPlayed);
+    expect(seeded.state.filteredGames.first.id, 'catan');
+
+    // The search reaches names and theme labels, ignoring accents.
+    await tester.enterText(find.byType(TextField).last, 'skyj');
+    await tester.pumpAndSettle();
+    expect(inGrid('Skyjo'), findsOneWidget);
+    expect(inGrid('Catan'), findsNothing);
+    await tester.enterText(find.byType(TextField).last, 'petanque');
+    await tester.pumpAndSettle();
+    expect(seeded.state.filteredGames.map((g) => g.id), ['petanque']);
+    await tester.enterText(find.byType(TextField).last, 'zzz');
+    await tester.pumpAndSettle();
+    expect(find.text('Aucun jeu ne correspond à votre recherche.'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).last, '');
+    await tester.pumpAndSettle();
+
+    // The sort chip shows the current choice and opens the sort menu.
+    await tester.tap(find.text('Récent'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Nom (A → Z)'));
+    await tester.pumpAndSettle();
+    expect(seeded.state.gameSort, GameSort.name);
+    expect(find.text('A → Z'), findsOneWidget);
+    expect(seeded.state.filteredGames.map((g) => g.id), ['catan', 'mk', 'petanque', 'president', 'skyjo', 'timesup', 'uno']);
+
+    // Going back and forth keeps the search box and the grid in agreement.
+    await tester.enterText(find.byType(TextField).last, 'uno');
+    await tester.pumpAndSettle();
+    await tester.tap(inGrid('Uno'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continuer'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.pumpAndSettle();
+    expect(seeded.state.gameSearch, 'uno');
+    expect(tester.widget<TextField>(find.byType(TextField).last).controller!.text, 'uno');
+    expect(inGrid('Catan'), findsNothing);
+
+    // Opening the sheet afresh clears the search but remembers the sort.
+    seeded.state.openSheet();
+    expect(seeded.state.gameSearch, isEmpty);
+    expect(seeded.state.gameSort, GameSort.name);
+  });
+
+  testWidgets('the poll sheet only offers games passing the filter, and drops filtered-out picks', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    seeded.state.setTab(AppTab.games);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.how_to_vote_rounded));
+    await tester.pumpAndSettle();
+
+    Finder inSheet(String text) => find.descendant(of: find.byType(BottomSheet), matching: find.text(text));
+    bool launchEnabled() => tester.widget<PrimaryButton>(find.widgetWithText(PrimaryButton, 'Lancer le sondage')).onPressed != null;
+
+    await tester.tap(inSheet('Catan'));
+    await tester.tap(inSheet('Uno'));
+    await tester.pumpAndSettle();
+    expect(launchEnabled(), isTrue);
+
+    // Catan is 3–4 players: filtering on 2 hides it, and it must not stay
+    // selected behind the scenes — only Uno is left, below the 2-game minimum.
+    await pickPlayers(tester, 2);
+    expect(inSheet('Catan'), findsNothing);
+    expect(inSheet('Uno'), findsOneWidget);
+    expect(launchEnabled(), isFalse);
+  });
+
+  testWidgets('the ranking can be restricted to games carrying a theme', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    seeded.state.setTab(AppTab.ranking);
+    await tester.pumpAndSettle();
+    expect(find.text('Tom'), findsWidgets);
+
+    // The only recorded match is Catan — "Course" is Mario Kart's theme, so
+    // restricting to it leaves every player at zero victories.
+    await tester.tap(find.text('Filtrer par thème'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'cour');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Course'));
+    await tester.tap(find.text('Valider'));
+    await tester.pumpAndSettle();
+    expect(seeded.state.rankingThemeGameIds, {'mk'});
+    expect(find.text('1 thème'), findsOneWidget);
+    var rows = seeded.state.standings('wins', gameIdsFilter: seeded.state.rankingThemeGameIds);
+    expect(rows.map((r) => r.wins), everyElement(0));
+
+    // Clearing the pill and picking "Stratégie" (Catan's) counts Léa's win again.
+    await tester.tap(find.byIcon(Icons.close_rounded));
+    await tester.pumpAndSettle();
+    expect(seeded.state.rankingThemes, isEmpty);
+    expect(seeded.state.rankingThemeGameIds, isNull);
+    await tester.tap(find.text('Filtrer par thème'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'strat');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Stratégie'));
+    await tester.tap(find.text('Valider'));
+    await tester.pumpAndSettle();
+    expect(seeded.state.rankingThemeGameIds, {'catan'});
+    rows = seeded.state.standings('wins', gameIdsFilter: seeded.state.rankingThemeGameIds);
+    expect(rows.first.player.uid, 'lea');
+    expect(rows.first.wins, 1);
+  });
+
+  testWidgets('a profile breaks results down by theme', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    seeded.state.openProfile('lea');
+    tester.state<NavigatorState>(find.byType(Navigator).first).push(MaterialPageRoute(builder: (_) => const ProfileScreen()));
+    await tester.pumpAndSettle();
+
+    // Léa won the one recorded Catan match (Stratégie, Gestion, Négociation…).
+    expect(find.text('Par thème'), findsOneWidget);
+    expect(find.text('Stratégie'), findsOneWidget);
+    expect(find.text('100%'), findsWidgets);
+  });
+
+  testWidgets('the library browser filters imports by players and searches themes', (tester) async {
+    final seeded = _buildSeededState();
+    final wonders = Game.simple(
+      id: 'wonders', name: '7 Wonders', emoji: '🏛️', category: 'Société', countType: CountType.highWins,
+      minPlayers: 3, maxPlayers: 7, themes: const ['strategie', 'draft', 'antiquite'],
+    );
+    final duel = Game.simple(
+      id: 'duel', name: '7 Wonders Duel', emoji: '⚔️', category: 'Société', countType: CountType.highWins,
+      minPlayers: 2, maxPlayers: 2, themes: const ['duel', 'strategie', 'draft'],
+    );
+    // Pre-filled so startBrowsingLibrary doesn't need to fetch anything.
+    seeded.state.gameLibrary = [wonders, duel];
+
+    // The search box reaches theme labels ("Antiquité" is only on 7 Wonders).
+    seeded.state.librarySearch = 'antiq';
+    expect(seeded.state.filteredLibrary.map((g) => g.id), ['wonders']);
+    seeded.state.librarySearch = '';
+    seeded.state.setLibraryFilter(const GameFilter(players: 2));
+    expect(seeded.state.filteredLibrary.map((g) => g.id), ['duel']);
+    seeded.state.setLibraryFilter(const GameFilter(themes: {'duel'}));
+    expect(seeded.state.filteredLibrary.map((g) => g.id), ['duel']);
+
+    // Picking a category narrows the list and drops the previous filter,
+    // whose themes belonged to another category.
+    final uno = Game.simple(id: 'uno', name: 'Uno', emoji: '🃏', category: 'Cartes', countType: CountType.highWins, themes: const ['defausse']);
+    seeded.state.gameLibrary = [wonders, duel, uno];
+    seeded.state.setLibraryCategory('Cartes');
+    expect(seeded.state.libraryFilter.isActive, isFalse);
+    expect(seeded.state.filteredLibrary.map((g) => g.id), ['uno']);
+    expect(seeded.state.libraryInCategory.map((g) => g.id), ['uno']);
+    seeded.state.setLibraryCategory(null);
+    expect(seeded.state.filteredLibrary.map((g) => g.id), ['wonders', 'duel', 'uno']);
+    seeded.state.gameLibrary = [wonders, duel];
+    seeded.state.otherGroupsGames = [
+      OtherGroupGame(game: wonders, groupId: 'g1', groupName: 'Amis'),
+      OtherGroupGame(game: duel, groupId: 'g1', groupName: 'Amis'),
+    ];
+    seeded.state.setOtherGroupsFilter(const GameFilter(themes: {'antiquite'}));
+    expect(seeded.state.filteredOtherGroupsGames.map((og) => og.game.id), ['wonders']);
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Partie simple'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continuer'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Nouveau jeu'));
+    await tester.tap(find.text('Nouveau jeu'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Importer depuis la bibliothèque'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('7 Wonders'), findsOneWidget);
+    expect(find.text('7 Wonders Duel'), findsOneWidget);
+    await pickPlayers(tester, 2);
+    expect(find.text('7 Wonders'), findsNothing, reason: '3–7 players does not accept 2');
+    expect(find.text('7 Wonders Duel'), findsOneWidget);
+    await tester.tap(find.text('Thèmes'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'duel');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Duel'));
+    await tester.tap(find.text('Valider'));
+    await tester.pumpAndSettle();
+    await pickPlayers(tester, 8);
+    expect(find.text('Aucun jeu ne correspond à ces filtres.'), findsOneWidget);
   });
 
   testWidgets('a game created inside one salon is not visible from another salon of the same server', (tester) async {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../logic/theme_stats.dart';
 import '../../models/app_user.dart';
 import '../../state/app_state.dart';
 import '../../state/session_manager.dart';
@@ -50,6 +51,7 @@ class ProfileScreen extends StatelessWidget {
     final ratio = mine.isNotEmpty ? mine.first.ratio : 0.0;
     final points = mine.isNotEmpty ? mine.first.points : 0;
     final breakdown = app.profileGameBreakdown(profileId!);
+    final themes = themeStats(breakdown);
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -172,6 +174,40 @@ class ProfileScreen extends StatelessWidget {
                         ),
                 ),
               ),
+              if (themes.isNotEmpty) ...[
+                const SizedBox(height: 22),
+                const SectionHeader(title: 'Par thème'),
+                FadeSlideIn(
+                  delay: const Duration(milliseconds: 160),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                    decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
+                    child: Column(
+                      children: [
+                        for (final (i, t) in themes.take(8).indexed)
+                          Container(
+                            padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 4),
+                            decoration: BoxDecoration(border: i == 0 ? null : Border(top: BorderSide(color: AppColors.line))),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(t.tag.label, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
+                                      Text('${t.played} parties · ${t.wins} V', style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
+                                    ],
+                                  ),
+                                ),
+                                Text('${(t.ratio * 100).round()}%', style: dispFont(size: 16, weight: FontWeight.w700, color: AppColors.ink)),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 22),
               FadeSlideIn(
                 delay: const Duration(milliseconds: 180),

@@ -18,6 +18,11 @@ rules_version = '2';
 //                                       groups+elimination) — the whole bracket
 //                                       (every match node) lives embedded in
 //                                       this one document
+//   groups/{groupId}/messages/{id}     the group's discussion thread — a
+//                                       plain message, a poll ("quel jeu ce
+//                                       soir ?" — see pollGameIds/pollVotes),
+//                                       or a system highlight (authorId
+//                                       'system', posted by onMatchCreated)
 //   servers/{serverId}                 a rigid community (e.g. a game café) —
 //                                       unlike a group, only the owner/admins
 //                                       manage the catalog and salons
@@ -33,6 +38,10 @@ rules_version = '2';
 //                                       rejectedBy — nothing here depends on
 //                                       it) until every human player involved
 //                                       confirms
+//   servers/{serverId}/messages/{id}   discussion thread, shared by the whole
+//                                       server's `messages` collection but
+//                                       each doc tagged with the salon it was
+//                                       posted in (`salonId`)
 
 service cloud.firestore {
 match /databases/{database}/documents {
@@ -85,6 +94,38 @@ match /databases/{database}/documents {
       && request.resource.data.memberIds.removeAll([request.auth.uid]) == before.memberIds
       && addedMembers.size() > 0
       && inviteWindowOpen(before);
+  }
+
+  // True if this update on a poll message (see GroupMessage.pollGameIds in
+  // lib/models/message.dart) only touches the caller's own entry in
+  // `pollVotes`, and only to a valid option — the shape of a member casting
+  // or changing their ballot (see AppState.voteInPoll). A write-only check,
+  // same spirit as isSelfJoin(): whoever's voting need not be the message's
+  // author.
+  function isPollVote(before) {
+    return request.resource.data.diff(before).affectedKeys().hasOnly(['pollVotes'])
+      && before.get('pollGameIds', []).size() > 0
+      && request.resource.data.pollVotes.diff(before.get('pollVotes', {})).affectedKeys().hasOnly([request.auth.uid])
+      && request.resource.data.pollVotes[request.auth.uid] in before.pollGameIds;
+  }
+
+  // True if this update on a message only changes its `text` (and sets
+  // `edited: true`) — the shape of AppState.editMessage. Author-only:
+  // unlike a poll vote, editing someone else's message is never allowed.
+  function isMessageEdit(before) {
+    return request.auth.uid == before.authorId
+      && request.resource.data.diff(before).affectedKeys().hasOnly(['text', 'edited'])
+      && request.resource.data.edited == true;
+  }
+
+  // True if this update only touches the caller's own entry in
+  // `reactions` — the shape of AppState.reactToMessage (setting or, tapping
+  // the same emoji again, clearing their reaction). Any value is a valid
+  // emoji, so unlike isPollVote() there's nothing further to check once the
+  // affected key is confirmed to be exactly the caller's own.
+  function isReaction(before) {
+    return request.resource.data.diff(before).affectedKeys().hasOnly(['reactions'])
+      && request.resource.data.get('reactions', {}).diff(before.get('reactions', {})).affectedKeys().hasOnly([request.auth.uid]);
   }
 
   function serverDoc(serverId) {
@@ -199,6 +240,25 @@ match /databases/{database}/documents {
       allow delete: if signedIn() && isGroupOwner(groupId);
     }
 
+    // The group's discussion thread. Any member can post (attributed to
+    // themselves) or read; an existing message can only be changed by a poll
+    // vote (any member, see isPollVote()), a reaction (any member, see
+    // isReaction()), or the author editing their own text (see
+    // isMessageEdit()) — and only their own author can delete one.
+    // Not gated behind `isClosed()` since chatting isn't "recording new
+    // game data". Highlight messages (`system: true`, `authorId: 'system'`)
+    // are posted by the `onMatchCreated` Cloud Function using the Admin SDK,
+    // which bypasses these rules entirely — no client can create one itself,
+    // since `request.auth.uid` is never literally `'system'`.
+    match /messages/{messageId} {
+      allow read: if signedIn() && isMember(groupDoc(groupId).data);
+      allow create: if signedIn() && isMember(groupDoc(groupId).data)
+        && request.resource.data.authorId == request.auth.uid;
+      allow update: if signedIn() && isMember(groupDoc(groupId).data)
+        && (isPollVote(resource.data) || isMessageEdit(resource.data) || isReaction(resource.data));
+      allow delete: if signedIn() && resource.data.authorId == request.auth.uid;
+    }
+
     // A "match currently being scored" doc: created when someone starts
     // scoring (a Cloud Function picks that up to push a "Une partie de X a
     // été débutée" notice to the rest of the group), updated live as scores
@@ -275,6 +335,24 @@ match /databases/{database}/documents {
       // Only owner/admins delete a match — the last-resort way to resolve a
       // contested one (see AppState.canForceResolveMatch).
       allow delete: if signedIn() && isServerAdmin(serverDoc(serverId).data);
+    }
+
+    // A discussion thread scoped by `salonId` (see the data model recap
+    // above) — same trust model as a Group's `messages`: any salon member
+    // can post (attributed to themselves) or read; an existing message can
+    // only be changed by a poll vote (isPollVote()), a reaction
+    // (isReaction()), or the author editing their own text (isMessageEdit()),
+    // and only their own author can delete one.
+    match /messages/{messageId} {
+      allow read: if signedIn() && (
+        isSalonMember(serverId, resource.data.salonId) || isServerAdmin(serverDoc(serverId).data)
+      );
+      allow create: if signedIn()
+        && isSalonMember(serverId, request.resource.data.salonId)
+        && request.resource.data.authorId == request.auth.uid;
+      allow update: if signedIn() && isSalonMember(serverId, resource.data.salonId)
+        && (isPollVote(resource.data) || isMessageEdit(resource.data) || isReaction(resource.data));
+      allow delete: if signedIn() && resource.data.authorId == request.auth.uid;
     }
   }
 }

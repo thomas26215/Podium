@@ -196,6 +196,8 @@ class _LiveMatchBody extends StatelessWidget {
                             Text('Équipe ${entry.teamId}', style: bodyFont(size: 11.5, weight: FontWeight.w700, color: AppColors.mut)),
                           if (entry.role != null)
                             Text(entry.role!, style: bodyFont(size: 11.5, weight: FontWeight.w700, color: AppColors.accent)),
+                          if (entry.character != null)
+                            Text(entry.character!, style: bodyFont(size: 11.5, weight: FontWeight.w700, color: AppColors.accent)),
                         ],
                       ),
                     ),

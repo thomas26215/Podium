@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../logic/game_filter.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/game_filter_bar.dart';
 
 /// Lists games found in the user's *other* groups ([AppState.otherGroupsGames])
 /// so one can be copied straight into the current group's catalog — spares
@@ -28,13 +30,24 @@ class OtherGroupsGameBrowser extends StatelessWidget {
             contentPadding: const EdgeInsets.symmetric(vertical: 14),
           ),
         ),
+        if (hasFilterableData(app.otherGroupsGames.map((og) => og.game))) ...[
+          const SizedBox(height: 12),
+          GameFilterBar(
+            games: [for (final og in app.otherGroupsGames) og.game],
+            filter: app.otherGroupsFilter,
+            shownCount: games.length,
+            onChanged: app.setOtherGroupsFilter,
+          ),
+        ],
         const SizedBox(height: 16),
         if (app.otherGroupsLoading)
           Padding(padding: EdgeInsets.symmetric(vertical: 40), child: Center(child: CircularProgressIndicator(color: AppColors.accent)))
         else if (games.isEmpty)
           EmptyState(
             emoji: '📭',
-            message: app.otherGroupsGames.isEmpty ? "Aucun jeu dans vos autres groupes." : 'Aucun résultat pour cette recherche.',
+            message: app.otherGroupsGames.isEmpty
+                ? "Aucun jeu dans vos autres groupes."
+                : (app.otherGroupsFilter.isActive ? 'Aucun jeu ne correspond à ces filtres.' : 'Aucun résultat pour cette recherche.'),
           )
         else
           for (final (i, og) in games.indexed)
@@ -58,7 +71,7 @@ class _OtherGroupGameTile extends StatelessWidget {
       title: Text(game.name, style: bodyFont(size: 15, weight: FontWeight.w800, color: AppColors.ink), overflow: TextOverflow.ellipsis),
       subtitle: Row(
         children: [
-          Flexible(child: Text(game.category, style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut), overflow: TextOverflow.ellipsis)),
+          Flexible(child: Text([game.category, ?game.summaryLine(themeCount: 1)].join(' · '), style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut), overflow: TextOverflow.ellipsis)),
           Text('  ·  ', style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
           Flexible(
             child: Text(

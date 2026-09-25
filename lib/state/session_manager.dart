@@ -17,6 +17,7 @@ import '../repositories/games_repository.dart';
 import '../repositories/groups_repository.dart';
 import '../repositories/guests_repository.dart';
 import '../repositories/matches_repository.dart';
+import '../repositories/messages_repository.dart';
 import '../repositories/servers_repository.dart';
 import '../repositories/tournaments_repository.dart';
 import '../repositories/users_repository.dart';
@@ -52,6 +53,8 @@ AppState buildFirebaseAppState(FirebaseApp app) {
     serverMatchesRepo: FirebaseMatchesRepository(db: db, rootCollection: 'servers'),
     serverTournamentsRepo: FirebaseTournamentsRepository(db: db, rootCollection: 'servers'),
     eventsRepo: FirebaseEventsRepository(db: db),
+    messagesRepo: FirebaseMessagesRepository(db: db),
+    serverMessagesRepo: FirebaseMessagesRepository(db: db, rootCollection: 'servers'),
     // Deliberately not wired here — a session's own auth firing would
     // otherwise register/unregister push on its own, even while it's just
     // sitting open in the background. SessionManager drives push itself,

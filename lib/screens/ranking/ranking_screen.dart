@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../logic/game_filter.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/avatar.dart';
@@ -8,6 +9,7 @@ import '../../widgets/common.dart';
 import '../../widgets/podium.dart';
 import '../../widgets/rank_row.dart';
 import '../../widgets/segmented_control.dart';
+import '../../widgets/theme_picker.dart';
 import '../profile/profile_screen.dart';
 
 const _modes = ['wins', 'points', 'ratio', 'avg'];
@@ -27,6 +29,7 @@ class RankingScreen extends StatelessWidget {
     final rows = app.standings(
       app.rankMode,
       gameFilterId: app.gameFilter,
+      gameIdsFilter: app.rankingThemeGameIds,
       participantFilter: app.rankingPlayerFilter,
       participantFilterExact: app.rankingPlayerFilterExact,
     );
@@ -74,41 +77,42 @@ class RankingScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          Pressable(
-            onTap: () => showModalBottomSheet(
-              context: context,
-              backgroundColor: Colors.transparent,
-              isScrollControlled: true,
-              builder: (_) => ChangeNotifierProvider.value(value: app, child: const _PlayerFilterSheet()),
-            ),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-              decoration: BoxDecoration(
-                color: app.rankingPlayerFilter.isEmpty ? AppColors.card : AppColors.accentSoft,
-                border: Border.all(color: app.rankingPlayerFilter.isEmpty ? AppColors.line : AppColors.accent, width: 1.5),
-                borderRadius: BorderRadius.circular(12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _FilterPill(
+                icon: Icons.people_alt_rounded,
+                label: app.rankingPlayerFilter.isEmpty
+                    ? 'Filtrer par joueurs'
+                    : '${app.rankingPlayerFilter.length} joueur${app.rankingPlayerFilter.length > 1 ? 's' : ''} · ${app.rankingPlayerFilterExact ? 'exactement' : 'au moins'}',
+                active: app.rankingPlayerFilter.isNotEmpty,
+                onClear: app.clearRankingPlayerFilter,
+                onTap: () => showModalBottomSheet(
+                  context: context,
+                  backgroundColor: Colors.transparent,
+                  isScrollControlled: true,
+                  builder: (_) => ChangeNotifierProvider.value(value: app, child: const _PlayerFilterSheet()),
+                ),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.people_alt_rounded, size: 15, color: app.rankingPlayerFilter.isEmpty ? AppColors.mut : AppColors.accent),
-                  const SizedBox(width: 6),
-                  Text(
-                    app.rankingPlayerFilter.isEmpty
-                        ? 'Filtrer par joueurs'
-                        : '${app.rankingPlayerFilter.length} joueur${app.rankingPlayerFilter.length > 1 ? 's' : ''} · ${app.rankingPlayerFilterExact ? 'exactement' : 'au moins'}',
-                    style: bodyFont(size: 12.5, weight: FontWeight.w700, color: app.rankingPlayerFilter.isEmpty ? AppColors.ink2 : AppColors.accent),
-                  ),
-                  if (app.rankingPlayerFilter.isNotEmpty) ...[
-                    const SizedBox(width: 6),
-                    GestureDetector(
-                      onTap: app.clearRankingPlayerFilter,
-                      child: Icon(Icons.close_rounded, size: 15, color: AppColors.accent),
-                    ),
-                  ],
-                ],
-              ),
-            ),
+              // Only offered once some game carries a theme — otherwise the picker would be empty.
+              if (hasFilterableData(app.games))
+                _FilterPill(
+                  icon: Icons.sell_outlined,
+                  label: app.rankingThemes.isEmpty ? 'Filtrer par thème' : '${app.rankingThemes.length} thème${app.rankingThemes.length > 1 ? 's' : ''}',
+                  active: app.rankingThemes.isNotEmpty,
+                  onClear: () => app.setRankingThemes({}),
+                  onTap: () async {
+                    final picked = await showThemePicker(
+                      context,
+                      groups: themesInUse(app.games),
+                      selected: app.rankingThemes.toList(),
+                      title: 'Classement par thème',
+                    );
+                    if (picked != null) app.setRankingThemes(picked.toSet());
+                  },
+                ),
+            ],
           ),
           const SizedBox(height: 16),
           if (rows.isEmpty)
@@ -153,6 +157,44 @@ class RankingScreen extends StatelessWidget {
               ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// A "Filtrer par …" pill under the game chips — accent-coloured with a
+/// clear button while its filter is active.
+class _FilterPill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+  final VoidCallback onClear;
+  const _FilterPill({required this.icon, required this.label, required this.active, required this.onTap, required this.onClear});
+
+  @override
+  Widget build(BuildContext context) {
+    return Pressable(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: active ? AppColors.accentSoft : AppColors.card,
+          border: Border.all(color: active ? AppColors.accent : AppColors.line, width: 1.5),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 15, color: active ? AppColors.accent : AppColors.mut),
+            const SizedBox(width: 6),
+            Text(label, style: bodyFont(size: 12.5, weight: FontWeight.w700, color: active ? AppColors.accent : AppColors.ink2)),
+            if (active) ...[
+              const SizedBox(width: 6),
+              GestureDetector(onTap: onClear, child: Icon(Icons.close_rounded, size: 15, color: AppColors.accent)),
+            ],
+          ],
+        ),
       ),
     );
   }

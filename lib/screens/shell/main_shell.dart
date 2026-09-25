@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
-import '../games/games_catalog_screen.dart';
+import '../chat/group_chat_screen.dart';
 import '../history/history_screen.dart';
 import '../home/home_screen.dart';
 import '../new_game/new_game_sheet.dart';
@@ -41,7 +41,7 @@ class MainShell extends StatelessWidget {
                 HomeScreen(),
                 RankingScreen(),
                 HistoryScreen(),
-                GamesCatalogScreen(),
+                GroupChatScreen(),
               ],
             ),
             Positioned(
@@ -105,7 +105,13 @@ class MainShell extends StatelessWidget {
                 ),
               ),
               _NavItem(icon: Icons.schedule_rounded, label: 'Parties', selected: app.tab == AppTab.history, onTap: () => app.setTab(AppTab.history)),
-              _NavItem(icon: Icons.casino_rounded, label: 'Jeux', selected: app.tab == AppTab.games, onTap: () => app.setTab(AppTab.games)),
+              _NavItem(
+                icon: Icons.forum_rounded,
+                label: 'Discussion',
+                selected: app.tab == AppTab.games,
+                onTap: () => app.setTab(AppTab.games),
+                showBadge: app.tab != AppTab.games && app.hasUnreadDiscussionMessages,
+              ),
             ],
           ),
         ),
@@ -119,7 +125,8 @@ class _NavItem extends StatelessWidget {
   final String label;
   final bool selected;
   final VoidCallback onTap;
-  const _NavItem({required this.icon, required this.label, required this.selected, required this.onTap});
+  final bool showBadge;
+  const _NavItem({required this.icon, required this.label, required this.selected, required this.onTap, this.showBadge = false});
 
   @override
   Widget build(BuildContext context) {
@@ -135,11 +142,26 @@ class _NavItem extends StatelessWidget {
               curve: Curves.easeOutCubic,
               padding: const EdgeInsets.all(7),
               decoration: BoxDecoration(color: selected ? AppColors.accentSoft : Colors.transparent, borderRadius: BorderRadius.circular(11)),
-              child: AnimatedScale(
-                scale: selected ? 1.08 : 1.0,
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOutCubic,
-                child: Icon(icon, size: 22, color: color),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  AnimatedScale(
+                    scale: selected ? 1.08 : 1.0,
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOutCubic,
+                    child: Icon(icon, size: 22, color: color),
+                  ),
+                  if (showBadge)
+                    Positioned(
+                      top: -1,
+                      right: -1,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(color: AppColors.accent, shape: BoxShape.circle, border: Border.all(color: AppColors.bg, width: 1.5)),
+                      ),
+                    ),
+                ],
               ),
             ),
             const SizedBox(height: 3),

@@ -1,11 +1,44 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/game.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/avatar.dart';
 import '../../widgets/common.dart';
 import '../../widgets/match_card.dart' show relativeDateLabel;
+
+/// One line under the date/format pickers reminding how many players the
+/// game takes (see `Game.playersLabel`) — turns into a warning, never a
+/// block, once the picked players fall outside that range.
+class _PlayerCountHint extends StatelessWidget {
+  final Game? game;
+  final int selected;
+  const _PlayerCountHint({required this.game, required this.selected});
+
+  @override
+  Widget build(BuildContext context) {
+    final label = game?.playersLabel;
+    if (game == null || label == null) return const SizedBox.shrink();
+    final outOfRange = selected > 0 && !game!.acceptsPlayerCount(selected);
+    final color = outOfRange ? AppColors.accent : AppColors.mut;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          Icon(outOfRange ? Icons.warning_amber_rounded : Icons.group_outlined, size: 16, color: color),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              outOfRange ? 'Prévu pour $label — vous en avez sélectionné $selected.' : 'Prévu pour $label.',
+              style: bodyFont(size: 12.5, weight: FontWeight.w700, color: color),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class Step2Players extends StatelessWidget {
   const Step2Players({super.key});
@@ -34,6 +67,8 @@ class Step2Players extends StatelessWidget {
     // make sense when this step is picking players for a single match (see
     // AppState.isTournamentFlow).
     final isTournamentFlow = app.isTournamentFlow;
+    final game = app.gameById(d.gameId ?? '');
+    final choice = !isTournamentFlow && game != null && game.hasCharacters ? game.characterChoice : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -113,6 +148,7 @@ class Step2Players extends StatelessWidget {
               style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
             ),
           ),
+        if (!isTournamentFlow) _PlayerCountHint(game: game, selected: d.playerIds.length),
         if (!modeFixed) ...[
           Row(
             children: [
@@ -186,7 +222,9 @@ class Step2Players extends StatelessWidget {
                 border: Border.all(color: d.playerIds.contains(p.uid) ? AppColors.accent : AppColors.line, width: 1.5),
                 borderRadius: BorderRadius.circular(15),
               ),
-              child: Row(
+              child: Column(
+                children: [
+              Row(
                 children: [
                   Pressable(onTap: () => app.togglePlayer(p.uid), child: Avatar(initial: p.initial, color: Color(p.color), size: 38, fontSize: 15)),
                   const SizedBox(width: 12),
@@ -238,9 +276,137 @@ class Step2Players extends StatelessWidget {
                     ),
                 ],
               ),
+              if (choice != null && d.playerIds.contains(p.uid))
+                Padding(
+                  padding: const EdgeInsets.only(top: 10, left: 50),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: _CharacterPill(
+                      character: d.characters[p.uid],
+                      prompt: choice.pickPrompt,
+                      onTap: () async {
+                        final picked = await _pickCharacter(context, app, p.uid, p.displayName, choice);
+                        if (picked != null) app.setPlayerCharacter(p.uid, picked.isEmpty ? null : picked);
+                      },
+                    ),
+                  ),
+                ),
+                ],
+              ),
             ),
           ),
       ],
+    );
+  }
+}
+
+/// Bottom sheet listing the game's [choice] options for `uid` — returns the
+/// picked one, '' for "Aucun" (clears it), or null if dismissed. Characters
+/// already taken by another player stay pickable (some games allow
+/// duplicates) but say who has them.
+Future<String?> _pickCharacter(BuildContext context, AppState app, String uid, String playerName, CharacterChoice choice) {
+  final current = app.draft.characters[uid];
+  final takenBy = <String, String>{
+    for (final e in app.draft.characters.entries)
+      if (e.key != uid && app.draft.playerIds.contains(e.key)) e.value: app.playerById(e.key)?.displayName ?? '?',
+  };
+  return showModalBottomSheet<String>(
+    context: context,
+    backgroundColor: AppColors.bg,
+    isScrollControlled: true,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl))),
+    builder: (sheetContext) => SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(sheetContext).size.height * 0.7),
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(choice.ofPlayer(playerName), style: dispFont(size: 18, weight: FontWeight.w700, color: AppColors.ink)),
+            ),
+            for (final c in choice.options)
+              _CharacterOption(label: c, sub: takenBy[c] != null ? choice.takenBy(takenBy[c]!) : null, selected: current == c, onTap: () => Navigator.of(sheetContext).pop(c)),
+            if (current != null) _CharacterOption(label: 'Aucun', selected: false, muted: true, onTap: () => Navigator.of(sheetContext).pop('')),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _CharacterOption extends StatelessWidget {
+  final String label;
+  final String? sub;
+  final bool selected;
+  final bool muted;
+  final VoidCallback onTap;
+  const _CharacterOption({required this.label, this.sub, required this.selected, this.muted = false, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Pressable(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.accentSoft : AppColors.card,
+          border: Border.all(color: selected ? AppColors.accent : AppColors.line, width: 1.5),
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: bodyFont(size: 15, weight: FontWeight.w700, color: muted ? AppColors.mut : AppColors.ink)),
+                  if (sub != null) Text(sub!, style: bodyFont(size: 11.5, weight: FontWeight.w600, color: AppColors.mut)),
+                ],
+              ),
+            ),
+            if (selected) Icon(Icons.check_rounded, size: 18, color: AppColors.accent),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// [prompt] ("Choisir une merveille") or the picked option, under a
+/// selected player's row.
+class _CharacterPill extends StatelessWidget {
+  final String? character;
+  final String prompt;
+  final VoidCallback onTap;
+  const _CharacterPill({required this.character, required this.prompt, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final set = character != null;
+    final color = set ? AppColors.accent : AppColors.mut;
+    return Pressable(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: set ? AppColors.accentSoft : AppColors.bg,
+          border: Border.all(color: set ? AppColors.accent : AppColors.line, width: 1.2),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.theater_comedy_rounded, size: 15, color: color),
+            const SizedBox(width: 6),
+            Text(character ?? prompt, style: bodyFont(size: 12.5, weight: FontWeight.w800, color: color)),
+            const SizedBox(width: 2),
+            Icon(Icons.expand_more_rounded, size: 16, color: color),
+          ],
+        ),
+      ),
     );
   }
 }

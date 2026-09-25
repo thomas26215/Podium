@@ -5,13 +5,34 @@ import '../models/game.dart';
 /// The starter catalog every new root group gets, matching the prototype's
 /// seed data so a fresh group isn't staring at an empty game grid.
 final List<Game> kDefaultGames = [
-  Game.simple(id: 'catan', name: 'Catan', emoji: '🎲', category: 'Société', countType: CountType.highWins),
-  Game.simple(id: 'uno', name: 'Uno', emoji: '🃏', category: 'Cartes', countType: CountType.highWins),
-  Game.simple(id: 'skyjo', name: 'Skyjo', emoji: '🂠', category: 'Cartes', countType: CountType.lowWins),
-  Game.simple(id: 'mk', name: 'Mario Kart', emoji: '🏎️', category: 'Jeu vidéo', countType: CountType.highWins),
-  Game.simple(id: 'petanque', name: 'Pétanque', emoji: '🎯', category: 'Sport', countType: CountType.highWins),
-  Game.simple(id: 'timesup', name: "Time's Up", emoji: '⏱️', category: 'Société', countType: CountType.highWins),
-  Game.simple(id: 'president', name: 'Président', emoji: '🎩', category: 'Cartes', countType: CountType.wins),
+  Game.simple(
+    id: 'catan', name: 'Catan', emoji: '🎲', category: 'Société', countType: CountType.highWins,
+    minPlayers: 3, maxPlayers: 4, themes: ['strategie', 'gestion', 'negociation', 'des', 'familial', 'moyen'],
+  ),
+  Game.simple(
+    id: 'uno', name: 'Uno', emoji: '🃏', category: 'Cartes', countType: CountType.highWins,
+    minPlayers: 2, maxPlayers: 10, themes: ['paquetSpecifique', 'defausse', 'ambiance', 'familial', 'enfants', 'rapide'],
+  ),
+  Game.simple(
+    id: 'skyjo', name: 'Skyjo', emoji: '🂠', category: 'Cartes', countType: CountType.lowWins,
+    minPlayers: 2, maxPlayers: 8, themes: ['paquetSpecifique', 'memoire', 'pousseTaChance', 'familial', 'moyen'],
+  ),
+  Game.simple(
+    id: 'mk', name: 'Mario Kart', emoji: '🏎️', category: 'Jeu vidéo', countType: CountType.highWins,
+    minPlayers: 2, maxPlayers: 4, themes: ['course', 'multiLocal', 'ecranPartage', 'enLigne', 'competitif', 'familial'],
+  ),
+  Game.simple(
+    id: 'petanque', name: 'Pétanque', emoji: '🎯', category: 'Sport', countType: CountType.highWins,
+    minPlayers: 2, maxPlayers: 6, themes: ['petanque', 'precision', 'exterieur', 'equipes', 'loisir'],
+  ),
+  Game.simple(
+    id: 'timesup', name: "Time's Up", emoji: '⏱️', category: 'Société', countType: CountType.highWins,
+    minPlayers: 4, maxPlayers: 12, themes: ['ambiance', 'equipes', 'grandGroupe', 'quiz', 'apero', 'familial', 'moyen'],
+  ),
+  Game.simple(
+    id: 'president', name: 'Président', emoji: '🎩', category: 'Cartes', countType: CountType.wins,
+    minPlayers: 3, themes: ['cartes52', 'defausse', 'grandGroupe', 'apero', 'moyen'],
+  ),
 ];
 
 abstract class GamesRepository {
@@ -27,6 +48,10 @@ abstract class GamesRepository {
     required String emoji,
     required String category,
     required List<GameRule> rules,
+    int? minPlayers,
+    int? maxPlayers,
+    List<String> themes = const [],
+    CharacterChoice? characterChoice,
     String? salonId,
   });
 
@@ -78,6 +103,10 @@ class FirebaseGamesRepository implements GamesRepository {
     required String emoji,
     required String category,
     required List<GameRule> rules,
+    int? minPlayers,
+    int? maxPlayers,
+    List<String> themes = const [],
+    CharacterChoice? characterChoice,
     String? salonId,
   }) async {
     final ref = _col(rootGroupId).doc();
@@ -87,6 +116,10 @@ class FirebaseGamesRepository implements GamesRepository {
       emoji: emoji,
       category: category,
       rules: rules,
+      minPlayers: minPlayers,
+      maxPlayers: maxPlayers,
+      themes: themes,
+      characterChoice: characterChoice,
       salonId: salonId,
     );
     await ref.set(game.toMap());
@@ -102,6 +135,11 @@ class FirebaseGamesRepository implements GamesRepository {
       emoji: source.emoji,
       category: source.category,
       rules: source.rules,
+      ruleSections: source.ruleSections,
+      minPlayers: source.minPlayers,
+      maxPlayers: source.maxPlayers,
+      themes: source.themes,
+      characterChoice: source.characterChoice,
       salonId: salonId,
     );
     await ref.set(game.toMap());

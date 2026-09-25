@@ -62,13 +62,31 @@ class GameDetailScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(current.name, style: dispFont(size: 19, weight: FontWeight.w800, color: AppColors.ink)),
-                      Text(current.category, style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)),
+                      Text(
+                        current.playersLabel == null ? current.category : '${current.category} · ${current.playersLabel}',
+                        style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut),
+                      ),
                     ],
                   ),
                 ),
               ],
             ),
           ),
+          if (current.themeTags.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final t in current.themeTags)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(999)),
+                    child: Text(t.label, style: bodyFont(size: 11.5, weight: FontWeight.w700, color: AppColors.ink2)),
+                  ),
+              ],
+            ),
+          ],
           const SizedBox(height: 22),
           SectionHeader(title: current.hasMultipleRules ? 'Règles de score' : 'Règle de score'),
           for (final (i, rule) in current.rules.indexed)

@@ -4,6 +4,7 @@ import '../../models/game.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
+import '../games/game_detail_screen.dart';
 import 'game_rules_screen.dart';
 import 'new_game_sheet.dart';
 
@@ -81,6 +82,16 @@ Future<void> showGameActionsSheet(BuildContext context, AppState app, Game game)
         children: [
           Text(game.name, style: dispFont(size: 18, weight: FontWeight.w700, color: AppColors.ink)),
           const SizedBox(height: 16),
+          ChooserOption(
+            icon: Icons.info_outline_rounded,
+            title: 'Voir les détails',
+            subtitle: 'Règles de score, aide-mémoire, export PDF.',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => GameDetailScreen(game: game)));
+            },
+          ),
+          const SizedBox(height: 10),
           if (!closed) ...[
             ChooserOption(
               icon: Icons.tune_rounded,

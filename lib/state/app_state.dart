@@ -11,8 +11,12 @@ import '../models/app_user.dart';
 import '../models/game.dart';
 import '../models/group.dart';
 import '../models/group_invite_code.dart';
+import '../logic/game_filter.dart';
+import '../logic/game_sort.dart';
+import '../logic/text_search.dart';
 import '../logic/tournament_bracket.dart';
 import '../models/match.dart';
+import '../models/message.dart';
 import '../models/salon.dart';
 import '../models/saved_account.dart';
 import '../models/scheduled_event.dart';
@@ -26,6 +30,7 @@ import '../repositories/games_repository.dart';
 import '../repositories/groups_repository.dart';
 import '../repositories/guests_repository.dart';
 import '../repositories/matches_repository.dart';
+import '../repositories/messages_repository.dart';
 import '../repositories/servers_repository.dart';
 import '../repositories/tournaments_repository.dart';
 import '../repositories/users_repository.dart';
@@ -89,6 +94,12 @@ class AppState extends ChangeNotifier {
   /// Scheduled events (see `lib/models/scheduled_event.dart`) — Salon-only,
   /// so unlike the repos above there's no Group-side counterpart to mirror.
   final EventsRepository eventsRepo;
+
+  /// The group's (or, via [serverMessagesRepo], the active salon's)
+  /// discussion thread — see [messages]/[sendMessage]. Same `rootCollection`
+  /// split as [gamesRepo]/[serverGamesRepo].
+  final MessagesRepository messagesRepo;
+  final MessagesRepository serverMessagesRepo;
   final NotificationsService? notificationsService;
 
   AppState({
@@ -105,11 +116,14 @@ class AppState extends ChangeNotifier {
     required this.serverMatchesRepo,
     required this.serverTournamentsRepo,
     required this.eventsRepo,
+    required this.messagesRepo,
+    required this.serverMessagesRepo,
     this.notificationsService,
   }) {
     _applyTheme();
     unawaited(_loadThemePrefs());
     unawaited(_initConnectivity());
+    unawaited(_loadLastReadAt());
     _savedAccountsReady = _loadSavedAccounts();
     _authSub = authRepo.authStateChanges().listen(_onAuthChanged);
   }
@@ -273,6 +287,18 @@ class AppState extends ChangeNotifier {
   List<ScheduledEvent> events = [];
   StreamSubscription? _eventsSub;
 
+  // ---- discussion thread (scoped to currentRootId, or to the active salon) ----
+  List<GroupMessage> messages = [];
+  bool messagesLoaded = false;
+  StreamSubscription? _messagesSub;
+
+  // Per-thread "last read" timestamps — device-local only (SharedPreferences,
+  // not Firestore), keyed by 'group:<id>'/'salon:<id>' (see _discussionKey).
+  // Drives [hasUnreadDiscussionMessages]'s badge on the Discussion tab; see
+  // [markDiscussionRead].
+  Map<String, DateTime> _lastReadAt = {};
+  static const _lastReadAtKey = 'chat_last_read_v1';
+
   // Flips to true the moment each subscription's first snapshot arrives for
   // the current group — Firestore can take a moment after sign-in/switching
   // groups, so the UI shows "X/4 récupérées" in the meantime instead of
@@ -306,6 +332,9 @@ class AppState extends ChangeNotifier {
   String rankMode = 'wins'; // wins | points | ratio | avg
   String? gameFilter;
 
+  /// Theme tags the ranking is restricted to (see [rankingThemeGameIds]).
+  Set<String> rankingThemes = {};
+
   // Restricts the ranking to matches involving specific players — either
   // matches where they're merely among the participants ("contains", other
   // players may also be in it) or matches with exactly that participant set
@@ -322,6 +351,15 @@ class AppState extends ChangeNotifier {
   int step = 1;
   bool creatingGame = false;
   GameFormDraft gameForm = GameFormDraft.initial();
+
+  /// Narrows the game grid on the wizard's "Quel jeu ?" step (see
+  /// [filteredGames]) — reset every time the sheet opens.
+  GameFilter gameGridFilter = const GameFilter();
+
+  /// Free-text search on the "Quel jeu ?" step — reset with the sheet, unlike
+  /// [gameSort], which is a lasting preference for the session.
+  String gameSearch = '';
+  GameSort gameSort = GameSort.lastPlayed;
   NewGameDraft draft = NewGameDraft.initial();
 
   // Set while `creatingGame`'s form is editing an existing game's settings
@@ -401,12 +439,19 @@ class AppState extends ChangeNotifier {
   bool libraryLoading = false;
   List<Game> gameLibrary = [];
   String librarySearch = '';
+  GameFilter libraryFilter = const GameFilter();
+
+  /// The `Game.category` the library is narrowed to, or null for all of
+  /// them. Themes differ per category, so [libraryFilter] only ever applies
+  /// within it (see [setLibraryCategory]).
+  String? libraryCategory;
 
   // ---- browse games from the user's other groups ----
   bool browsingOtherGroups = false;
   bool otherGroupsLoading = false;
   List<OtherGroupGame> otherGroupsGames = [];
   String otherGroupsSearch = '';
+  GameFilter otherGroupsFilter = const GameFilter();
 
   // ---- create group / invite ----
   bool busy = false;
@@ -422,6 +467,7 @@ class AppState extends ChangeNotifier {
     _liveSessionsSub?.cancel();
     _tournamentsSub?.cancel();
     _eventsSub?.cancel();
+    _messagesSub?.cancel();
     _toastTimer?.cancel();
     _liveUpdateDebounce?.cancel();
     _liveSessionHoldTimer?.cancel();
@@ -442,6 +488,7 @@ class AppState extends ChangeNotifier {
     _liveSessionsSub?.cancel();
     _tournamentsSub?.cancel();
     _eventsSub?.cancel();
+    _messagesSub?.cancel();
     _currentUserSub?.cancel();
     groups = [];
     servers = [];
@@ -451,12 +498,14 @@ class AppState extends ChangeNotifier {
     _rawLiveSessions = [];
     tournaments = [];
     events = [];
+    messages = [];
     friends = [];
     gamesLoaded = false;
     matchesLoaded = false;
     liveSessionsLoaded = false;
     tournamentsLoaded = false;
     eventsLoaded = false;
+    messagesLoaded = false;
     currentGroupId = null;
     currentServerId = null;
     currentSalonId = null;
@@ -1102,10 +1151,12 @@ class AppState extends ChangeNotifier {
     _liveSessionsSub?.cancel();
     _tournamentsSub?.cancel();
     _eventsSub?.cancel();
+    _messagesSub?.cancel();
     gamesLoaded = false;
     matchesLoaded = false;
     liveSessionsLoaded = false;
     tournamentsLoaded = false;
+    messagesLoaded = false;
     // No Group equivalent for scheduled events (see
     // lib/models/scheduled_event.dart) — nothing to fetch, so this is
     // trivially "loaded" right away rather than left forever pending.
@@ -1116,6 +1167,7 @@ class AppState extends ChangeNotifier {
       matches = [];
       _rawLiveSessions = [];
       tournaments = [];
+      messages = [];
       return;
     }
     _gamesSub = gamesRepo.watchGames(root).listen((gs) {
@@ -1144,6 +1196,12 @@ class AppState extends ChangeNotifier {
       _rawLiveSessions = ss;
       notifyListeners();
     });
+    _messagesSub = messagesRepo.watchMessages(root).listen((ms) {
+      messages = ms;
+      messagesLoaded = true;
+      if (tab == AppTab.games) markDiscussionRead();
+      notifyListeners();
+    });
   }
 
   /// Mirrors [_resubscribeGroupData] but for the active Salon (see
@@ -1157,11 +1215,13 @@ class AppState extends ChangeNotifier {
     _liveSessionsSub?.cancel();
     _tournamentsSub?.cancel();
     _eventsSub?.cancel();
+    _messagesSub?.cancel();
     gamesLoaded = false;
     matchesLoaded = false;
     tournamentsLoaded = false;
     liveSessionsLoaded = false;
     eventsLoaded = false;
+    messagesLoaded = false;
     final serverId = currentSalonServerId;
     final salonId = currentSalonId;
     if (serverId == null || salonId == null) {
@@ -1173,6 +1233,7 @@ class AppState extends ChangeNotifier {
       liveSessionsLoaded = true;
       events = [];
       eventsLoaded = true;
+      messages = [];
       return;
     }
     _gamesSub = serverGamesRepo.watchGames(serverId).listen((gs) {
@@ -1205,6 +1266,12 @@ class AppState extends ChangeNotifier {
     _eventsSub = eventsRepo.watchEvents(serverId, salonId).listen((es) {
       events = es;
       eventsLoaded = true;
+      notifyListeners();
+    });
+    _messagesSub = serverMessagesRepo.watchMessages(serverId, salonId: salonId).listen((ms) {
+      messages = ms;
+      messagesLoaded = true;
+      if (tab == AppTab.games) markDiscussionRead();
       notifyListeners();
     });
   }
@@ -1382,6 +1449,254 @@ class AppState extends ChangeNotifier {
       flowError = e.toString();
       notifyListeners();
     }
+  }
+
+  // ============================== DISCUSSION ==============================
+
+  /// Members of the current group (or, in a Salon, the active salon) —
+  /// resolved to [AppUser] via [playerById]. Populates the "@" mention
+  /// picker and lets [_parseMentions] recognize `@Name` in outgoing text.
+  List<AppUser> get discussionMembers {
+    final ids = activeContext == ActiveContextKind.salon ? (currentSalon?.memberIds ?? const []) : (currentGroup?.memberIds ?? const []);
+    return ids.map(playerById).whereType<AppUser>().toList();
+  }
+
+  /// Uids of every [discussionMembers] whose `@DisplayName` appears in
+  /// `text` — longest names first so e.g. "Jean" can't shadow "Jean Paul"
+  /// inside "@Jean Paul".
+  List<String> _parseMentions(String text) {
+    final members = List<AppUser>.of(discussionMembers)..sort((a, b) => b.displayName.length.compareTo(a.displayName.length));
+    return members.where((m) => m.displayName.isNotEmpty && text.contains('@${m.displayName}')).map((m) => m.uid).toList();
+  }
+
+  /// Posts `text` to the current group's (or, in a Salon, the active
+  /// salon's) discussion thread. A no-op for blank input. `replyTo`, when
+  /// given, quotes that message — see [GroupMessage.replyToId] and
+  /// `GroupChatScreen`'s swipe-to-reply gesture. Anyone `@mentioned` in
+  /// `text` (see [discussionMembers]) gets a dedicated push even if they've
+  /// muted the regular discussion channel (see functions/index.js).
+  Future<void> sendMessage(String text, {GroupMessage? replyTo}) async {
+    final trimmed = text.trim();
+    final uid = currentUser?.uid;
+    if (trimmed.isEmpty || uid == null) return;
+    // A short snapshot, not the whole message — the quote just needs to be
+    // recognizable, and a very long original shouldn't blow up the reply's
+    // own bubble.
+    final replyToText = replyTo == null
+        ? null
+        : (replyTo.text.length > 140 ? '${replyTo.text.substring(0, 140)}…' : replyTo.text);
+    final mentionedUids = _parseMentions(trimmed);
+    try {
+      if (activeContext == ActiveContextKind.salon) {
+        final serverId = currentSalonServerId;
+        final salonId = currentSalonId;
+        if (serverId == null || salonId == null) return;
+        await serverMessagesRepo.sendMessage(
+          serverId,
+          authorId: uid,
+          text: trimmed,
+          salonId: salonId,
+          replyToId: replyTo?.id,
+          replyToAuthorId: replyTo?.authorId,
+          replyToText: replyToText,
+          mentionedUids: mentionedUids,
+        );
+      } else {
+        final root = currentRootId;
+        if (root == null) return;
+        await messagesRepo.sendMessage(
+          root,
+          authorId: uid,
+          text: trimmed,
+          replyToId: replyTo?.id,
+          replyToAuthorId: replyTo?.authorId,
+          replyToText: replyToText,
+          mentionedUids: mentionedUids,
+        );
+      }
+    } catch (e) {
+      flowError = e.toString();
+      notifyListeners();
+    }
+  }
+
+  /// Sets (or, tapping the same emoji again, clears) the current user's
+  /// reaction on `message` — one reaction per member per message.
+  Future<void> reactToMessage(GroupMessage message, String emoji) async {
+    final uid = currentUser?.uid;
+    if (uid == null) return;
+    final next = message.reactions[uid] == emoji ? null : emoji;
+    try {
+      if (activeContext == ActiveContextKind.salon) {
+        final serverId = currentSalonServerId;
+        if (serverId == null) return;
+        await serverMessagesRepo.react(serverId, message.id, uid: uid, emoji: next);
+      } else {
+        final root = currentRootId;
+        if (root == null) return;
+        await messagesRepo.react(root, message.id, uid: uid, emoji: next);
+      }
+    } catch (e) {
+      flowError = e.toString();
+      notifyListeners();
+    }
+  }
+
+  /// Overwrites `message`'s text in place — the author only. A no-op for
+  /// blank input (use [deleteMessage] to remove a message instead).
+  Future<void> editMessage(GroupMessage message, String text) async {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty || currentUser?.uid != message.authorId) return;
+    try {
+      if (activeContext == ActiveContextKind.salon) {
+        final serverId = currentSalonServerId;
+        if (serverId == null) return;
+        await serverMessagesRepo.editMessage(serverId, message.id, trimmed);
+      } else {
+        final root = currentRootId;
+        if (root == null) return;
+        await messagesRepo.editMessage(root, message.id, trimmed);
+      }
+    } catch (e) {
+      flowError = e.toString();
+      notifyListeners();
+    }
+  }
+
+  /// Posts a "which game tonight?" poll — `gameIds` are the options members
+  /// vote among (see [voteInPoll]). A no-op with fewer than 2 options.
+  Future<void> sendPoll(String question, List<String> gameIds) async {
+    final uid = currentUser?.uid;
+    if (gameIds.length < 2 || uid == null) return;
+    final prompt = question.trim().isEmpty ? 'Quel jeu ce soir ?' : question.trim();
+    try {
+      if (activeContext == ActiveContextKind.salon) {
+        final serverId = currentSalonServerId;
+        final salonId = currentSalonId;
+        if (serverId == null || salonId == null) return;
+        await serverMessagesRepo.sendPoll(serverId, authorId: uid, text: prompt, gameIds: gameIds, salonId: salonId);
+      } else {
+        final root = currentRootId;
+        if (root == null) return;
+        await messagesRepo.sendPoll(root, authorId: uid, text: prompt, gameIds: gameIds);
+      }
+    } catch (e) {
+      flowError = e.toString();
+      notifyListeners();
+    }
+  }
+
+  /// Casts (or changes) the current user's ballot on `poll` — one vote per
+  /// member, same trust model as everything else in the thread.
+  Future<void> voteInPoll(GroupMessage poll, String gameId) async {
+    final uid = currentUser?.uid;
+    if (uid == null || !poll.pollGameIds.contains(gameId)) return;
+    try {
+      if (activeContext == ActiveContextKind.salon) {
+        final serverId = currentSalonServerId;
+        if (serverId == null) return;
+        await serverMessagesRepo.vote(serverId, poll.id, uid: uid, gameId: gameId);
+      } else {
+        final root = currentRootId;
+        if (root == null) return;
+        await messagesRepo.vote(root, poll.id, uid: uid, gameId: gameId);
+      }
+    } catch (e) {
+      flowError = e.toString();
+      notifyListeners();
+    }
+  }
+
+  /// Opens the new-game wizard pre-filled with `gameId` (the option a poll
+  /// vote settled on — see [sendPoll]) and jumps straight to the players
+  /// step, exactly like [startEvent] does for a scheduled event but with no
+  /// pre-filled roster to carry over. Caller still needs to actually show
+  /// the sheet (`showNewGameSheet(context, app)`), same as `startEvent`.
+  void startMatchForGame(String gameId) {
+    if (gameById(gameId) == null) return;
+    openSheet();
+    pickGame(gameId);
+    step = stepSequence.indexOf(WizardStepKind.players) + 1;
+    notifyListeners();
+  }
+
+  /// Deletes `message` — the author only (also enforced by firestore.rules).
+  Future<void> deleteMessage(GroupMessage message) async {
+    if (currentUser?.uid != message.authorId) return;
+    try {
+      if (activeContext == ActiveContextKind.salon) {
+        final serverId = currentSalonServerId;
+        if (serverId == null) return;
+        await serverMessagesRepo.deleteMessage(serverId, message.id);
+      } else {
+        final root = currentRootId;
+        if (root == null) return;
+        await messagesRepo.deleteMessage(root, message.id);
+      }
+    } catch (e) {
+      flowError = e.toString();
+      notifyListeners();
+    }
+  }
+
+  // ---- unread badge (see AppTab.games's nav item in MainShell) ----
+
+  /// Identifies which thread [_lastReadAt] is tracking — the current group,
+  /// or (in a Salon) the active salon. Null while neither is selected.
+  String? get _discussionKey {
+    if (activeContext == ActiveContextKind.salon) {
+      return currentSalonId == null ? null : 'salon:$currentSalonId';
+    }
+    return currentGroupId == null ? null : 'group:$currentGroupId';
+  }
+
+  /// True once [messages] holds something newer than the last time this
+  /// device marked the current thread read (see [markDiscussionRead]) —
+  /// drives the small dot on the "Discussion" tab. Device-local, not synced
+  /// across a player's other devices (see [_lastReadAt]).
+  bool get hasUnreadDiscussionMessages {
+    if (messages.isEmpty) return false;
+    final key = _discussionKey;
+    if (key == null) return false;
+    final latest = messages.map((m) => m.createdAt).reduce((a, b) => a.isAfter(b) ? a : b);
+    final lastRead = _lastReadAt[key];
+    return lastRead == null || latest.isAfter(lastRead);
+  }
+
+  /// Marks the current thread caught up to its newest message — called both
+  /// when the Discussion tab becomes active (see [setTab]) and, while
+  /// already on it, every time a fresh snapshot arrives (see
+  /// [_resubscribeGroupData]/[_resubscribeSalonData]), so the badge never
+  /// flickers back on for a message the player is actively looking at.
+  void markDiscussionRead() {
+    final key = _discussionKey;
+    if (key == null || messages.isEmpty) return;
+    final latest = messages.map((m) => m.createdAt).reduce((a, b) => a.isAfter(b) ? a : b);
+    final current = _lastReadAt[key];
+    if (current != null && !latest.isAfter(current)) return;
+    _lastReadAt[key] = latest;
+    unawaited(_persistLastReadAt());
+    notifyListeners();
+  }
+
+  Future<void> _loadLastReadAt() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_lastReadAtKey);
+      if (raw == null) return;
+      final decoded = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+      _lastReadAt = decoded.map((k, v) => MapEntry(k, DateTime.parse(v as String)));
+      notifyListeners();
+    } catch (_) {
+      // Best-effort — a badge is a nice-to-have, never worth failing over.
+    }
+  }
+
+  Future<void> _persistLastReadAt() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_lastReadAtKey, jsonEncode(_lastReadAt.map((k, v) => MapEntry(k, v.toIso8601String()))));
+    } catch (_) {}
   }
 
   /// Set while the sheet is filling in the match/tournament that `startEvent`
@@ -1971,6 +2286,7 @@ class AppState extends ChangeNotifier {
   /// matches whose participant set is exactly that list and no one else.
   List<PlayerRow> computeRows(
     String? gameFilterId, {
+    Set<String>? gameIdsFilter,
     List<GameMatch>? matchesOverride,
     List<String>? playerIdsOverride,
     List<String>? participantFilter,
@@ -1978,6 +2294,7 @@ class AppState extends ChangeNotifier {
   }) {
     final all = matchesOverride ?? viewMatches;
     var mm = gameFilterId == null ? all : all.where((m) => m.gameId == gameFilterId).toList();
+    if (gameIdsFilter != null) mm = mm.where((m) => gameIdsFilter.contains(m.gameId)).toList();
     if (participantFilter != null && participantFilter.isNotEmpty) {
       final want = participantFilter.toSet();
       mm = mm.where((m) {
@@ -2018,6 +2335,7 @@ class AppState extends ChangeNotifier {
   List<PlayerRow> standings(
     String mode, {
     String? gameFilterId,
+    Set<String>? gameIdsFilter,
     List<GameMatch>? matchesOverride,
     List<String>? playerIdsOverride,
     List<String>? participantFilter,
@@ -2025,6 +2343,7 @@ class AppState extends ChangeNotifier {
   }) {
     final rows = computeRows(
       gameFilterId,
+      gameIdsFilter: gameIdsFilter,
       matchesOverride: matchesOverride,
       playerIdsOverride: playerIdsOverride,
       participantFilter: participantFilter,
@@ -2097,6 +2416,7 @@ class AppState extends ChangeNotifier {
 
   void setTab(AppTab t) {
     tab = t;
+    if (t == AppTab.games) markDiscussionRead();
     notifyListeners();
   }
 
@@ -2117,6 +2437,15 @@ class AppState extends ChangeNotifier {
     gameFilter = id;
     notifyListeners();
   }
+
+  void setRankingThemes(Set<String> themes) {
+    rankingThemes = themes;
+    notifyListeners();
+  }
+
+  /// Ids of the catalog's games carrying every [rankingThemes] tag — null
+  /// when no theme is selected (no restriction).
+  Set<String>? get rankingThemeGameIds => rankingThemes.isEmpty ? null : GameFilter(themes: rankingThemes).apply(games).map((g) => g.id).toSet();
 
   void toggleRankingPlayerFilter(String uid) {
     if (!rankingPlayerFilter.remove(uid)) rankingPlayerFilter.add(uid);
@@ -2148,6 +2477,8 @@ class AppState extends ChangeNotifier {
   void openSheet() {
     sheetOpen = true;
     step = 1;
+    gameGridFilter = const GameFilter();
+    gameSearch = '';
     creatingGame = false;
     browsingLibrary = false;
     browsingOtherGroups = false;
@@ -2285,6 +2616,7 @@ class AppState extends ChangeNotifier {
     final playerIds = match.entries.map((e) => e.playerId).toList();
     final team = <String, String>{for (final e in match.entries) e.playerId: e.teamId ?? 'A'};
     final points = <String, int>{for (final e in match.entries) e.playerId: e.points};
+    final characters = <String, String>{for (final e in match.entries) if (e.character != null) e.playerId: e.character!};
     final teamCount = team.values.toSet().length.clamp(2, 4);
     // Best-to-worst order, reconstructed from final scores — exact for
     // single-ranking ranks matches (points already encode rank order) and a
@@ -2311,6 +2643,7 @@ class AppState extends ChangeNotifier {
       playerIds: playerIds,
       team: team,
       points: points,
+      characters: characters,
       inputMode: inputMode,
       timeline: List.of(match.timeline),
       rankOrder: rankOrder,
@@ -2342,7 +2675,7 @@ class AppState extends ChangeNotifier {
     _activeTournamentId = pending.tournamentId;
     _activeTournamentMatchId = pending.tournamentMatchId;
     draft = pending.draft;
-    step = 4;
+    step = stepSequence.length;
     _draftHasProgress = true;
     _justSaved = false;
     _liveSessionHoldTimer?.cancel();
@@ -2415,7 +2748,7 @@ class AppState extends ChangeNotifier {
   /// does — and coming back to it resumes broadcasting.
   void handleAppLifecycleChange(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      if (sheetOpen && !isTournamentFlow && step == 4 && _editingMatchId == null) {
+      if (sheetOpen && !isTournamentFlow && currentStepKind == WizardStepKind.scores && _editingMatchId == null) {
         if (_liveSessionId != null) {
           // Still within the grace window (or never actually held) — pick
           // the same session back up rather than starting a new one.
@@ -2436,7 +2769,29 @@ class AppState extends ChangeNotifier {
     // Leaving the app doesn't end the session outright — see
     // _holdLiveSession — so a quick app-switch or a notification check
     // doesn't drop the match from spectators' view.
-    if (sheetOpen && !isTournamentFlow && step == 4) _holdLiveSession();
+    if (sheetOpen && !isTournamentFlow && currentStepKind == WizardStepKind.scores) _holdLiveSession();
+  }
+
+  void setGameGridFilter(GameFilter filter) {
+    gameGridFilter = filter;
+    notifyListeners();
+  }
+
+  void setGameSearch(String query) {
+    gameSearch = query;
+    notifyListeners();
+  }
+
+  void setGameSort(GameSort sort) {
+    gameSort = sort;
+    notifyListeners();
+  }
+
+  /// [games] narrowed by [gameSearch] and [gameGridFilter], then ordered by
+  /// [gameSort] using how much each game has been played in the current view.
+  List<Game> get filteredGames {
+    final found = gameGridFilter.apply(games.where((g) => gameMatchesQuery(g, gameSearch)));
+    return sortGames(found, gameSort, gameUsage(viewMatches));
   }
 
   void startNewGame() {
@@ -2458,6 +2813,13 @@ class AppState extends ChangeNotifier {
       name: game.name,
       emoji: game.emoji,
       category: game.category,
+      minPlayers: game.minPlayers?.toString() ?? '',
+      maxPlayers: game.maxPlayers?.toString() ?? '',
+      themes: List.of(game.themes),
+      characterEnabled: game.characterChoice != null,
+      characterLabel: game.characterChoice?.label ?? CharacterChoice.defaultLabel,
+      characterFeminine: game.characterChoice?.feminine ?? false,
+      characters: List.of(game.characterChoice?.options ?? const []),
       rules: game.rules.map(GameRuleFormDraft.fromRule).toList(),
     );
     notifyListeners();
@@ -2466,6 +2828,8 @@ class AppState extends ChangeNotifier {
   Future<void> startBrowsingLibrary() async {
     browsingLibrary = true;
     librarySearch = '';
+    libraryFilter = const GameFilter();
+    libraryCategory = null;
     notifyListeners();
     if (gameLibrary.isEmpty) {
       libraryLoading = true;
@@ -2486,11 +2850,26 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  List<Game> get filteredLibrary {
-    final q = librarySearch.trim().toLowerCase();
-    if (q.isEmpty) return gameLibrary;
-    return gameLibrary.where((g) => g.name.toLowerCase().contains(q) || g.category.toLowerCase().contains(q)).toList();
+  void setLibraryFilter(GameFilter filter) {
+    libraryFilter = filter;
+    notifyListeners();
   }
+
+  /// Switches the library to another category (null = all) and clears
+  /// [libraryFilter], whose themes belonged to the previous one.
+  void setLibraryCategory(String? category) {
+    libraryCategory = category;
+    libraryFilter = const GameFilter();
+    notifyListeners();
+  }
+
+  /// The library restricted to [libraryCategory] — what the filter bar
+  /// draws its themes from.
+  List<Game> get libraryInCategory => libraryCategory == null ? gameLibrary : gameLibrary.where((g) => g.category == libraryCategory).toList();
+
+  /// [libraryInCategory] narrowed by the search box (name, category or theme)
+  /// and by [libraryFilter] (players/themes).
+  List<Game> get filteredLibrary => libraryFilter.apply(libraryInCategory.where((g) => gameMatchesQuery(g, librarySearch)));
 
   /// Imports a library game into the current group's own catalog and
   /// selects it as the match being created — one tap from "browse" straight
@@ -2529,6 +2908,7 @@ class AppState extends ChangeNotifier {
   Future<void> startBrowsingOtherGroups() async {
     browsingOtherGroups = true;
     otherGroupsSearch = '';
+    otherGroupsFilter = const GameFilter();
     otherGroupsLoading = true;
     otherGroupsGames = [];
     notifyListeners();
@@ -2554,10 +2934,18 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setOtherGroupsFilter(GameFilter filter) {
+    otherGroupsFilter = filter;
+    notifyListeners();
+  }
+
+  /// Other groups' games narrowed by the search box (game name, group name or
+  /// theme) and by [otherGroupsFilter] (players/themes).
   List<OtherGroupGame> get filteredOtherGroupsGames {
-    final q = otherGroupsSearch.trim().toLowerCase();
-    if (q.isEmpty) return otherGroupsGames;
-    return otherGroupsGames.where((og) => og.game.name.toLowerCase().contains(q) || og.groupName.toLowerCase().contains(q)).toList();
+    final q = foldText(otherGroupsSearch.trim());
+    return otherGroupsGames
+        .where((og) => otherGroupsFilter.matches(og.game) && (q.isEmpty || foldText(og.groupName).contains(q) || gameMatchesQuery(og.game, otherGroupsSearch)))
+        .toList();
   }
 
   /// Copies a game found in another group into the current group's own
@@ -2636,6 +3024,10 @@ class AppState extends ChangeNotifier {
           emoji: gameForm.emoji,
           category: gameForm.category,
           rules: rules,
+          minPlayers: gameForm.parsedMinPlayers,
+          maxPlayers: gameForm.parsedMaxPlayers,
+          themes: gameForm.cleanThemes,
+          characterChoice: gameForm.cleanCharacterChoice,
           // Carried over from the existing doc, not re-derived from
           // whichever Salon happens to be active right now — editing a
           // game must not silently move it to another Salon's catalog or
@@ -2652,6 +3044,10 @@ class AppState extends ChangeNotifier {
           emoji: gameForm.emoji,
           category: gameForm.category,
           rules: rules,
+          minPlayers: gameForm.parsedMinPlayers,
+          maxPlayers: gameForm.parsedMaxPlayers,
+          themes: gameForm.cleanThemes,
+          characterChoice: gameForm.cleanCharacterChoice,
           salonId: activeContext == ActiveContextKind.salon ? currentSalonId : null,
         );
       }
@@ -2707,6 +3103,7 @@ class AppState extends ChangeNotifier {
 
   void pickGame(String id) {
     final g = gameById(id);
+    if (draft.gameId != id) draft.characters.clear(); // another game's roster
     draft.gameId = id;
     draft.ruleId = null;
     // A game with several rules defers _applyRule until pickRule answers
@@ -2886,6 +3283,7 @@ class AppState extends ChangeNotifier {
       draft.playerIds.remove(uid);
       draft.rankOrder.remove(uid);
       draft.scoreBreakdown.remove(uid);
+      draft.characters.remove(uid);
     } else {
       draft.playerIds.add(uid);
       draft.team.putIfAbsent(uid, () => 'A');
@@ -2949,6 +3347,18 @@ class AppState extends ChangeNotifier {
     if (i == -1 || i >= draft.rankOrder.length - 1) return;
     draft.rankOrder.removeAt(i);
     draft.rankOrder.insert(i + 1, uid);
+    _pushLiveUpdate();
+    notifyListeners();
+  }
+
+  /// Which of the game's [Game.characters] `uid` plays this match — null
+  /// clears it (characters are always optional).
+  void setPlayerCharacter(String uid, String? character) {
+    if (character == null) {
+      draft.characters.remove(uid);
+    } else {
+      draft.characters[uid] = character;
+    }
     _pushLiveUpdate();
     notifyListeners();
   }
@@ -3442,7 +3852,7 @@ class AppState extends ChangeNotifier {
     isOnline = nowOnline;
     notifyListeners();
     if (isOnline) {
-      if (sheetOpen && !isTournamentFlow && step == 4 && _editingMatchId == null && _liveSessionId == null) {
+      if (sheetOpen && !isTournamentFlow && currentStepKind == WizardStepKind.scores && _editingMatchId == null && _liveSessionId == null) {
         unawaited(_startLiveSessionIfNeeded());
       }
     } else if (_liveSessionId != null) {
@@ -3538,6 +3948,12 @@ class AppState extends ChangeNotifier {
   /// reused here so the live session mid-game reflects the exact same
   /// scores the saved match will end up with.
   List<MatchEntry> _currentDraftEntries() {
+    final entries = _currentDraftScoreEntries();
+    if (draft.characters.isEmpty) return entries;
+    return [for (final e in entries) e.withCharacter(draft.characters[e.playerId])];
+  }
+
+  List<MatchEntry> _currentDraftScoreEntries() {
     final rule = draftRule;
     if (rule?.isRanks == true && draft.inputMode == 'rounds') {
       return [for (final id in draft.playerIds) MatchEntry(playerId: id, points: draft.points[id] ?? 0)];

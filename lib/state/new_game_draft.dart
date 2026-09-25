@@ -1,4 +1,5 @@
 import '../models/game.dart';
+import '../models/game_themes.dart';
 import '../models/match.dart';
 import '../models/tournament.dart';
 
@@ -19,6 +20,7 @@ class NewGameDraft {
   Map<String, String> team; // uid -> 'A'..'D'
   Map<String, int> points; // uid -> current score
   Map<String, Map<String, int>> scoreBreakdown; // uid -> fieldId -> score
+  Map<String, String> characters; // uid -> picked Game.characters entry
   String inputMode; // 'quick' | 'rounds'
   List<TimelinePoint> timeline;
   List<String> rankOrder; // CountType.ranks games: best-to-worst finishing order
@@ -82,6 +84,7 @@ class NewGameDraft {
     Map<String, String>? team,
     Map<String, int>? points,
     Map<String, Map<String, int>>? scoreBreakdown,
+    Map<String, String>? characters,
     this.inputMode = 'quick',
     List<TimelinePoint>? timeline,
     List<String>? rankOrder,
@@ -100,6 +103,7 @@ class NewGameDraft {
         team = team ?? {},
         points = points ?? {},
         scoreBreakdown = scoreBreakdown ?? {},
+        characters = characters ?? {},
         timeline = timeline ?? [],
         rankOrder = rankOrder ?? [],
         teamPoints = teamPoints ?? {};
@@ -119,6 +123,7 @@ class NewGameDraft {
         'team': team,
         'points': points,
         'scoreBreakdown': scoreBreakdown,
+        'characters': characters,
         'inputMode': inputMode,
         'timeline': timeline.map((t) => t.toJson()).toList(),
         'rankOrder': rankOrder,
@@ -146,6 +151,7 @@ class NewGameDraft {
             (v as Map).map((fieldId, value) => MapEntry(fieldId as String, (value as num).toInt())),
           ),
         ),
+        characters: (m['characters'] as Map?)?.map((k, v) => MapEntry(k as String, v as String)),
         inputMode: m['inputMode'] as String? ?? 'quick',
         timeline: (m['timeline'] as List?)?.map((e) => TimelinePoint.fromJson(Map<String, dynamic>.from(e as Map))).toList(),
         rankOrder: (m['rankOrder'] as List?)?.map((e) => e as String).toList(),
@@ -280,6 +286,23 @@ class GameFormDraft {
   String emoji;
   String category;
 
+  /// Free-text bounds on the number of players, both optional — parsed on
+  /// submit (see [parsedMinPlayers]/[parsedMaxPlayers]).
+  String minPlayers;
+  String maxPlayers;
+
+  /// Picked theme tag ids (see [themesForCategory]) — cleared whenever the
+  /// category changes, since each category has its own list.
+  List<String> themes;
+
+  /// The "Choix par joueur" switch and its settings (see
+  /// [Game.characterChoice]/[cleanCharacterChoice]). The list is kept while
+  /// the switch is off, so toggling it back doesn't lose what was typed.
+  bool characterEnabled;
+  String characterLabel;
+  bool characterFeminine;
+  List<String> characters;
+
   /// One form block per [GameRule] the game will have — always at least
   /// one. See `CreateGameForm`'s repeatable rule cards.
   List<GameRuleFormDraft> rules;
@@ -288,12 +311,53 @@ class GameFormDraft {
     this.name = '',
     this.emoji = '🎲',
     this.category = 'Société',
+    this.minPlayers = '',
+    this.maxPlayers = '',
+    List<String>? themes,
+    this.characterEnabled = false,
+    this.characterLabel = CharacterChoice.defaultLabel,
+    this.characterFeminine = false,
+    List<String>? characters,
     List<GameRuleFormDraft>? rules,
-  }) : rules = rules ?? [GameRuleFormDraft()];
+  })  : themes = themes ?? [],
+        characters = characters ?? [],
+        rules = rules ?? [GameRuleFormDraft()];
 
   factory GameFormDraft.initial() => GameFormDraft();
 
   // Leaving every place name blank for CountType.ranks is valid — it's a
   // plain "classement" with no named roles, scored purely by rank.
-  bool get isValid => name.trim().isNotEmpty && rules.every((r) => r.isValid);
+  int? get parsedMinPlayers => int.tryParse(minPlayers.trim());
+  int? get parsedMaxPlayers => int.tryParse(maxPlayers.trim());
+
+  /// Both bounds are optional, but a filled one must be a number of at least
+  /// 2 (the app has no solo matches), and the minimum can't exceed the maximum.
+  bool get playersValid {
+    final lo = parsedMinPlayers, hi = parsedMaxPlayers;
+    if (minPlayers.trim().isNotEmpty && (lo == null || lo < 2)) return false;
+    if (maxPlayers.trim().isNotEmpty && (hi == null || hi < 2)) return false;
+    return lo == null || hi == null || lo <= hi;
+  }
+
+  /// [themes] restricted to what [category] actually offers.
+  List<String> get cleanThemes {
+    final allowed = themesForCategory(category).map((t) => t.id).toSet();
+    return themes.where(allowed.contains).toList();
+  }
+
+  List<String> get cleanCharacters => {for (final c in characters) if (c.trim().isNotEmpty) c.trim()}.toList();
+
+  /// What gets saved as [Game.characterChoice] — null while the switch is off.
+  CharacterChoice? get cleanCharacterChoice => characterEnabled
+      ? CharacterChoice(
+          label: characterLabel.trim().isEmpty ? CharacterChoice.defaultLabel : characterLabel.trim(),
+          feminine: characterFeminine,
+          options: cleanCharacters,
+        )
+      : null;
+
+  /// A switched-on choice needs at least one option to pick from.
+  bool get charactersValid => !characterEnabled || cleanCharacters.isNotEmpty;
+
+  bool get isValid => name.trim().isNotEmpty && playersValid && charactersValid && rules.every((r) => r.isValid);
 }

@@ -97,9 +97,12 @@ exports.onMatchSessionCreated = onDocumentCreated("{root}/{rootId}/matchSessions
 
 // Fires when a match is recorded (not when it's later updated/resumed — an
 // onCreate trigger only fires once per doc). Pushes "X a gagné la partie de
-// Y !" to the rest of the root community (see membershipRef).
+// Y !" to the rest of the root community (see membershipRef), and — best
+// effort — drops an auto-generated highlight into the discussion thread if
+// this match made someone's win streak or the group's leaderboard notable
+// (see postMatchHighlights).
 exports.onMatchCreated = onDocumentCreated("{root}/{rootId}/matches/{matchId}", async (event) => {
-  const { root, rootId } = event.params;
+  const { root, rootId, matchId } = event.params;
   if (root !== "groups" && root !== "servers") return;
   const match = event.data?.data();
   if (!match) return;
@@ -116,18 +119,179 @@ exports.onMatchCreated = onDocumentCreated("{root}/{rootId}/matches/{matchId}", 
   const winnerUids = [...new Set(winnerIds)];
 
   const winnerSnaps = await Promise.all(winnerUids.map((uid) => db.collection("users").doc(uid).get()));
-  const winnerNames = winnerSnaps.filter((s) => s.exists).map((s) => s.data().displayName || "Joueur");
+  const winnerNames = new Map(winnerSnaps.filter((s) => s.exists).map((s) => [s.id, s.data().displayName || "Joueur"]));
 
-  const body = winnerNames.length > 0
-    ? `${winnerNames.join(", ")} ${winnerNames.length > 1 ? "ont" : "a"} gagné la partie de ${gameName} !`
+  const body = winnerNames.size > 0
+    ? `${[...winnerNames.values()].join(", ")} ${winnerNames.size > 1 ? "ont" : "a"} gagné la partie de ${gameName} !`
     : `La partie de ${gameName} est terminée.`;
 
   const memberIds = memberSnap.data().memberIds || [];
   const tokens = await tokensFor(memberIds, match.createdByUid);
-  if (tokens.length === 0) return;
+  if (tokens.length > 0) {
+    await sendToTokens(tokens, { title: "Partie terminée", body });
+    logger.info(`match-finished push sent for ${gameName} in ${root}/${rootId} to ${tokens.length} device(s)`);
+  }
 
-  await sendToTokens(tokens, { title: "Partie terminée", body });
-  logger.info(`match-finished push sent for ${gameName} in ${root}/${rootId} to ${tokens.length} device(s)`);
+  try {
+    await postMatchHighlights({ root, rootId, matchId, match, gameName, winnerUids, winnerNames });
+  } catch (e) {
+    // Best-effort, same reasoning as AppState's own flowError catches on the
+    // Dart side — a highlight is a nice-to-have, never worth losing the
+    // already-saved match or the push notification above over.
+    logger.warn(`postMatchHighlights failed for ${root}/${rootId}/matches/${matchId}: ${e}`);
+  }
+});
+
+/**
+ * Mirrors GameMatch.winnerIds() — used to tell a sole leaderboard leader
+ * from a tie. Same reasoning as computeWinnerIds(): keep in sync with the
+ * Dart side (lib/state/player_row.dart's computeRows).
+ */
+function computeWinsMap(matchDocs) {
+  const wins = {};
+  for (const m of matchDocs) {
+    for (const uid of computeWinnerIds(m)) wins[uid] = (wins[uid] || 0) + 1;
+  }
+  return wins;
+}
+
+/** The single player with strictly more wins than everyone else, or null (no matches yet, or a tie for first). */
+function soleLeader(wins) {
+  const entries = Object.entries(wins).sort((a, b) => b[1] - a[1]);
+  if (entries.length === 0 || entries[0][1] <= 0) return null;
+  if (entries.length > 1 && entries[1][1] === entries[0][1]) return null;
+  return entries[0][0];
+}
+
+/**
+ * Best-effort highlights for the discussion thread (see
+ * lib/screens/chat/group_chat_screen.dart) — posted as `system: true`
+ * messages, attributed to authorId `'system'` (a value no real Firebase Auth
+ * uid can ever be, and the one firestore.rules' `messages` create rule
+ * rejects from any client — see isPollVote()'s doc comment there for the
+ * update-side equivalent). Two kinds, both scoped to keep costs bounded as a
+ * group's history grows:
+ *   - a win streak (>= 3 in a row) at this specific game, from the last 25
+ *     matches of that game only;
+ *   - the root's (or, in a Server, the salon's) overall leaderboard gaining
+ *     a new sole leader — a full read of that scope's matches, but skipped
+ *     entirely once there are fewer than 3 (too early to mean anything) so a
+ *     brand new group's first couple of matches don't pay for it.
+ */
+async function postMatchHighlights({ root, rootId, matchId, match, gameName, winnerUids, winnerNames }) {
+  if (winnerUids.length === 0) return;
+  const highlights = [];
+  const matchesCol = db.collection(root).doc(rootId).collection("matches");
+
+  // Win streak at this game.
+  let gameHistoryQuery = matchesCol.where("gameId", "==", match.gameId);
+  if (root === "servers") gameHistoryQuery = gameHistoryQuery.where("salonId", "==", match.salonId);
+  const gameHistorySnap = await gameHistoryQuery.orderBy("createdAt", "desc").limit(25).select("entries", "mode", "lowWins").get();
+  const gameHistory = gameHistorySnap.docs.map((d) => d.data());
+
+  const streakByUid = new Map();
+  for (const uid of winnerUids) {
+    let streak = 0;
+    for (const m of gameHistory) {
+      if (!computeWinnerIds(m).includes(uid)) break;
+      streak++;
+    }
+    if (streak >= 3) streakByUid.set(uid, streak);
+  }
+  // Group players who share the same streak length into one highlight (the
+  // common case for a team/coop win, where every winner's streak moves in
+  // lockstep) instead of posting one near-identical line per player.
+  const byStreakLength = new Map();
+  for (const [uid, count] of streakByUid) {
+    if (!byStreakLength.has(count)) byStreakLength.set(count, []);
+    byStreakLength.get(count).push(uid);
+  }
+  for (const [count, uids] of byStreakLength) {
+    const names = uids.map((uid) => winnerNames.get(uid)).filter(Boolean);
+    if (names.length === 0) continue;
+    highlights.push(`${names.join(" et ")} enchaîne${names.length > 1 ? "nt" : ""} ${count} victoires d'affilée à ${gameName} 🔥`);
+  }
+
+  // Overall leaderboard: did this match hand the sole lead to someone new?
+  let scopeQuery = matchesCol;
+  if (root === "servers") scopeQuery = scopeQuery.where("salonId", "==", match.salonId);
+  const scopeSnap = await scopeQuery.select("entries", "mode", "lowWins").get();
+  if (scopeSnap.size >= 3) {
+    const beforeDocs = scopeSnap.docs.filter((d) => d.id !== matchId).map((d) => d.data());
+    const afterDocs = scopeSnap.docs.map((d) => d.data());
+    const beforeLeader = soleLeader(computeWinsMap(beforeDocs));
+    const afterLeader = soleLeader(computeWinsMap(afterDocs));
+    if (afterLeader && afterLeader !== beforeLeader && winnerNames.has(afterLeader)) {
+      highlights.push(`${winnerNames.get(afterLeader)} prend la tête du classement 👑`);
+    }
+  }
+
+  if (highlights.length === 0) return;
+  const messagesCol = db.collection(root).doc(rootId).collection("messages");
+  for (const text of highlights) {
+    const doc = { authorId: "system", system: true, text, createdAt: FieldValue.serverTimestamp() };
+    if (match.salonId) doc.salonId = match.salonId;
+    await messagesCol.add(doc);
+  }
+}
+
+/** The poster's current display name, or a generic fallback (e.g. their account was since deleted). */
+async function authorName(uid) {
+  if (!uid) return "Un membre";
+  const snap = await db.collection("users").doc(uid).get();
+  return (snap.exists && snap.data().displayName) || "Un membre";
+}
+
+// Fires whenever a message (plain text, a poll, or a `system` highlight —
+// see lib/models/message.dart) is posted to a group's/salon's discussion
+// thread. Pushes a WhatsApp-style "Sender: preview" to the rest of the
+// audience (see membershipRef) on its own "podium_chat" Android channel, so
+// it can be muted independently of match/roster pushes. The sender never
+// gets their own push (see tokensFor) — for a `system` highlight there's no
+// real sender to exclude, so it goes to every member, author included.
+// Anyone `@mentioned` (see GroupMessage.mentionedUids) is pulled out of that
+// general audience and pushed a louder, dedicated notification instead (see
+// below) — on its own "podium_mentions" channel, so it still gets through
+// even if they've muted "podium_chat".
+exports.onMessageCreated = onDocumentCreated("{root}/{rootId}/messages/{messageId}", async (event) => {
+  const { root, rootId } = event.params;
+  if (root !== "groups" && root !== "servers") return;
+  const message = event.data?.data();
+  if (!message || !message.text) return;
+  if (root === "servers" && !message.salonId) return;
+
+  const memberSnap = await membershipRef(root, rootId, message).get();
+  if (!memberSnap.exists) return;
+
+  const mentionedUids = Array.isArray(message.mentionedUids) ? message.mentionedUids : [];
+  const author = await authorName(message.authorId);
+
+  let title;
+  let body = message.text;
+  if (message.system) {
+    title = "Podium";
+  } else if (Array.isArray(message.pollGameIds) && message.pollGameIds.length > 0) {
+    title = "Nouveau sondage";
+    body = `${author} : ${message.text}`;
+  } else {
+    title = author;
+  }
+
+  const memberIds = memberSnap.data().memberIds || [];
+  const generalIds = memberIds.filter((uid) => !mentionedUids.includes(uid));
+  const tokens = await tokensFor(generalIds, message.authorId);
+  if (tokens.length > 0) {
+    await sendToTokens(tokens, { title, body }, "podium_chat");
+    logger.info(`chat push sent in ${root}/${rootId} to ${tokens.length} device(s)`);
+  }
+
+  if (mentionedUids.length > 0) {
+    const mentionTokens = await tokensFor(mentionedUids, message.authorId);
+    if (mentionTokens.length > 0) {
+      await sendToTokens(mentionTokens, { title: `${author} vous a mentionné`, body: message.text }, "podium_mentions");
+      logger.info(`mention push sent in ${root}/${rootId} to ${mentionTokens.length} device(s)`);
+    }
+  }
 });
 
 // Fires whenever a group's roster changes — pushes

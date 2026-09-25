@@ -4,6 +4,7 @@ import '../models/app_user.dart';
 import '../models/game.dart';
 import '../models/group.dart';
 import '../models/match.dart';
+import '../models/message.dart';
 import '../models/salon.dart';
 import '../models/scheduled_event.dart';
 import '../models/server.dart';
@@ -13,6 +14,7 @@ import 'events_repository.dart';
 import 'games_repository.dart';
 import 'groups_repository.dart';
 import 'matches_repository.dart';
+import 'messages_repository.dart';
 import 'servers_repository.dart';
 import 'tournaments_repository.dart';
 import 'users_repository.dart';
@@ -411,6 +413,10 @@ class FakeGamesRepository implements GamesRepository {
     required String emoji,
     required String category,
     required List<GameRule> rules,
+    int? minPlayers,
+    int? maxPlayers,
+    List<String> themes = const [],
+    CharacterChoice? characterChoice,
     String? salonId,
   }) async {
     final list = byGroup.putIfAbsent(rootGroupId, () => []);
@@ -420,6 +426,10 @@ class FakeGamesRepository implements GamesRepository {
       emoji: emoji,
       category: category,
       rules: rules,
+      minPlayers: minPlayers,
+      maxPlayers: maxPlayers,
+      themes: themes,
+      characterChoice: characterChoice,
       salonId: salonId,
     );
     list.add(game);
@@ -436,6 +446,11 @@ class FakeGamesRepository implements GamesRepository {
       emoji: source.emoji,
       category: source.category,
       rules: source.rules,
+      ruleSections: source.ruleSections,
+      minPlayers: source.minPlayers,
+      maxPlayers: source.maxPlayers,
+      themes: source.themes,
+      characterChoice: source.characterChoice,
       salonId: salonId,
     );
     list.add(game);
@@ -754,6 +769,134 @@ class FakeTournamentsRepository implements TournamentsRepository {
     if (list == null) return;
     list.removeWhere((t) => t.id == tournamentId);
     _ctrl(rootGroupId).add(list);
+  }
+}
+
+class FakeMessagesRepository implements MessagesRepository {
+  final Map<String, List<GroupMessage>> byRoot;
+
+  // Keyed by "rootId salonId" (empty salonId segment for a Group thread) —
+  // same reasoning as FakeMatchesRepository._filters: a single root can be
+  // watched under more than one salon filter at once.
+  final _controllers = <String, StreamController<List<GroupMessage>>>{};
+  int _counter = 0;
+
+  FakeMessagesRepository({Map<String, List<GroupMessage>>? seed}) : byRoot = seed ?? {};
+
+  String _key(String rootId, String? salonId) => '$rootId ${salonId ?? ''}';
+
+  StreamController<List<GroupMessage>> _ctrl(String key) => _controllers.putIfAbsent(key, () => StreamController.broadcast());
+
+  List<GroupMessage> _filtered(String rootId, String? salonId) {
+    final all = byRoot[rootId] ?? const [];
+    final matching = salonId == null ? all : all.where((m) => m.salonId == salonId).toList();
+    return matching.toList()..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+  }
+
+  void _emitAll(String rootId) {
+    for (final key in _controllers.keys.where((k) => k.startsWith('$rootId '))) {
+      final salonId = key.substring(rootId.length + 1);
+      _ctrl(key).add(_filtered(rootId, salonId.isEmpty ? null : salonId));
+    }
+  }
+
+  @override
+  Stream<List<GroupMessage>> watchMessages(String rootId, {String? salonId}) {
+    final key = _key(rootId, salonId);
+    final c = _ctrl(key);
+    Future.microtask(() => c.add(_filtered(rootId, salonId)));
+    return c.stream;
+  }
+
+  @override
+  Future<GroupMessage> sendMessage(
+    String rootId, {
+    required String authorId,
+    required String text,
+    String? salonId,
+    String? replyToId,
+    String? replyToAuthorId,
+    String? replyToText,
+    List<String> mentionedUids = const [],
+  }) async {
+    final list = byRoot.putIfAbsent(rootId, () => []);
+    final msg = GroupMessage(
+      id: 'msg${++_counter}',
+      authorId: authorId,
+      text: text,
+      createdAt: DateTime.now(),
+      salonId: salonId,
+      replyToId: replyToId,
+      replyToAuthorId: replyToAuthorId,
+      replyToText: replyToText,
+      mentionedUids: mentionedUids,
+    );
+    list.add(msg);
+    _emitAll(rootId);
+    return msg;
+  }
+
+  /// Test-only helper: mirrors what the `onMatchCreated` Cloud Function
+  /// posts server-side via the Admin SDK (see functions/index.js's
+  /// postMatchHighlights) — no production Dart code path creates a `system`
+  /// message itself, so this isn't part of [MessagesRepository].
+  void debugSeedSystemMessage(String rootId, String text, {String? salonId}) {
+    final list = byRoot.putIfAbsent(rootId, () => []);
+    list.add(GroupMessage(id: 'msg${++_counter}', authorId: 'system', text: text, createdAt: DateTime.now(), salonId: salonId, system: true));
+    _emitAll(rootId);
+  }
+
+  @override
+  Future<GroupMessage> sendPoll(String rootId, {required String authorId, required String text, required List<String> gameIds, String? salonId}) async {
+    final list = byRoot.putIfAbsent(rootId, () => []);
+    final msg = GroupMessage(id: 'msg${++_counter}', authorId: authorId, text: text, createdAt: DateTime.now(), salonId: salonId, pollGameIds: gameIds);
+    list.add(msg);
+    _emitAll(rootId);
+    return msg;
+  }
+
+  @override
+  Future<void> vote(String rootId, String messageId, {required String uid, required String gameId}) async {
+    final list = byRoot[rootId];
+    if (list == null) return;
+    final i = list.indexWhere((m) => m.id == messageId);
+    if (i == -1) return;
+    list[i] = list[i].copyWith(pollVotes: {...list[i].pollVotes, uid: gameId});
+    _emitAll(rootId);
+  }
+
+  @override
+  Future<void> editMessage(String rootId, String messageId, String text) async {
+    final list = byRoot[rootId];
+    if (list == null) return;
+    final i = list.indexWhere((m) => m.id == messageId);
+    if (i == -1) return;
+    list[i] = list[i].copyWith(text: text, edited: true);
+    _emitAll(rootId);
+  }
+
+  @override
+  Future<void> react(String rootId, String messageId, {required String uid, String? emoji}) async {
+    final list = byRoot[rootId];
+    if (list == null) return;
+    final i = list.indexWhere((m) => m.id == messageId);
+    if (i == -1) return;
+    final reactions = {...list[i].reactions};
+    if (emoji == null) {
+      reactions.remove(uid);
+    } else {
+      reactions[uid] = emoji;
+    }
+    list[i] = list[i].copyWith(reactions: reactions);
+    _emitAll(rootId);
+  }
+
+  @override
+  Future<void> deleteMessage(String rootId, String messageId) async {
+    final list = byRoot[rootId];
+    if (list == null) return;
+    list.removeWhere((m) => m.id == messageId);
+    _emitAll(rootId);
   }
 }
 

@@ -1,3 +1,5 @@
+import 'game_themes.dart';
+
 /// How a game's score is counted — mirrors the "Type de comptage" picker
 /// in the new-game creation form.
 enum CountType {
@@ -223,6 +225,39 @@ class GameRule {
       );
 }
 
+/// What each player picks for a match, as configured on a [Game] (see
+/// [Game.characterChoice]): a user-chosen [label] ("Héros", "Merveille",
+/// "Faction"…) with its grammatical gender, so every UI string can read
+/// naturally ("Choisir une merveille"), and the [options] offered.
+class CharacterChoice {
+  static const defaultLabel = 'Personnage';
+
+  final String label;
+  final bool feminine;
+  final List<String> options;
+
+  const CharacterChoice({this.label = defaultLabel, this.feminine = false, this.options = const []});
+
+  String get _lower => label.isEmpty ? label : label[0].toLowerCase() + label.substring(1);
+
+  /// "Choisir une merveille" / "Choisir un héros".
+  String get pickPrompt => 'Choisir ${feminine ? 'une' : 'un'} $_lower';
+
+  /// "Merveille de Léa".
+  String ofPlayer(String name) => '$label de $name';
+
+  /// "Déjà prise par Léa" / "Déjà pris par Léa".
+  String takenBy(String name) => 'Déjà ${feminine ? 'prise' : 'pris'} par $name';
+
+  Map<String, dynamic> toMap() => {'label': label, if (feminine) 'feminine': feminine, 'options': options};
+
+  factory CharacterChoice.fromMap(Map<String, dynamic> m) => CharacterChoice(
+        label: (m['label'] as String?)?.trim().isNotEmpty == true ? (m['label'] as String).trim() : defaultLabel,
+        feminine: (m['feminine'] as bool?) ?? false,
+        options: ((m['options'] as List?) ?? const []).map((e) => e as String).toList(),
+      );
+}
+
 class Game {
   final String id;
   final String name;
@@ -237,6 +272,22 @@ class Game {
   /// least one. Picked via the dedicated wizard step when there's more than
   /// one (see [hasMultipleRules]).
   final List<GameRule> rules;
+
+  /// How many players the game supports (see [playersLabel]) — both bounds
+  /// optional. Only informative: the match wizard warns when the picked
+  /// players fall outside it (see `Step2Players`) but never blocks.
+  final int? minPlayers;
+  final int? maxPlayers;
+
+  /// Ids of the theme tags picked for this game, drawn from its category's
+  /// own list (see [themesForCategory]/[themeTags]) — purely descriptive.
+  final List<String> themes;
+
+  /// Something each player picks for a match — Dice Throne's heroes, 7
+  /// Wonders' wonders, Root's factions… Null for most games (the switch in
+  /// the game form is off); when set, the players step offers a per-player
+  /// picker (see `MatchEntry.character`).
+  final CharacterChoice? characterChoice;
 
   /// Only meaningful for a Server's catalog (see
   /// `FirebaseGamesRepository.rootCollection` — a Group's own catalog never
@@ -254,6 +305,10 @@ class Game {
     required this.category,
     required this.rules,
     this.ruleSections = const [],
+    this.minPlayers,
+    this.maxPlayers,
+    this.themes = const [],
+    this.characterChoice,
     this.salonId,
   });
 
@@ -275,6 +330,9 @@ class Game {
     bool multiRound = false,
     List<GameScoreField>? scoreFields,
     List<GameRuleSection> ruleSections = const [],
+    int? minPlayers,
+    int? maxPlayers,
+    List<String> themes = const [],
   }) =>
       Game(
         id: id,
@@ -282,6 +340,9 @@ class Game {
         emoji: emoji,
         category: category,
         ruleSections: ruleSections,
+        minPlayers: minPlayers,
+        maxPlayers: maxPlayers,
+        themes: themes,
         rules: [
           GameRule(
             id: 'default',
@@ -297,6 +358,31 @@ class Game {
           ),
         ],
       );
+
+  /// "2–4 joueurs", "3 joueurs", "2 joueurs min." or "4 joueurs max." — null
+  /// when no bound is set.
+  String? get playersLabel {
+    final lo = minPlayers, hi = maxPlayers;
+    if (lo != null && hi != null) return lo == hi ? '$lo joueurs' : '$lo–$hi joueurs';
+    if (lo != null) return '$lo joueurs min.';
+    if (hi != null) return '$hi joueurs max.';
+    return null;
+  }
+
+  /// "3–4 joueurs · Stratégie · Gestion" — the players line and the first
+  /// [themeCount] themes, or null when the game has neither.
+  String? summaryLine({int themeCount = 2}) {
+    final bits = [?playersLabel, ...themeTags.take(themeCount).map((t) => t.label)];
+    return bits.isEmpty ? null : bits.join(' · ');
+  }
+
+  bool acceptsPlayerCount(int n) => (minPlayers == null || n >= minPlayers!) && (maxPlayers == null || n <= maxPlayers!);
+
+  /// [themes] resolved against this game's category, in the category list's
+  /// order — an id the category no longer offers is silently dropped.
+  List<GameThemeTag> get themeTags => themesForCategory(category).where((t) => themes.contains(t.id)).toList();
+
+  bool get hasCharacters => characterChoice != null && characterChoice!.options.isNotEmpty;
 
   GameRule get defaultRule => rules.first;
   bool get hasMultipleRules => rules.length > 1;
@@ -315,6 +401,10 @@ class Game {
         category: category,
         ruleSections: ruleSections ?? this.ruleSections,
         rules: rules ?? this.rules,
+        minPlayers: minPlayers,
+        maxPlayers: maxPlayers,
+        themes: themes,
+        characterChoice: characterChoice,
         salonId: salonId,
       );
 
@@ -324,6 +414,10 @@ class Game {
         'category': category,
         'rules': rules.map((r) => r.toMap()).toList(),
         if (ruleSections.isNotEmpty) 'ruleSections': ruleSections.map((s) => s.toMap()).toList(),
+        if (minPlayers != null) 'minPlayers': minPlayers,
+        if (maxPlayers != null) 'maxPlayers': maxPlayers,
+        if (themes.isNotEmpty) 'themes': themes,
+        if (characterChoice != null) 'characterChoice': characterChoice!.toMap(),
         if (salonId != null) 'salonId': salonId,
       };
 
@@ -341,6 +435,10 @@ class Game {
       ruleSections: ((data['ruleSections'] as List?) ?? const [])
           .map((e) => GameRuleSection.fromMap(Map<String, dynamic>.from(e as Map)))
           .toList(),
+      minPlayers: (data['minPlayers'] as num?)?.toInt(),
+      maxPlayers: (data['maxPlayers'] as num?)?.toInt(),
+      themes: ((data['themes'] as List?) ?? const []).map((e) => e as String).toList(),
+      characterChoice: data['characterChoice'] is Map ? CharacterChoice.fromMap(Map<String, dynamic>.from(data['characterChoice'] as Map)) : null,
       salonId: data['salonId'] as String?,
     );
   }

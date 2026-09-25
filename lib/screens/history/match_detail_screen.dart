@@ -304,7 +304,7 @@ class MatchDetailScreen extends StatelessWidget {
               children: [
                 _memberAvatar(e.playerId),
                 const SizedBox(width: 10),
-                Expanded(child: Text(p?.displayName ?? '?', style: bodyFont(size: 14.5, weight: FontWeight.w700, color: AppColors.ink))),
+                Expanded(child: _nameWithCharacter(e, p?.displayName)),
                 if (win)
                   Container(
                     margin: const EdgeInsets.only(right: 8),
@@ -350,9 +350,7 @@ class MatchDetailScreen extends StatelessWidget {
                     children: [
                       _memberAvatar(entry.playerId),
                       const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(appState.playerById(entry.playerId)?.displayName ?? '?', style: bodyFont(size: 14.5, weight: FontWeight.w700, color: AppColors.ink)),
-                      ),
+                      Expanded(child: _nameWithCharacter(entry, appState.playerById(entry.playerId)?.displayName)),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(999)),
@@ -413,7 +411,15 @@ class MatchDetailScreen extends StatelessWidget {
         children: [
           Row(children: [for (final e in match.entries) Padding(padding: const EdgeInsets.only(right: 7), child: _memberAvatar(e.playerId))]),
           const SizedBox(width: 10),
-          Expanded(child: Text('Le groupe', style: bodyFont(size: 14.5, weight: FontWeight.w700, color: AppColors.ink))),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Le groupe', style: bodyFont(size: 14.5, weight: FontWeight.w700, color: AppColors.ink)),
+                ?_charactersLine(match.entries),
+              ],
+            ),
+          ),
           if (isWinLoss)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -471,11 +477,37 @@ class MatchDetailScreen extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Row(children: [for (final e in es) Padding(padding: const EdgeInsets.only(right: 7), child: _memberAvatar(e.playerId))]),
+              if (_charactersLine(es) case final line?) Padding(padding: const EdgeInsets.only(top: 8), child: line),
             ],
           ),
         );
       }).toList(),
     );
+  }
+
+  /// A player's name, with the character they played (see
+  /// [MatchEntry.character]) underneath when one was picked.
+  Widget _nameWithCharacter(MatchEntry e, String? name) {
+    final nameText = Text(name ?? '?', style: bodyFont(size: 14.5, weight: FontWeight.w700, color: AppColors.ink));
+    if (e.character == null) return nameText;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        nameText,
+        Text(e.character!, style: bodyFont(size: 12, weight: FontWeight.w700, color: AppColors.accent)),
+      ],
+    );
+  }
+
+  /// "Alice · Barbare, Bob · Moine" for team/coop cards, which only show
+  /// avatars — null when nobody picked a character.
+  Widget? _charactersLine(List<MatchEntry> entries) {
+    final bits = [
+      for (final e in entries)
+        if (e.character != null) '${appState.playerById(e.playerId)?.displayName ?? '?'} · ${e.character}',
+    ];
+    if (bits.isEmpty) return null;
+    return Text(bits.join(', '), style: bodyFont(size: 12, weight: FontWeight.w700, color: AppColors.accent));
   }
 
   Widget _memberAvatar(String uid) {
