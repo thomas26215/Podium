@@ -63,6 +63,16 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      # Caches the Gradle wrapper, dependencies and build cache between runs
+      # (the release build is most of the job's time).
+      - name: Cache Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Activer le build cache Gradle
+        run: |
+          mkdir -p ~/.gradle
+          echo "org.gradle.caching=true" >> ~/.gradle/gradle.properties
+
       - name: Installer Flutter
         uses: subosito/flutter-action@v2
         with:
