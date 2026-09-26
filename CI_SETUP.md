@@ -45,6 +45,11 @@ pour que la CI en tienne compte : `git tag aab/1 && git push origin aab/1` (avec
 
 Les pushes sur `main` ne construisent pas d’AAB et ne consomment donc aucun numéro de build.
 
+**Notes de mise à jour** : avec l’AAB, la CI prépare un prompt pour Claude qui liste les commits depuis le dernier AAB
+(tag `aab/*`) et demande une note au format de la Play Console (`<fr-FR>…</fr-FR>`, 80 caractères maximum). Il est
+affiché dans le résumé du run (onglet *Actions*) et dans la release GitHub : copie-le dans Claude, puis colle sa
+réponse dans le champ « Notes de version » de la Play Console.
+
 ---
 
 ## 1. Keystore

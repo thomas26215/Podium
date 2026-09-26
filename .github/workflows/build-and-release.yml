@@ -137,10 +137,53 @@ jobs:
             echo "Numéro de build $build > $previous (dernier AAB généré) ✓"
           fi
           echo "build=$build" >> "$GITHUB_OUTPUT"
+          echo "previous=$previous" >> "$GITHUB_OUTPUT"
 
       - name: Build AAB release (Play Store)
         if: steps.aabversion.outputs.build != ''
         run: flutter build appbundle --release
+
+      # A ready-to-paste prompt for Claude that turns the commits since the
+      # last AAB into Play Console release notes. Shown in the run summary
+      # and in the GitHub release.
+      - name: "AAB : prompt des notes de mise à jour"
+        if: steps.aabversion.outputs.build != ''
+        env:
+          PREVIOUS: ${{ steps.aabversion.outputs.previous }}
+        run: |
+          if [ -n "$PREVIOUS" ]; then
+            commits=$(git log "aab/$PREVIOUS..HEAD" --no-merges --pretty=format:'* %s')
+            since="depuis la version précédente publiée sur Google Play"
+          else
+            commits=$(git log -n 30 --no-merges --pretty=format:'* %s')
+            since="récents"
+          fi
+          {
+            echo "Rédige les notes de mise à jour Google Play de Podium, une app Android de suivi de scores et de classements pour les jeux entre amis, à partir de ces commits $since :"
+            echo
+            echo "$commits"
+            echo
+            echo "Consignes :"
+            echo "- En français, pour les utilisateurs de l'app : aucun jargon technique, aucun nom de fichier ni de code."
+            echo "- Mets en avant les nouveautés visibles, puis les corrections ; ignore les changements internes (CI, tests, refactorisation, sécurité côté serveur)."
+            echo "- 80 caractères maximum entre les balises (balises non comprises), espaces compris."
+            echo "- Réponds uniquement avec ce bloc, sans rien avant ni après :"
+            echo
+            echo "<fr-FR>"
+            echo "Nouveautés : … · Corrections : …"
+            echo "</fr-FR>"
+          } > play_notes_prompt.txt
+          {
+            echo "## Notes de mise à jour Google Play"
+            echo
+            echo "Copie ce prompt dans Claude, puis colle sa réponse dans la Play Console :"
+            echo
+            echo '```text'
+            cat play_notes_prompt.txt
+            echo '```'
+          } > play_notes_prompt.md
+          cat play_notes_prompt.md >> "$GITHUB_STEP_SUMMARY"
+          cat play_notes_prompt.txt
 
       - name: Déterminer la version
         id: version
@@ -180,6 +223,11 @@ jobs:
               else
                 git log -n 15 --no-merges --pretty=format:'- %s (%h)'
               fi
+            fi
+            if [ -f play_notes_prompt.md ]; then
+              echo
+              echo
+              cat play_notes_prompt.md
             fi
           } > release_notes.txt
           cat release_notes.txt
