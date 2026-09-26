@@ -22,6 +22,7 @@ import '../new_game/new_game_sheet.dart';
 import '../profile/profile_screen.dart';
 import '../tournaments/tournament_detail_screen.dart';
 import '../tournaments/tournaments_list_screen.dart';
+import '../tournaments/tournaments_offline_notice.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -285,6 +286,9 @@ List<Widget> _tournamentsSection(BuildContext context, AppState app) {
       actionLabel: 'Tout voir',
       onAction: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TournamentsListScreen())),
     ),
+    if (!app.isOnline)
+      const TournamentsOfflineNotice(compact: true)
+    else
     SizedBox(
       height: 128,
       child: ListView.separated(

@@ -102,6 +102,11 @@ class BracketMatch {
   });
 
   bool get isReady => entrantAId != null && entrantBId != null && winnerId == null && !bye;
+
+  /// A bye nobody can ever reach (both slots' feeders were byes themselves —
+  /// see `propagateBracket`): no entrant, no winner, never played. Hidden
+  /// from the bracket view.
+  bool get isVoid => bye && winnerId == null;
   bool get isDone => winnerId != null;
 
   BracketMatch copyWith({
@@ -193,7 +198,12 @@ class Tournament {
   final int groupsCount;
   final int qualifiersPerGroup;
 
-  final String status; // 'active' | 'completed'
+  /// 'pending' (created, entrants can still be rearranged — see
+  /// `AppState.reorderTournamentEntrants` — but no match can be played),
+  /// 'active' (started via `AppState.startTournament`: the seed order is
+  /// locked and results can be recorded) or 'completed'. Tournaments created
+  /// before the pending state existed are stored as 'active'.
+  final String status;
   final String? winnerEntrantId;
   final DateTime createdAt;
   final String? createdByUid;
@@ -217,13 +227,14 @@ class Tournament {
   });
 
   bool get isCompleted => status == 'completed';
+  bool get isPending => status == 'pending';
   bool get isSalonTournament => salonId != null;
 
   TournamentEntrant? entrantById(String? id) => id == null ? null : entrants.where((e) => e.id == id).firstOrNull;
 
   BracketMatch? matchById(String id) => matches.where((m) => m.id == id).firstOrNull;
 
-  Tournament copyWith({List<BracketMatch>? matches, String? status, String? winnerEntrantId}) => Tournament(
+  Tournament copyWith({List<TournamentEntrant>? entrants, List<BracketMatch>? matches, String? status, String? winnerEntrantId}) => Tournament(
         id: id,
         groupId: groupId,
         salonId: salonId,
@@ -231,7 +242,7 @@ class Tournament {
         ruleId: ruleId,
         name: name,
         format: format,
-        entrants: entrants,
+        entrants: entrants ?? this.entrants,
         matches: matches ?? this.matches,
         groupsCount: groupsCount,
         qualifiersPerGroup: qualifiersPerGroup,

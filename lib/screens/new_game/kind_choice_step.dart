@@ -27,8 +27,11 @@ class KindChoiceStep extends StatelessWidget {
         _KindCard(
           emoji: '🏆',
           title: 'Tournoi',
-          sub: 'Un bracket à élimination simple, double, ou en poules — chaque match s\'enregistre comme une partie normale.',
+          sub: app.isOnline
+              ? 'Un bracket à élimination simple, double, ou en poules — chaque match s\'enregistre comme une partie normale.'
+              : AppState.tournamentsOfflineMessage,
           selected: app.draft.creationKind == 'tournament',
+          disabled: !app.isOnline,
           onTap: () => app.setCreationKind('tournament'),
         ),
       ],
@@ -41,14 +44,17 @@ class _KindCard extends StatelessWidget {
   final String title;
   final String sub;
   final bool selected;
+  final bool disabled;
   final VoidCallback onTap;
-  const _KindCard({required this.emoji, required this.title, required this.sub, required this.selected, required this.onTap});
+  const _KindCard({required this.emoji, required this.title, required this.sub, required this.selected, this.disabled = false, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return Pressable(
-      onTap: onTap,
-      child: AnimatedContainer(
+      onTap: disabled ? null : onTap,
+      child: Opacity(
+        opacity: disabled ? 0.55 : 1,
+        child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         width: double.infinity,
         padding: const EdgeInsets.all(16),
@@ -79,6 +85,7 @@ class _KindCard extends StatelessWidget {
             Icon(selected ? Icons.radio_button_checked : Icons.radio_button_unchecked, size: 20, color: selected ? AppColors.accent : AppColors.mut),
           ],
         ),
+      ),
       ),
     );
   }

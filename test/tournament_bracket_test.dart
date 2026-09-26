@@ -262,4 +262,96 @@ void main() {
       expect(standings.first.wins, 2);
     });
   });
+
+  group('uneven fields', () {
+    // Plays every ready match (entrant A always wins, or always B) until
+    // nothing is left to play — the bracket must then be complete, whatever
+    // the entrant count.
+    Tournament playOut(Tournament t, {required bool aWins}) {
+      for (var guard = 0; guard < 200; guard++) {
+        final ready = t.matches.where((m) => m.isReady).firstOrNull;
+        if (ready == null) break;
+        t = advanceResult(t, matchId: ready.id, winnerEntrantId: aWins ? ready.entrantAId! : ready.entrantBId!, gameMatchId: 'gm-${ready.id}');
+      }
+      return t;
+    }
+
+    Tournament wrapN(List<BracketMatch> matches, int n, TournamentFormat format) => Tournament(
+          id: 't1',
+          groupId: 'g1',
+          gameId: 'catan',
+          name: 'Test',
+          format: format,
+          entrants: [for (var i = 0; i < n; i++) TournamentEntrant(id: 'p$i', playerIds: ['p$i'])],
+          matches: matches,
+          createdAt: DateTime(2026, 1, 1),
+        );
+
+    for (var n = 2; n <= 16; n++) {
+      test('single elimination with $n entrants plays out to a champion', () {
+        final ids = [for (var i = 0; i < n; i++) 'p$i'];
+        for (final aWins in [true, false]) {
+          final t = playOut(wrapN(buildSingleElimination(ids), n, TournamentFormat.singleElimination), aWins: aWins);
+          expect(t.isCompleted, true);
+          expect(t.winnerEntrantId, isNotNull);
+        }
+      });
+
+      test('double elimination with $n entrants plays out to a champion', () {
+        final ids = [for (var i = 0; i < n; i++) 'p$i'];
+        for (final aWins in [true, false]) {
+          final t = playOut(wrapN(buildDoubleElimination(ids), n, TournamentFormat.doubleElimination), aWins: aWins);
+          expect(t.isCompleted, true, reason: 'stuck: ${t.matches.where((m) => !m.isDone && !m.isVoid).map((m) => m.id).toList()}');
+          // Nobody is eliminated before losing twice: every entrant but the
+          // champion loses at least once, and the bracket never waits on a
+          // match nobody can reach.
+          expect(t.matches.where((m) => !m.isDone && !m.isVoid), isEmpty);
+        }
+      });
+    }
+
+    test('byes go to even positions first so bye entrants meet round-1 winners', () {
+      // 6 entrants in an 8-bracket: 2 byes, at positions 0 and 2.
+      final pairs = firstRoundPairs(['p0', 'p1', 'p2', 'p3', 'p4', 'p5']);
+      expect(pairs, [
+        ['p0', null],
+        ['p1', 'p2'],
+        ['p3', null],
+        ['p4', 'p5'],
+      ]);
+    });
+
+    test('double elimination with 5 entrants voids the L1 match fed only by byes', () {
+      final matches = buildDoubleElimination(['p0', 'p1', 'p2', 'p3', 'p4']);
+      final l1m0 = _byId(matches, 'L-R1-M0');
+      expect(l1m0.isVoid, true);
+      expect(l1m0.winnerId, null);
+    });
+
+    test('pools are capped so each has at least 2 entrants, with at least 2 qualifiers overall', () {
+      expect(effectiveGroupsCount(3, 2), 1);
+      expect(effectiveGroupsCount(5, 4), 2);
+      expect(effectiveGroupsCount(8, 4), 4);
+      expect(effectiveQualifiersPerGroup(1, 1), 2);
+      expect(effectiveQualifiersPerGroup(2, 1), 1);
+    });
+
+    test('standings list every pool member, even before they have played', () {
+      final t = wrapN(buildGroupStage(['p0', 'p1', 'p2', 'p3', 'p4'], 2), 5, TournamentFormat.groupsThenElimination);
+      final withCount = Tournament(
+        id: t.id,
+        groupId: t.groupId,
+        gameId: t.gameId,
+        name: t.name,
+        format: t.format,
+        entrants: t.entrants,
+        matches: t.matches,
+        groupsCount: 2,
+        qualifiersPerGroup: 1,
+        createdAt: t.createdAt,
+      );
+      final standings = computeGroupStandings(tournament: withCount, groupIndex: 0, playedMatches: const <GameMatch>[]);
+      expect(standings.map((s) => s.entrantId).toSet(), {'p0', 'p2', 'p4'});
+    });
+  });
 }

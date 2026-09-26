@@ -5,6 +5,7 @@ import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
 import '../tournaments/tournament_detail_screen.dart';
+import '../tournaments/tournaments_offline_notice.dart';
 import 'game_library_browser.dart';
 import 'game_form.dart';
 import 'kind_choice_step.dart';
@@ -214,7 +215,9 @@ class NewGameSheet extends StatelessWidget {
                   ],
                 ),
               ),
-              if (!tournamentFlow && app.currentStepKind == WizardStepKind.scores && !app.creatingGame && !app.isOnline)
+              if ((tournamentFlow || app.isEditingTournamentMatch) && !app.creatingGame && !app.isOnline)
+                const Padding(padding: EdgeInsets.fromLTRB(20, 0, 20, 8), child: TournamentsOfflineNotice(compact: true))
+              else if (!tournamentFlow && app.currentStepKind == WizardStepKind.scores && !app.creatingGame && !app.isOnline)
                 Container(
                   margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

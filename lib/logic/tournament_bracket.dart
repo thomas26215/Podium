@@ -3,6 +3,8 @@
 // (see test/tournament_bracket_test.dart). `AppState` is the only caller;
 // it's the seam between this and Firestore persistence.
 
+import 'dart:math';
+
 import '../models/match.dart';
 import '../models/tournament.dart';
 
@@ -23,19 +25,29 @@ int bracketSizeFor(int entrantCount) {
 /// `byes = size - n` is guaranteed `< size / 2` once `n > size / 2`, true by
 /// definition of [bracketSizeFor].
 ///
+/// Bye pairs go on even positions first (0, 2, 4, …), then odd ones only if
+/// there are more byes than round-2 matches — so an entrant who skipped
+/// round 1 faces a round-1 winner in round 2 rather than another bye
+/// entrant whenever the field allows it (6 entrants: `e0` vs winner of
+/// `e1`/`e2`, `e3` vs winner of `e4`/`e5`).
+///
 /// Deliberately simple rather than "seeded" (top seeds kept apart until the
 /// final, seed 1 vs 2 never meeting early, …) — Podium tournaments are
-/// casual friend-group brackets, not competition-grade seeding, and letting
-/// the organizer choose (or shuffle) the entrant order already avoids the
-/// same people always drawing the bye.
+/// casual friend-group brackets, not competition-grade seeding: the
+/// organizer decides who faces whom (or shuffles) on a pending
+/// tournament's screen (see `TournamentSeedingEditor`), which is exactly
+/// this seed order.
 List<List<String?>> firstRoundPairs(List<String> entrantIds) {
   final size = bracketSizeFor(entrantIds.length);
   final byes = size - entrantIds.length;
   final numPairs = size ~/ 2;
+  final byePositions = <int>{
+    ...[for (var p = 0; p < numPairs; p += 2) p, for (var p = 1; p < numPairs; p += 2) p].take(byes),
+  };
   final pairs = <List<String?>>[];
   var idx = 0;
   for (var p = 0; p < numPairs; p++) {
-    if (p < byes) {
+    if (byePositions.contains(p)) {
       pairs.add([entrantIds[idx], null]);
       idx += 1;
     } else {
@@ -51,7 +63,8 @@ List<List<String?>> firstRoundPairs(List<String> entrantIds) {
 /// slot it feeds, then — now that may have left some match with exactly one
 /// slot filled and the other permanently unreachable (its only possible
 /// feeder was a bye, which never produces a loser) — resolves that match as
-/// a bye too, repeating until nothing changes.
+/// a bye too, and voids a match neither of whose slots can ever be filled
+/// (see [BracketMatch.isVoid]), repeating until nothing changes.
 ///
 /// Reused both right after generating a fresh bracket (to resolve immediate
 /// byes, e.g. round 1 byes cascading into a round-2 bye) and by
@@ -88,16 +101,25 @@ List<BracketMatch> propagateBracket(List<BracketMatch> matches) {
       }
     }
     for (final m in byId.values.toList()) {
-      if (m.winnerId != null) continue;
+      if (m.winnerId != null || m.bye) continue;
       final aFilled = m.entrantAId != null;
       final bFilled = m.entrantBId != null;
-      if (aFilled == bFilled) continue; // both empty (still waiting) or both filled (ready to play)
-      final missingSlot = aFilled ? 'B' : 'A';
-      final feedable = byId.values.any((other) =>
+      if (aFilled && bFilled) continue; // ready to play
+      // Whether some match can still send an entrant into `slot` — a void
+      // feeder never produces a winner, and a bye never produces a loser.
+      bool reachable(String slot) => byId.values.any((other) =>
           other.id != m.id &&
-          ((other.nextMatchId == m.id && other.nextSlot == missingSlot) ||
-              (other.loserNextMatchId == m.id && other.loserNextSlot == missingSlot && !other.bye)));
-      if (!feedable) {
+          ((other.nextMatchId == m.id && other.nextSlot == slot && !other.isVoid) ||
+              (other.loserNextMatchId == m.id && other.loserNextSlot == slot && !other.bye)));
+      final aOpen = aFilled || reachable('A');
+      final bOpen = bFilled || reachable('B');
+      if (!aOpen && !bOpen) {
+        // Nobody can ever reach this match — e.g. a double-elimination L1
+        // match fed by two round-1 byes. Voided so whatever it feeds stops
+        // waiting on it (otherwise the bracket could never finish).
+        byId[m.id] = m.copyWith(bye: true);
+        changed = true;
+      } else if (aFilled != bFilled && !(aFilled ? bOpen : aOpen)) {
         byId[m.id] = m.copyWith(winnerId: aFilled ? m.entrantAId : m.entrantBId, bye: true);
         changed = true;
       }
@@ -307,8 +329,30 @@ List<List<List<String>>> _roundRobinRounds(List<String> group) {
   return rounds;
 }
 
-/// Splits [entrantIds] into [groupsCount] pools (as balanced as possible, in
-/// seed order) and generates every pool's round-robin pairing (see
+/// How many pools a groups-then-elimination tournament of [entrantCount]
+/// entrants actually gets: [requested], lowered so every pool has at least 2
+/// entrants (a pool of 1 has no match to play, and its lone entrant would
+/// never show up in any standings).
+int effectiveGroupsCount(int entrantCount, int requested) => max(1, min(requested, entrantCount ~/ 2));
+
+/// How many entrants qualify from each pool: [requested], raised to 2 when
+/// there's a single pool — the elimination stage needs at least 2 players.
+int effectiveQualifiersPerGroup(int groupsCount, int requested) => groupsCount * requested < 2 ? 2 : requested;
+
+/// Deals [entrantIds] (in seed order) into [groupsCount] pools, round-robin
+/// style (`e0` → pool 1, `e1` → pool 2, …) so pool sizes differ by at most
+/// one. Shared by [buildGroupStage] and [computeGroupStandings], and shown
+/// as-is on the sheet's seeding step.
+List<List<String>> splitIntoGroups(List<String> entrantIds, int groupsCount) {
+  final groups = List.generate(groupsCount, (_) => <String>[]);
+  for (var i = 0; i < entrantIds.length; i++) {
+    groups[i % groupsCount].add(entrantIds[i]);
+  }
+  return groups;
+}
+
+/// Splits [entrantIds] into [groupsCount] pools (see [splitIntoGroups]) and
+/// generates every pool's round-robin pairing (see
 /// [_roundRobinRounds]). `bracket: 'group'` matches never carry a
 /// `nextMatchId` — they feed a standings table (see
 /// [computeGroupStandings]), not a direct bracket advance; the elimination
@@ -316,10 +360,7 @@ List<List<List<String>>> _roundRobinRounds(List<String> group) {
 /// [buildEliminationFromStandings]).
 List<BracketMatch> buildGroupStage(List<String> entrantIds, int groupsCount) {
   assert(groupsCount >= 1);
-  final groups = List.generate(groupsCount, (_) => <String>[]);
-  for (var i = 0; i < entrantIds.length; i++) {
-    groups[i % groupsCount].add(entrantIds[i]);
-  }
+  final groups = splitIntoGroups(entrantIds, groupsCount);
   final matches = <BracketMatch>[];
   for (var g = 0; g < groups.length; g++) {
     final rounds = _roundRobinRounds(groups[g]);
@@ -340,6 +381,17 @@ List<BracketMatch> buildGroupStage(List<String> entrantIds, int groupsCount) {
   }
   return matches;
 }
+
+/// The bracket a tournament starts with, for [entrantIds] in seed order:
+/// the full elimination tree, or just the pools for "poules + élimination"
+/// (its playoffs are appended later — see [buildEliminationFromStandings]).
+/// Used at creation, and again every time the entrants are rearranged while
+/// the tournament is still pending (see `AppState.reorderTournamentEntrants`).
+List<BracketMatch> buildInitialBracket(TournamentFormat format, List<String> entrantIds, {int groupsCount = 1}) => switch (format) {
+      TournamentFormat.singleElimination => buildSingleElimination(entrantIds),
+      TournamentFormat.doubleElimination => buildDoubleElimination(entrantIds),
+      TournamentFormat.groupsThenElimination => buildGroupStage(entrantIds, groupsCount),
+    };
 
 /// Whether every group-stage match has been played — gates
 /// [AppState.generateEliminationStage].
@@ -373,7 +425,13 @@ List<GroupStanding> computeGroupStandings({
   final wins = <String, int>{};
   final pf = <String, int>{};
   final pa = <String, int>{};
-  final participants = <String>{};
+  // Pool membership comes from the deal itself, not from the matches, so an
+  // entrant who hasn't played yet (or a pool too small to have matches, in
+  // a tournament created before pools were capped) still shows up.
+  final participants = <String>{
+    if (groupIndex < tournament.groupsCount)
+      ...splitIntoGroups(tournament.entrants.map((e) => e.id).toList(), tournament.groupsCount)[groupIndex],
+  };
   for (final bm in groupMatches) {
     if (bm.entrantAId != null) participants.add(bm.entrantAId!);
     if (bm.entrantBId != null) participants.add(bm.entrantBId!);

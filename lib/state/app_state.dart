@@ -1776,6 +1776,23 @@ class AppState extends ChangeNotifier {
   /// Rejects a mutating action against the active context if it's closed,
   /// surfacing why via [flowError] — the Salon/Server equivalent of
   /// [_rejectIfGroupClosed], used by the shared catalog/match write paths.
+  /// Shown wherever tournaments are blocked offline (see
+  /// [_rejectTournamentOffline]).
+  static const tournamentsOfflineMessage = 'Impossible de consulter et de modifier les tournois en mode hors ligne.';
+
+  /// Tournaments are online-only for now: a whole bracket lives in one
+  /// document rewritten on every change, so two people editing it offline
+  /// would silently overwrite each other's results once back online — and
+  /// an awaited write would just spin until then anyway. Every tournament
+  /// action checks this first; the screens show [tournamentsOfflineMessage]
+  /// instead of their content.
+  bool _rejectTournamentOffline() {
+    if (isOnline) return false;
+    flowError = tournamentsOfflineMessage;
+    notifyListeners();
+    return true;
+  }
+
   bool _rejectIfActiveContextClosed() {
     if (!activeContextClosed) return false;
     flowError = activeContext == ActiveContextKind.salon
@@ -2733,7 +2750,7 @@ class AppState extends ChangeNotifier {
       // actually looking at — end it. Advancing back to it starts a fresh
       // one via primaryAction/_startLiveSessionIfNeeded. Only the "partie
       // simple" flow ever reaches a scores step — a tournament's last step
-      // is "qui joue ?", not scores (see isTournamentFlow).
+      // is "qui participe ?", not scores (see isTournamentFlow).
       if (currentStepKind == WizardStepKind.scores) _endLiveSession();
       step -= 1;
     } else {
@@ -3199,6 +3216,7 @@ class AppState extends ChangeNotifier {
   /// Answers the sheet's very first step: "Partie simple" or "Tournoi" —
   /// see [isTournamentFlow].
   void setCreationKind(String kind) {
+    if (kind == 'tournament' && !isOnline) return;
     draft.creationKind = kind;
     notifyListeners();
   }
@@ -3217,6 +3235,17 @@ class AppState extends ChangeNotifier {
     draft.tournamentQualifiersPerGroup = n;
     notifyListeners();
   }
+
+  /// The tournament's entrants as picked on the players step — one player
+  /// each, or one team each in team mode (empty teams dropped). Who faces
+  /// whom is arranged afterwards on the tournament's own screen, before it's
+  /// started (see [reorderTournamentEntrants]).
+  List<List<String>> get _draftTournamentEntrants => draft.mode == 'team'
+      ? [
+          for (var i = 0; i < draft.teamCount; i++)
+            draft.playerIds.where((id) => (draft.team[id] ?? 'A') == String.fromCharCode(65 + i)).toList(),
+        ].where((team) => team.isNotEmpty).toList()
+      : [for (final id in draft.playerIds) [id]];
 
   void setMode(String mode) {
     draft.mode = mode;
@@ -3676,13 +3705,13 @@ class AppState extends ChangeNotifier {
     if (creatingGame) return gameForm.isValid;
     switch (currentStepKind) {
       case WizardStepKind.kind:
-        return draft.creationKind != null;
+        return draft.creationKind != null && !(isTournamentFlow && !isOnline);
       case WizardStepKind.game:
         return draft.gameId != null;
       case WizardStepKind.rule:
         return draft.ruleId != null;
       case WizardStepKind.players:
-        return draft.playerIds.length >= 2 && draftTeamsValid;
+        return draft.playerIds.length >= 2 && draftTeamsValid && !(isTournamentFlow && !isOnline);
       case WizardStepKind.scores:
         final rule = draftRule;
         // Both a CountType.winLoss rule and the generic "Manches gagnées"
@@ -3707,7 +3736,7 @@ class AppState extends ChangeNotifier {
         }
         return true;
       case WizardStepKind.tournamentFormat:
-        return true;
+        return isOnline;
     }
   }
 
@@ -3739,18 +3768,12 @@ class AppState extends ChangeNotifier {
   /// the sheet was opened from.
   Future<void> _finishTournamentCreation() async {
     if (draft.gameId == null || draft.playerIds.length < 2) return;
-    final entrantPlayerIds = draft.mode == 'team'
-        ? [
-            for (var i = 0; i < draft.teamCount; i++)
-              draft.playerIds.where((id) => (draft.team[id] ?? 'A') == String.fromCharCode(65 + i)).toList(),
-          ].where((team) => team.isNotEmpty).toList()
-        : [for (final id in draft.playerIds) [id]];
     final saved = await createTournament(
       name: '',
       gameId: draft.gameId!,
       ruleId: draft.ruleId,
       format: draft.tournamentFormat,
-      entrantPlayerIds: entrantPlayerIds,
+      entrantPlayerIds: _draftTournamentEntrants,
       groupsCount: draft.tournamentGroupsCount,
       qualifiersPerGroup: draft.tournamentQualifiersPerGroup,
     );
@@ -4285,6 +4308,7 @@ class AppState extends ChangeNotifier {
   Future<bool> deleteTournament(Tournament tournament) async {
     final root = _activeRootId;
     if (root == null || !canDeleteTournament(tournament)) return false;
+    if (_rejectTournamentOffline()) return false;
     busy = true;
     flowError = null;
     notifyListeners();
@@ -4325,15 +4349,13 @@ class AppState extends ChangeNotifier {
     final groupId = inSalon ? null : currentGroupId;
     final salonId = inSalon ? currentSalonId : null;
     if (root == null || (inSalon ? salonId == null : groupId == null) || entrantPlayerIds.length < 2) return null;
-    if (_rejectIfActiveContextClosed()) return null;
+    if (_rejectIfActiveContextClosed() || _rejectTournamentOffline()) return null;
     final entrants = [for (final (i, ids) in entrantPlayerIds.indexed) TournamentEntrant(id: 'e$i', playerIds: ids)];
     final entrantIds = entrants.map((e) => e.id).toList();
     final isGroups = format == TournamentFormat.groupsThenElimination;
-    final matches = switch (format) {
-      TournamentFormat.singleElimination => buildSingleElimination(entrantIds),
-      TournamentFormat.doubleElimination => buildDoubleElimination(entrantIds),
-      TournamentFormat.groupsThenElimination => buildGroupStage(entrantIds, groupsCount),
-    };
+    groupsCount = effectiveGroupsCount(entrantIds.length, groupsCount);
+    qualifiersPerGroup = effectiveQualifiersPerGroup(groupsCount, qualifiersPerGroup);
+    final matches = buildInitialBracket(format, entrantIds, groupsCount: groupsCount);
     final tournament = Tournament(
       id: '',
       groupId: groupId ?? '',
@@ -4346,6 +4368,9 @@ class AppState extends ChangeNotifier {
       matches: matches,
       groupsCount: isGroups ? groupsCount : 0,
       qualifiersPerGroup: isGroups ? qualifiersPerGroup : 0,
+      // Rearranged on the tournament's screen, then started from there (see
+      // reorderTournamentEntrants/startTournament).
+      status: 'pending',
       createdAt: DateTime.now(),
       createdByUid: currentUser?.uid,
     );
@@ -4375,6 +4400,7 @@ class AppState extends ChangeNotifier {
   /// have nothing left to decide). See [saveGame]/[_recordTournamentResult]
   /// for how the result flows back onto the bracket once saved.
   void startTournamentMatch(Tournament tournament, BracketMatch match) {
+    if (tournament.isPending || _rejectTournamentOffline()) return;
     final entrantA = tournament.entrantById(match.entrantAId);
     final entrantB = tournament.entrantById(match.entrantBId);
     if (entrantA == null || entrantB == null) return;
@@ -4456,6 +4482,57 @@ class AppState extends ChangeNotifier {
         : 'un tour déjà joué avec l\'ancien résultat n\'a pas pu être corrigé automatiquement — vérifiez le bracket';
   }
 
+  /// Rearranges a still-pending tournament's entrants into [order] (the same
+  /// entrants, in a new seed order) and rebuilds its bracket from it — the
+  /// "who faces whom" editor on `TournamentDetailScreen`. Applied locally
+  /// first so taps feel instant; the Firestore stream then confirms it.
+  Future<void> reorderTournamentEntrants(Tournament tournament, List<TournamentEntrant> order) async {
+    final root = _activeRootId;
+    if (root == null || !tournament.isPending || order.length != tournament.entrants.length) return;
+    if (_rejectTournamentOffline()) return;
+    final updated = tournament.copyWith(
+      entrants: order,
+      matches: buildInitialBracket(tournament.format, order.map((e) => e.id).toList(), groupsCount: tournament.groupsCount),
+    );
+    _replaceTournamentLocally(updated);
+    try {
+      await _activeTournamentsRepo.updateTournament(root, updated);
+    } catch (e) {
+      flowError = e.toString();
+      notifyListeners();
+    }
+  }
+
+  /// Locks a pending tournament's seed order and opens its matches for
+  /// scoring — nothing can be recorded before this (see
+  /// [startTournamentMatch]), and nothing can be rearranged after.
+  Future<bool> startTournament(Tournament tournament) async {
+    final root = _activeRootId;
+    if (root == null || !tournament.isPending) return false;
+    if (_rejectTournamentOffline()) return false;
+    final updated = tournament.copyWith(status: 'active');
+    busy = true;
+    flowError = null;
+    notifyListeners();
+    var ok = false;
+    try {
+      await _activeTournamentsRepo.updateTournament(root, updated);
+      _replaceTournamentLocally(updated);
+      ok = true;
+    } catch (e) {
+      flowError = e.toString();
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+    return ok;
+  }
+
+  void _replaceTournamentLocally(Tournament updated) {
+    tournaments = [for (final t in tournaments) t.id == updated.id ? updated : t];
+    notifyListeners();
+  }
+
   /// For a [TournamentFormat.groupsThenElimination] tournament whose group
   /// stage is done (see [groupStageComplete]): ranks each group (see
   /// [computeGroupStandings]), takes [Tournament.qualifiersPerGroup] from
@@ -4463,6 +4540,7 @@ class AppState extends ChangeNotifier {
   Future<void> generateEliminationStage(Tournament tournament) async {
     final root = _activeRootId;
     if (root == null || !groupStageComplete(tournament)) return;
+    if (_rejectTournamentOffline()) return;
     final qualifiers = [
       for (var g = 0; g < tournament.groupsCount; g++)
         computeGroupStandings(tournament: tournament, groupIndex: g, playedMatches: matches)

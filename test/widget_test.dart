@@ -697,6 +697,34 @@ void main() {
     expect(find.text('Élimination simple'), findsWidgets);
     expect(find.textContaining('Catan'), findsWidgets);
 
+    // Created pending: participants can be rearranged, nothing can be
+    // scored until it's started.
+    expect(find.text('En préparation'), findsOneWidget);
+    expect(find.text('Mélanger'), findsOneWidget);
+    expect(find.text('Winners'), findsNothing);
+    await tester.tap(find.text('Commencer le tournoi'));
+    await tester.pumpAndSettle();
+    expect(find.text('En cours'), findsOneWidget);
+    expect(find.text('Mélanger'), findsNothing);
+    expect(find.text('Commencer le tournoi'), findsNothing);
+
+    // Tournaments are online-only: going offline hides the bracket behind
+    // a notice, and every tournament action refuses to run.
+    final started = seeded.state.tournaments.single;
+    seeded.state.isOnline = false;
+    // ignore: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
+    seeded.state.notifyListeners();
+    await tester.pumpAndSettle();
+    expect(find.text(AppState.tournamentsOfflineMessage), findsOneWidget);
+    expect(find.text('Élimination simple'), findsNothing);
+    seeded.state.startTournamentMatch(started, started.matches.first);
+    expect(seeded.state.isEditingTournamentMatch, isFalse);
+    seeded.state.isOnline = true;
+    // ignore: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
+    seeded.state.notifyListeners();
+    await tester.pumpAndSettle();
+    expect(find.text('Élimination simple'), findsWidgets);
+
     // Flush AppState.showToast's auto-dismiss timer so it doesn't outlive
     // the test (the binding asserts no pending timers at teardown).
     await tester.pump(const Duration(milliseconds: 2700));
@@ -1687,8 +1715,17 @@ void main() {
     expect(tournament.groupId, isEmpty);
     expect(state.tournaments, contains(predicate<Tournament>((t) => t.id == tournament.id)), reason: 'the salon subscription picks it up');
 
-    final bracketMatch = tournament.matches.single;
-    state.startTournamentMatch(tournament, bracketMatch);
+    // A pending tournament refuses scoring until it's started.
+    expect(tournament.isPending, isTrue);
+    state.startTournamentMatch(tournament, tournament.matches.single);
+    expect(state.isEditingTournamentMatch, isFalse);
+    expect(await state.startTournament(tournament), isTrue);
+    await tester.pumpAndSettle();
+    final started = state.tournaments.firstWhere((t) => t.id == tournament.id);
+    expect(started.isPending, isFalse);
+
+    final bracketMatch = started.matches.single;
+    state.startTournamentMatch(started, bracketMatch);
     state.draft.points['lea'] = 10;
     state.draft.points['tom'] = 5;
     await state.saveGame();

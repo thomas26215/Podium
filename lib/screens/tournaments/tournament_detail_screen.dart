@@ -8,6 +8,8 @@ import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
 import '../new_game/new_game_sheet.dart';
+import 'tournament_seeding_editor.dart';
+import 'tournaments_offline_notice.dart';
 
 /// The visible bracket: round columns connected with "H" connectors for the
 /// winners bracket (and the whole tree, for single elimination), a plainer
@@ -55,6 +57,14 @@ class TournamentDetailScreen extends StatelessWidget {
     final app = context.watch<AppState>();
     final tournament = app.tournaments.where((t) => t.id == tournamentId).firstOrNull;
 
+    if (!app.isOnline) {
+      return Scaffold(
+        backgroundColor: AppColors.bg,
+        appBar: AppBar(backgroundColor: AppColors.bg, elevation: 0, foregroundColor: AppColors.ink),
+        body: const TournamentsOfflineNotice(),
+      );
+    }
+
     if (tournament == null) {
       return Scaffold(
         backgroundColor: AppColors.bg,
@@ -65,7 +75,7 @@ class TournamentDetailScreen extends StatelessWidget {
 
     final game = app.gameById(tournament.gameId);
     final winnersMatches = tournament.matches.where((m) => m.bracket == 'winners').toList();
-    final losersMatches = tournament.matches.where((m) => m.bracket == 'losers').toList();
+    final losersMatches = tournament.matches.where((m) => m.bracket == 'losers' && !m.isVoid).toList();
     final finalMatch = tournament.matches.where((m) => m.bracket == 'final').firstOrNull;
     final groupMatches = tournament.matches.where((m) => m.bracket == 'group').toList();
     final eliminationGenerated = winnersMatches.isNotEmpty;
@@ -123,14 +133,37 @@ class TournamentDetailScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              _StatusBadge(completed: tournament.isCompleted),
+              _StatusBadge(tournament: tournament),
             ],
           ),
           if (tournament.isCompleted) ...[
             const SizedBox(height: 16),
             _ChampionBanner(label: _entrantLabel(app, tournament.entrantById(tournament.winnerEntrantId))),
           ],
-          if (tournament.format == TournamentFormat.groupsThenElimination) ...[
+          if (tournament.isPending) ...[
+            const SizedBox(height: 22),
+            TournamentSeedingEditor(app: app, tournament: tournament, labelFor: (e) => _entrantLabel(app, e)),
+            const SizedBox(height: 8),
+            PrimaryButton(
+              label: 'Commencer le tournoi',
+              loading: app.busy,
+              onPressed: () async {
+                final ok = await app.startTournament(tournament);
+                if (!ok && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(app.flowError ?? 'Impossible de commencer le tournoi — vérifiez votre connexion et réessayez.')),
+                  );
+                }
+              },
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'Une fois commencé, l\'ordre des participants est figé et les scores peuvent être enregistrés.',
+                style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
+              ),
+            ),
+          ] else if (tournament.format == TournamentFormat.groupsThenElimination) ...[
             const SizedBox(height: 22),
             SectionHeader(title: 'Poules'),
             for (var g = 0; g < tournament.groupsCount; g++) ...[
@@ -150,17 +183,17 @@ class TournamentDetailScreen extends StatelessWidget {
                 ),
             ],
           ],
-          if (eliminationGenerated) ...[
+          if (eliminationGenerated && !tournament.isPending) ...[
             const SizedBox(height: 22),
             SectionHeader(title: tournament.format == TournamentFormat.groupsThenElimination ? 'Phases finales' : 'Winners'),
             _BracketTree(app: app, tournament: tournament, matches: winnersMatches, onTap: onTapMatch),
           ],
-          if (losersMatches.isNotEmpty) ...[
+          if (losersMatches.isNotEmpty && !tournament.isPending) ...[
             const SizedBox(height: 22),
             SectionHeader(title: 'Losers'),
             _SimpleBracketColumns(app: app, tournament: tournament, matches: losersMatches, onTap: onTapMatch),
           ],
-          if (finalMatch != null) ...[
+          if (finalMatch != null && !tournament.isPending) ...[
             const SizedBox(height: 22),
             SectionHeader(title: 'Finale'),
             _MatchCard(app: app, tournament: tournament, match: finalMatch, onTap: () => onTapMatch(finalMatch), wide: true),
@@ -172,6 +205,10 @@ class TournamentDetailScreen extends StatelessWidget {
     );
   }
 }
+
+/// "En préparation" / "En cours" / "Terminé" — shared with the tournaments
+/// list.
+String tournamentStatusLabel(Tournament t) => t.isCompleted ? 'Terminé' : (t.isPending ? 'En préparation' : 'En cours');
 
 String _formatLabel(TournamentFormat f) => switch (f) {
       TournamentFormat.singleElimination => 'Élimination simple',
@@ -187,11 +224,12 @@ String _entrantLabel(AppState app, TournamentEntrant? entrant) {
 }
 
 class _StatusBadge extends StatelessWidget {
-  final bool completed;
-  const _StatusBadge({required this.completed});
+  final Tournament tournament;
+  const _StatusBadge({required this.tournament});
 
   @override
   Widget build(BuildContext context) {
+    final completed = tournament.isCompleted;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -200,7 +238,7 @@ class _StatusBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
       ),
       child: Text(
-        completed ? 'Terminé' : 'En cours',
+        tournamentStatusLabel(tournament),
         style: bodyFont(size: 11.5, weight: FontWeight.w800, color: completed ? AppColors.accent : AppColors.mut),
       ),
     );
@@ -472,23 +510,29 @@ class _MatchCard extends StatelessWidget {
     // nothing to tap into.
     final tappable = match.isReady || (match.isDone && !match.bye);
 
+    String slotLabel(TournamentEntrant? e) => e != null ? _entrantLabel(app, e) : (match.bye ? 'Exempt' : 'À déterminer');
+
     return Pressable(
       onTap: tappable ? onTap : null,
-      child: Container(
-        width: wide ? double.infinity : null,
-        padding: EdgeInsets.symmetric(horizontal: 12, vertical: compact ? 8 : 10),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          border: Border.all(color: match.isReady ? AppColors.accent : AppColors.line, width: 1.5),
-          borderRadius: BorderRadius.circular(AppRadius.md),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _EntrantLine(label: _entrantLabel(app, entrantA), score: scoreA, isWinner: match.winnerId != null && match.winnerId == entrantA?.id, bye: match.bye && entrantB == null),
-            const SizedBox(height: 4),
-            _EntrantLine(label: entrantB != null ? _entrantLabel(app, entrantB) : (match.bye ? '—' : 'À déterminer'), score: scoreB, isWinner: match.winnerId != null && match.winnerId == entrantB?.id, bye: false),
-          ],
+      child: Opacity(
+        // A bye is just the bracket's shape showing through — no real match.
+        opacity: match.bye ? 0.55 : 1,
+        child: Container(
+          width: wide ? double.infinity : null,
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: compact ? 8 : 10),
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            border: Border.all(color: match.isReady ? AppColors.accent : AppColors.line, width: 1.5),
+            borderRadius: BorderRadius.circular(AppRadius.md),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _EntrantLine(label: slotLabel(entrantA), score: scoreA, isWinner: match.winnerId != null && match.winnerId == entrantA?.id, bye: entrantA == null),
+              const SizedBox(height: 4),
+              _EntrantLine(label: slotLabel(entrantB), score: scoreB, isWinner: match.winnerId != null && match.winnerId == entrantB?.id, bye: entrantB == null),
+            ],
+          ),
         ),
       ),
     );

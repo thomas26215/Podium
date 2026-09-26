@@ -8,6 +8,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
 import '../new_game/new_game_sheet.dart';
 import 'tournament_detail_screen.dart';
+import 'tournaments_offline_notice.dart';
 
 /// Every tournament in the currently-viewed group, active ones first —
 /// reached from the "Tout voir" link on the home screen's "Tournois"
@@ -34,7 +35,7 @@ class TournamentsListScreen extends StatelessWidget {
         foregroundColor: AppColors.ink,
         title: Text('Tournois', style: bodyFont(size: 17, weight: FontWeight.w800, color: AppColors.ink)),
       ),
-      floatingActionButton: app.currentGroupClosed
+      floatingActionButton: app.currentGroupClosed || !app.isOnline
           ? null
           : FloatingActionButton(
               backgroundColor: AppColors.accent,
@@ -44,7 +45,9 @@ class TournamentsListScreen extends StatelessWidget {
               },
               child: const Icon(Icons.add, color: Colors.white),
             ),
-      body: tournaments.isEmpty
+      body: !app.isOnline
+          ? const TournamentsOfflineNotice()
+          : tournaments.isEmpty
           ? Center(child: EmptyState(emoji: '🏆', message: "Aucun tournoi pour l'instant. Créez-en un avec le bouton +."))
           : ListView.separated(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
@@ -117,7 +120,7 @@ class _TournamentRow extends StatelessWidget {
                 borderRadius: BorderRadius.circular(9),
               ),
               child: Text(
-                tournament.isCompleted ? 'Terminé' : 'En cours',
+                tournamentStatusLabel(tournament),
                 style: bodyFont(size: 10.5, weight: FontWeight.w800, color: tournament.isCompleted ? AppColors.accent : AppColors.mut),
               ),
             ),
