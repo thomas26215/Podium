@@ -191,9 +191,15 @@ match /databases/{database}/documents {
   // Public profile — only what other players need to see (name, avatar
   // color). Fetchable one doc at a time by anyone signed in, never listed as
   // a collection. Private fields (e-mail, friends, FCM tokens) live in the
-  // owner-only `private/account` doc below and can't be written back here;
-  // removing them is still allowed, which is how accounts created before
-  // the split migrate (see UsersRepository._migrateLegacyPrivateFields).
+  // owner-only `private/account` doc below; accounts created before the
+  // split move them there on their own (see
+  // UsersRepository._migrateLegacyPrivateFields).
+  //
+  // TRANSITION: app versions from before the split still write `email`,
+  // `friendIds` and `fcmTokens` here (sign-up, friends, push tokens), so the
+  // create/update rule doesn't enforce !writesPrivateUserFields() yet. Add
+  // it back once every installed app has the private-doc version and
+  // tool/migrate_private_user_fields.js has run.
   function writesPrivateUserFields() {
     let changes = request.resource.data.diff(resource == null ? {} : resource.data);
     return changes.addedKeys().union(changes.changedKeys()).hasAny(['email', 'friendIds', 'fcmTokens']);
@@ -202,7 +208,7 @@ match /databases/{database}/documents {
   match /users/{uid} {
     allow get: if signedIn();
     allow list: if false;
-    allow create, update: if signedIn() && request.auth.uid == uid && !writesPrivateUserFields();
+    allow create, update: if signedIn() && request.auth.uid == uid;
     // Only the account itself can delete its own record (account deletion).
     allow delete: if signedIn() && request.auth.uid == uid;
 
