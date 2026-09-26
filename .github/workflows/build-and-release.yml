@@ -2,6 +2,8 @@
 # Release — the same as running, from a terminal:
 #   flutter build apk --release
 #   gh release create v<version> app-release.apk --notes "…"
+# On a pushed v* tag or a manual run, it also builds the Play Store bundle
+# (.aab), after checking its build number is above every AAB built before.
 # Setup (keystore secrets) is described in CI_SETUP.md.
 name: Build & release (Android)
 
@@ -112,8 +114,38 @@ jobs:
       - name: Vérifier la signature de l’APK
         run: keytool -printcert -jarfile build/app/outputs/flutter-apk/app-release.apk | head -n 8
 
+      # ---------------------------------------------------------------
+      # Play Store bundle (.aab) — only for a pushed v* tag or a manual run.
+      # Every AAB built here is recorded as a git tag aab/<versionCode>
+      # (see the last step), so each new one can be checked against them.
+      # ---------------------------------------------------------------
+
+      - name: "AAB : vérifier le numéro de build"
+        id: aabversion
+        if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+        run: |
+          full=$(grep -m1 '^version:' pubspec.yaml | awk '{print $2}')
+          build=${full##*+}
+          # Highest versionCode of an AAB already generated (none → 0).
+          previous=$(git tag -l 'aab/*' | sed 's#^aab/##' | grep -E '^[0-9]+$' | sort -n | tail -n1)
+          if [ -z "$previous" ]; then
+            echo "Aucun AAB généré auparavant : numéro de build $build accepté."
+          elif [ "$build" -le "$previous" ]; then
+            echo "::error::Numéro de build $build ≤ $previous (dernier AAB généré) : Google Play le refuserait. Passe « version: » à …+$((previous + 1)) (ou plus) dans pubspec.yaml."
+            exit 1
+          else
+            echo "Numéro de build $build > $previous (dernier AAB généré) ✓"
+          fi
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+
+      - name: Build AAB release (Play Store)
+        if: steps.aabversion.outputs.build != ''
+        run: flutter build appbundle --release
+
       - name: Déterminer la version
         id: version
+        env:
+          AAB_BUILD: ${{ steps.aabversion.outputs.build }}
         run: |
           full=$(grep -m1 '^version:' pubspec.yaml | awk '{print $2}')   # ex. 3.0.1+41
           name=${full%%+*}
@@ -124,6 +156,8 @@ jobs:
           echo "build=$build" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "apk=podium-$tag-build$build.apk" >> "$GITHUB_OUTPUT"
+          # The Play bundle carries its own, computed build number.
+          if [ -n "$AAB_BUILD" ]; then echo "aab=podium-$tag-build$AAB_BUILD.aab" >> "$GITHUB_OUTPUT"; fi
           echo "Version $full → release $tag"
 
       - name: Générer les notes de version
@@ -156,23 +190,37 @@ jobs:
           TAG: ${{ steps.version.outputs.tag }}
           NAME: ${{ steps.version.outputs.name }}
           APK: ${{ steps.version.outputs.apk }}
+          AAB: ${{ steps.version.outputs.aab }}
         run: |
           cp build/app/outputs/flutter-apk/app-release.apk "$APK"
+          files=("$APK")
+          if [ -n "$AAB" ]; then
+            cp build/app/outputs/bundle/release/app-release.aab "$AAB"
+            files+=("$AAB")
+          fi
           if [ "$GITHUB_REF_TYPE" = "tag" ]; then
-            # Tag pushed by hand: publish on that tag (update the APK if the release exists).
+            # Tag pushed by hand: publish on that tag (update the files if the release exists).
             if gh release view "$TAG" >/dev/null 2>&1; then
-              gh release upload "$TAG" "$APK" --clobber
+              gh release upload "$TAG" "${files[@]}" --clobber
               gh release edit "$TAG" --notes-file release_notes.txt
             else
-              gh release create "$TAG" "$APK" --title "Podium $TAG" --notes-file release_notes.txt --verify-tag
+              gh release create "$TAG" "${files[@]}" --title "Podium $TAG" --notes-file release_notes.txt --verify-tag
             fi
           else
-            # Push on main: same version as before → replace that release, so its
-            # tag moves to the commit that was just built.
+            # Push on main (or manual run): same version as before → replace that
+            # release, so its tag moves to the commit that was just built.
             gh release delete "$TAG" --cleanup-tag --yes 2>/dev/null || true
-            gh release create "$TAG" "$APK" --title "Podium $NAME" --notes-file release_notes.txt --target "$GITHUB_SHA" --latest
+            gh release create "$TAG" "${files[@]}" --title "Podium $NAME" --notes-file release_notes.txt --target "$GITHUB_SHA" --latest
           fi
           echo "Release : ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/$TAG"
+
+      - name: "AAB : enregistrer le numéro de build"
+        if: steps.aabversion.outputs.build != ''
+        env:
+          BUILD: ${{ steps.aabversion.outputs.build }}
+        run: |
+          git tag "aab/$BUILD" "$GITHUB_SHA"
+          git push origin "aab/$BUILD"
 
       - name: Nettoyer les fichiers de signature
         if: always()

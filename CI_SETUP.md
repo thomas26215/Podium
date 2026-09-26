@@ -31,6 +31,20 @@ passes à `1.0.1+2`, une nouvelle release `v1.0.1` apparaît et `v1.0.0` reste e
 Augmente aussi le numéro de build (`+2`) à chaque version : Android refuse d’installer un APK dont le
 `versionCode` est inférieur à celui déjà installé.
 
+## AAB pour le Play Store
+
+Sur un **tag `v*`** ou un **lancement manuel**, le workflow construit aussi l’AAB (`flutter build appbundle --release`)
+et le joint à la release (`podium-v1.0.1-build3.aab`), à envoyer toi-même dans la Play Console.
+
+Avant de le construire, il vérifie que le numéro de build (le `+3` de `version: 1.0.1+3`) est **strictement supérieur**
+à celui de tous les AAB déjà générés — sinon Google Play refuserait l’envoi. S’il n’y en a jamais eu, c’est accepté.
+Chaque AAB généré est enregistré par un tag Git `aab/<numéro de build>` (ex. `aab/3`) : ne les supprime pas.
+
+Si ton premier envoi sur le Play Store a été fait à la main (hors CI), crée le tag correspondant une fois pour toutes,
+pour que la CI en tienne compte : `git tag aab/1 && git push origin aab/1` (avec le numéro de build envoyé).
+
+Les pushes sur `main` ne construisent pas d’AAB et ne consomment donc aucun numéro de build.
+
 ---
 
 ## 1. Keystore
@@ -92,5 +106,6 @@ permissions** → **Save**.
 | « Cannot recover key » | `ANDROID_KEY_PASSWORD` ou `ANDROID_KEY_ALIAS` incorrect. |
 | Échec à « Publier la release » (403) | Étape 3 non faite. |
 | « App non installée » | `versionCode` inférieur à celui installé, ou app installée signée avec une autre clé. |
+| « Numéro de build … ≤ … (dernier AAB généré) » | Augmente le `+N` de `version:` dans `pubspec.yaml` au-delà du numéro indiqué. |
 
 Si le dépôt est **public**, les releases (et donc l’APK) sont téléchargeables par tout le monde.
