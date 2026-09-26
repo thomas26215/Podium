@@ -118,8 +118,8 @@ jobs:
 
       # ---------------------------------------------------------------
       # Play Store bundle (.aab) — only for a pushed v* tag or a manual run.
-      # Every AAB built here is recorded as a git tag aab/<versionCode>
-      # (see the last step), so each new one can be checked against them.
+      # Each version tag (v*) already records its build number: the "+N" of
+      # the pubspec.yaml it points to — so the new one is checked against those.
       # ---------------------------------------------------------------
 
       - name: "AAB : vérifier le numéro de build"
@@ -128,33 +128,39 @@ jobs:
         run: |
           full=$(grep -m1 '^version:' pubspec.yaml | awk '{print $2}')
           build=${full##*+}
-          # Highest versionCode of an AAB already generated (none → 0).
-          previous=$(git tag -l 'aab/*' | sed 's#^aab/##' | grep -E '^[0-9]+$' | sort -n | tail -n1)
+          # Highest build number among the other version tags (none → empty).
+          previous= previous_tag=
+          for t in $(git tag -l 'v*'); do
+            [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$t" = "$GITHUB_REF_NAME" ] && continue
+            n=$(git show "$t:pubspec.yaml" 2>/dev/null | grep -m1 '^version:' | awk '{print $2}' | sed -n 's/.*+\([0-9][0-9]*\)$/\1/p')
+            [ -z "$n" ] && continue
+            if [ -z "$previous" ] || [ "$n" -gt "$previous" ]; then previous=$n; previous_tag=$t; fi
+          done
           if [ -z "$previous" ]; then
-            echo "Aucun AAB généré auparavant : numéro de build $build accepté."
+            echo "Aucune version précédente : numéro de build $build accepté."
           elif [ "$build" -le "$previous" ]; then
-            echo "::error::Numéro de build $build ≤ $previous (dernier AAB généré) : Google Play le refuserait. Passe « version: » à …+$((previous + 1)) (ou plus) dans pubspec.yaml."
+            echo "::error::Numéro de build $build ≤ $previous ($previous_tag) : Google Play le refuserait. Passe « version: » à …+$((previous + 1)) (ou plus) dans pubspec.yaml."
             exit 1
           else
-            echo "Numéro de build $build > $previous (dernier AAB généré) ✓"
+            echo "Numéro de build $build > $previous ($previous_tag) ✓"
           fi
           echo "build=$build" >> "$GITHUB_OUTPUT"
-          echo "previous=$previous" >> "$GITHUB_OUTPUT"
+          echo "previous_tag=$previous_tag" >> "$GITHUB_OUTPUT"
 
       - name: Build AAB release (Play Store)
         if: steps.aabversion.outputs.build != ''
         run: flutter build appbundle --release
 
       # A ready-to-paste prompt for Claude that turns the commits since the
-      # last AAB into Play Console release notes. Shown in the run summary
+      # previous version into Play Console release notes. Shown in the run summary
       # and in the GitHub release.
       - name: "AAB : prompt des notes de mise à jour"
         if: steps.aabversion.outputs.build != ''
         env:
-          PREVIOUS: ${{ steps.aabversion.outputs.previous }}
+          PREVIOUS_TAG: ${{ steps.aabversion.outputs.previous_tag }}
         run: |
-          if [ -n "$PREVIOUS" ]; then
-            commits=$(git log "aab/$PREVIOUS..HEAD" --no-merges --pretty=format:'* %s')
+          if [ -n "$PREVIOUS_TAG" ]; then
+            commits=$(git log "$PREVIOUS_TAG..HEAD" --no-merges --pretty=format:'* %s')
             since="depuis la version précédente publiée sur Google Play"
           else
             commits=$(git log -n 30 --no-merges --pretty=format:'* %s')
@@ -271,14 +277,6 @@ jobs:
             gh release create "$TAG" "${files[@]}" --title "Podium $TAG" --notes-file release_notes.txt --target "$GITHUB_SHA" --latest
           fi
           echo "Release : ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/$TAG"
-
-      - name: "AAB : enregistrer le numéro de build"
-        if: steps.aabversion.outputs.build != ''
-        env:
-          BUILD: ${{ steps.aabversion.outputs.build }}
-        run: |
-          git tag "aab/$BUILD" "$GITHUB_SHA"
-          git push origin "aab/$BUILD"
 
       - name: Nettoyer les fichiers de signature
         if: always()

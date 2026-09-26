@@ -36,17 +36,14 @@ Augmente aussi le numéro de build (`+2`) à chaque version : Android refuse d�
 Sur un **tag `v*`** ou un **lancement manuel**, le workflow construit aussi l’AAB (`flutter build appbundle --release`)
 et le joint à la release (`podium-v1.0.1-build3.aab`), à envoyer toi-même dans la Play Console.
 
-Avant de le construire, il vérifie que le numéro de build (le `+3` de `version: 1.0.1+3`) est **strictement supérieur**
-à celui de tous les AAB déjà générés — sinon Google Play refuserait l’envoi. S’il n’y en a jamais eu, c’est accepté.
-Chaque AAB généré est enregistré par un tag Git `aab/<numéro de build>` (ex. `aab/3`) : ne les supprime pas.
-
-Si ton premier envoi sur le Play Store a été fait à la main (hors CI), crée le tag correspondant une fois pour toutes,
-pour que la CI en tienne compte : `git tag aab/1 && git push origin aab/1` (avec le numéro de build envoyé).
+Avant de le construire, il vérifie que le numéro de build (le `+3` de `version: 1.1.0+3`) est **strictement supérieur**
+à celui de toutes les versions précédentes — sinon Google Play refuserait l’envoi. Il le lit dans le `pubspec.yaml` de
+chaque tag de version `v*` : ne supprime pas ces tags. S’il n’y en a aucun, c’est accepté.
 
 Les pushes sur `main` ne construisent pas d’AAB et ne consomment donc aucun numéro de build.
 
-**Notes de mise à jour** : avec l’AAB, la CI prépare un prompt pour Claude qui liste les commits depuis le dernier AAB
-(tag `aab/*`) et demande une note au format de la Play Console (`<fr-FR>…</fr-FR>`, 500 caractères maximum, balises non comprises). Il est
+**Notes de mise à jour** : avec l’AAB, la CI prépare un prompt pour Claude qui liste les commits depuis la version précédente
+(tag `v*`) et demande une note au format de la Play Console (`<fr-FR>…</fr-FR>`, 500 caractères maximum, balises non comprises). Il est
 affiché dans le résumé du run (onglet *Actions*) et dans la release GitHub : copie-le dans Claude, puis colle sa
 réponse dans le champ « Notes de version » de la Play Console.
 
