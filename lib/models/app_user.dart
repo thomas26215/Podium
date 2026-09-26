@@ -48,21 +48,33 @@ class AppUser {
 
   String get initial => displayName.isNotEmpty ? displayName[0].toUpperCase() : '?';
 
+  /// The public `users/{uid}` doc — readable by every signed-in account, so
+  /// it only holds what other players need to see (see firestore.rules).
   Map<String, dynamic> toMap() => {
-        'email': email,
         'displayName': displayName,
         'color': color,
-        'friendIds': friendIds,
         'createdAt': FieldValue.serverTimestamp(),
       };
 
-  factory AppUser.fromDoc(String uid, Map<String, dynamic> data) {
+  /// The owner-only `users/{uid}/private/account` doc — everything about the
+  /// account that other players must not be able to read.
+  Map<String, dynamic> toPrivateMap() => {
+        'email': email,
+        'friendIds': friendIds,
+      };
+
+  /// Builds a user from its public doc, plus its [private] doc when reading
+  /// the signed-in account itself. A public doc from before the split may
+  /// still carry `email`/`friendIds` itself — read as a fallback until it's
+  /// migrated (see UsersRepository.watchOwnAccount).
+  factory AppUser.fromDoc(String uid, Map<String, dynamic> data, {Map<String, dynamic>? private}) {
+    final p = private ?? const {};
     return AppUser(
       uid: uid,
-      email: (data['email'] as String?) ?? '',
+      email: (p['email'] as String?) ?? (data['email'] as String?) ?? '',
       displayName: (data['displayName'] as String?) ?? 'Joueur',
       color: (data['color'] as int?) ?? colorForUid(uid),
-      friendIds: List<String>.from((data['friendIds'] as List?) ?? const []),
+      friendIds: List<String>.from((p['friendIds'] as List?) ?? (data['friendIds'] as List?) ?? const []),
     );
   }
 }

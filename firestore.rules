@@ -93,7 +93,21 @@ match /databases/{database}/documents {
     return request.resource.data.diff(before).affectedKeys().hasOnly(['memberIds'])
       && request.resource.data.memberIds.removeAll([request.auth.uid]) == before.memberIds
       && addedMembers.size() > 0
-      && inviteWindowOpen(before);
+      && inviteWindowOpen(before)
+      && !isClosed(before);
+  }
+
+  // True if this update on a group is something any plain member may do:
+  // invite someone (add to `memberIds`), leave (remove themselves), swap a
+  // guest out for a real account (remove one `guest:` id — see
+  // AppState.reassignMember), or reopen the QR invite window. Ownership,
+  // closing/reopening and kicking another real account stay owner-only (see
+  // the `groups/{groupId}` update rule).
+  function isMemberGroupEdit(before) {
+    let removed = before.memberIds.removeAll(request.resource.data.memberIds);
+    return request.resource.data.diff(before).affectedKeys().hasOnly(['memberIds', 'inviteExpiresAt'])
+      && removed.size() <= 1
+      && (removed.size() == 0 || removed[0] == request.auth.uid || removed[0].matches('guest:.*'));
   }
 
   // True if this update on a poll message (see GroupMessage.pollGameIds in
@@ -126,6 +140,15 @@ match /databases/{database}/documents {
   function isReaction(before) {
     return request.resource.data.diff(before).affectedKeys().hasOnly(['reactions'])
       && request.resource.data.get('reactions', {}).diff(before.get('reactions', {})).affectedKeys().hasOnly([request.auth.uid]);
+  }
+
+  // True if a newly created message is a plain one posted by the caller —
+  // never a `system` highlight (only the onMatchCreated Cloud Function posts
+  // those, through the Admin SDK), and never born with someone's poll vote,
+  // reaction or an `edited` flag already filled in.
+  function isValidNewMessage() {
+    return request.resource.data.authorId == request.auth.uid
+      && !request.resource.data.keys().hasAny(['system', 'pollVotes', 'reactions', 'edited']);
   }
 
   function serverDoc(serverId) {
@@ -165,29 +188,50 @@ match /databases/{database}/documents {
     allow write: if false;
   }
 
-  match /users/{uid} {
-    allow read: if signedIn();
-    allow create: if signedIn() && request.auth.uid == uid;
-    allow update: if signedIn() && request.auth.uid == uid;
-    // Only the account itself can delete its own record (account deletion).
-    allow delete: if signedIn() && request.auth.uid == uid;
+  // Public profile — only what other players need to see (name, avatar
+  // color). Fetchable one doc at a time by anyone signed in, never listed as
+  // a collection. Private fields (e-mail, friends, FCM tokens) live in the
+  // owner-only `private/account` doc below and can't be written back here;
+  // removing them is still allowed, which is how accounts created before
+  // the split migrate (see UsersRepository._migrateLegacyPrivateFields).
+  function writesPrivateUserFields() {
+    let changes = request.resource.data.diff(resource == null ? {} : resource.data);
+    return changes.addedKeys().union(changes.changedKeys()).hasAny(['email', 'friendIds', 'fcmTokens']);
   }
 
-  // Lets "invite a friend by email" resolve an email to a uid without
-  // exposing the whole users collection to arbitrary queries.
+  match /users/{uid} {
+    allow get: if signedIn();
+    allow list: if false;
+    allow create, update: if signedIn() && request.auth.uid == uid && !writesPrivateUserFields();
+    // Only the account itself can delete its own record (account deletion).
+    allow delete: if signedIn() && request.auth.uid == uid;
+
+    match /private/{docId} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+  }
+
   // Players added without a real account (see GuestsRepository). Anyone
-  // signed in can create one (attributed to themselves) and read them all,
-  // same trust model as `users` — a friend group, not a multi-tenant org.
+  // signed in can create one (attributed to themselves) and fetch one by id,
+  // same trust model as `users` — but never list them all.
   match /guests/{guestId} {
-    allow read: if signedIn();
+    allow get: if signedIn();
+    allow list: if false;
     allow create: if signedIn() && request.resource.data.createdBy == request.auth.uid;
     allow update: if false;
     allow delete: if signedIn() && resource.data.createdBy == request.auth.uid;
   }
 
+  // Lets "invite a friend by email" resolve an email to a uid: fetching one
+  // exact address works, listing the collection (every user's e-mail) doesn't.
+  // An entry can only be created for the caller's own sign-in e-mail, so no
+  // one can claim someone else's address before they sign up.
   match /emailIndex/{email} {
-    allow read: if signedIn();
-    allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+    allow get: if signedIn();
+    allow list: if false;
+    allow create: if signedIn()
+      && request.resource.data.uid == request.auth.uid
+      && request.auth.token.email.lower() == email;
     allow update: if false;
     // Only the indexed account itself can remove its own email entry
     // (account deletion).
@@ -201,12 +245,19 @@ match /databases/{database}/documents {
       && request.resource.data.ownerId == request.auth.uid
       && request.resource.data.memberIds == [request.auth.uid];
 
-    // Any member can manage the roster (invite by email = arrayUnion on
-    // memberIds) — this app's trust model is a friend group, not a
-    // multi-tenant org, so we don't gate management down to an "admin" role.
-    // A non-member can also update the doc if the write is exactly a
-    // self-join (scanning someone's invite QR code).
-    allow update: if signedIn() && (isMember(resource.data) || isSelfJoin(resource.data));
+    // The owner can change anything, as long as they stay a member and hand
+    // ownership only to another member. Any other member is limited to
+    // isMemberGroupEdit() (inviting, leaving, reassigning a guest, reopening
+    // the QR window). A non-member can also update the doc if the write is
+    // exactly a self-join (scanning someone's invite QR code). In every case
+    // the owner can never be dropped from `memberIds`.
+    allow update: if signedIn()
+      && request.resource.data.ownerId in request.resource.data.memberIds
+      && (
+        (resource.data.ownerId == request.auth.uid)
+        || (isMember(resource.data) && isMemberGroupEdit(resource.data))
+        || isSelfJoin(resource.data)
+      );
 
     // Only the group's own owner can delete it.
     allow delete: if signedIn() && resource.data.ownerId == request.auth.uid;
@@ -249,11 +300,11 @@ match /databases/{database}/documents {
     // game data". Highlight messages (`system: true`, `authorId: 'system'`)
     // are posted by the `onMatchCreated` Cloud Function using the Admin SDK,
     // which bypasses these rules entirely — no client can create one itself,
-    // since `request.auth.uid` is never literally `'system'`.
+    // since isValidNewMessage() rejects any `system` field.
     match /messages/{messageId} {
       allow read: if signedIn() && isMember(groupDoc(groupId).data);
       allow create: if signedIn() && isMember(groupDoc(groupId).data)
-        && request.resource.data.authorId == request.auth.uid;
+        && isValidNewMessage();
       allow update: if signedIn() && isMember(groupDoc(groupId).data)
         && (isPollVote(resource.data) || isMessageEdit(resource.data) || isReaction(resource.data));
       allow delete: if signedIn() && resource.data.authorId == request.auth.uid;
@@ -349,7 +400,7 @@ match /databases/{database}/documents {
       );
       allow create: if signedIn()
         && isSalonMember(serverId, request.resource.data.salonId)
-        && request.resource.data.authorId == request.auth.uid;
+        && isValidNewMessage();
       allow update: if signedIn() && isSalonMember(serverId, resource.data.salonId)
         && (isPollVote(resource.data) || isMessageEdit(resource.data) || isReaction(resource.data));
       allow delete: if signedIn() && resource.data.authorId == request.auth.uid;

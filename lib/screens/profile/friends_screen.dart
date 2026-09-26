@@ -83,7 +83,7 @@ class _FriendRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(friend.displayName, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
-                Text(friend.email, style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
+                if (friend.email.isNotEmpty) Text(friend.email, style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
               ],
             ),
           ),

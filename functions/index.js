@@ -12,16 +12,34 @@ initializeApp();
 const db = getFirestore();
 const messaging = getMessaging();
 
-/** Fetches distinct FCM tokens for every uid in `uids`, skipping `excludeUid`. */
+/** Which uid each FCM token was read from (see tokensFor) — lets sendToTokens prune a stale token straight from its owner's doc. */
+const tokenOwners = new Map();
+
+/** The owner-only doc holding an account's e-mail, friends and FCM tokens (see lib/repositories/users_repository.dart). */
+function privateAccountRef(uid) {
+  return db.collection("users").doc(uid).collection("private").doc("account");
+}
+
+/**
+ * Fetches distinct FCM tokens for every uid in `uids`, skipping `excludeUid`.
+ * Also reads the legacy public `users/{uid}.fcmTokens`, for accounts not yet
+ * migrated to the private doc (see tool/migrate_private_user_fields.js).
+ */
 async function tokensFor(uids, excludeUid) {
-  const targets = uids.filter((uid) => uid !== excludeUid);
+  const targets = uids.filter((uid) => uid !== excludeUid && !uid.startsWith("guest:"));
   if (targets.length === 0) return [];
-  const snaps = await Promise.all(targets.map((uid) => db.collection("users").doc(uid).get()));
+  const refs = targets.flatMap((uid) => [privateAccountRef(uid), db.collection("users").doc(uid)]);
+  const snaps = await db.getAll(...refs);
   const tokens = new Set();
-  for (const snap of snaps) {
+  snaps.forEach((snap, i) => {
     const list = snap.exists ? snap.data().fcmTokens : null;
-    if (Array.isArray(list)) list.forEach((t) => typeof t === "string" && tokens.add(t));
-  }
+    if (!Array.isArray(list)) return;
+    for (const t of list) {
+      if (typeof t !== "string") continue;
+      tokens.add(t);
+      tokenOwners.set(t, targets[Math.floor(i / 2)]);
+    }
+  });
   return [...tokens];
 }
 
@@ -41,8 +59,14 @@ async function sendToTokens(tokens, notification, channelId = "podium_matches") 
   });
   await Promise.all(
     stale.map(async (token) => {
-      const owner = await db.collection("users").where("fcmTokens", "array-contains", token).limit(1).get();
-      if (!owner.empty) await owner.docs[0].ref.update({ fcmTokens: FieldValue.arrayRemove(token) });
+      const uid = tokenOwners.get(token);
+      if (!uid) return;
+      tokenOwners.delete(token);
+      const remove = { fcmTokens: FieldValue.arrayRemove(token) };
+      await Promise.all([
+        privateAccountRef(uid).set(remove, { merge: true }),
+        db.collection("users").doc(uid).update(remove).catch(() => {}),
+      ]);
     }),
   );
 }
@@ -432,8 +456,8 @@ exports.deleteMyAccount = onCall(async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Vous devez être connecté.");
 
-  const userSnap = await db.collection("users").doc(uid).get();
-  const email = (userSnap.exists && userSnap.data().email) || request.auth.token.email || "";
+  const [userSnap, privateSnap] = await db.getAll(db.collection("users").doc(uid), privateAccountRef(uid));
+  const email = (privateSnap.exists && privateSnap.data().email) || (userSnap.exists && userSnap.data().email) || request.auth.token.email || "";
 
   // Groups: owned outright -> delete with all their history; otherwise just
   // leave the roster.
@@ -464,6 +488,7 @@ exports.deleteMyAccount = onCall(async (request) => {
   }
 
   const batch = db.batch();
+  batch.delete(privateAccountRef(uid));
   batch.delete(db.collection("users").doc(uid));
   if (email) batch.delete(db.collection("emailIndex").doc(email.trim().toLowerCase()));
   await batch.commit();

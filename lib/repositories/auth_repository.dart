@@ -82,7 +82,7 @@ class FirebaseAuthRepository implements AuthRepository {
     return _auth.authStateChanges().asyncMap((u) async {
       if (u == null) return null;
       final doc = await _db.collection('users').doc(u.uid).get();
-      if (doc.exists) return AppUser.fromDoc(u.uid, doc.data()!);
+      if (doc.exists) return AppUser.fromDoc(u.uid, doc.data()!, private: {'email': u.email ?? ''});
       return _fromFirebase(u);
     });
   }
@@ -101,6 +101,7 @@ class FirebaseAuthRepository implements AuthRepository {
       );
       final batch = _db.batch();
       batch.set(_db.collection('users').doc(user.uid), appUser.toMap());
+      batch.set(_db.collection('users').doc(user.uid).collection('private').doc('account'), appUser.toPrivateMap());
       batch.set(_db.collection('emailIndex').doc(appUser.email), {'uid': user.uid});
       await batch.commit();
       return appUser;
@@ -114,7 +115,7 @@ class FirebaseAuthRepository implements AuthRepository {
     try {
       final cred = await _auth.signInWithEmailAndPassword(email: email.trim(), password: password);
       final doc = await _db.collection('users').doc(cred.user!.uid).get();
-      if (doc.exists) return AppUser.fromDoc(cred.user!.uid, doc.data()!);
+      if (doc.exists) return AppUser.fromDoc(cred.user!.uid, doc.data()!, private: {'email': cred.user!.email ?? ''});
       return _fromFirebase(cred.user!);
     } catch (e) {
       throw AuthException(_friendlyAuthError(e));

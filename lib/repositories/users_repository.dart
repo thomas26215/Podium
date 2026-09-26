@@ -1,15 +1,19 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/app_user.dart';
 
 abstract class UsersRepository {
   Future<AppUser?> getByEmail(String email);
   Future<AppUser?> getById(String uid);
-  Stream<AppUser?> watchById(String uid);
 
-  /// Deletes the `users/{uid}` doc and its `emailIndex` entry.
+  /// The signed-in account itself: its public doc merged with its owner-only
+  /// `private/account` doc (e-mail, friends). Only readable for your own uid.
+  Stream<AppUser?> watchOwnAccount(String uid);
+
+  /// Deletes the `users/{uid}` doc, its private doc and its `emailIndex` entry.
   Future<void> deleteUser({required String uid, required String email});
 
   /// Registers this device's FCM token for push notifications (a user can
@@ -31,6 +35,13 @@ class FirebaseUsersRepository implements UsersRepository {
   final FirebaseFirestore _db;
   FirebaseUsersRepository({FirebaseFirestore? db}) : _db = db ?? FirebaseFirestore.instance;
 
+  /// Fields that used to live on the public `users/{uid}` doc before being
+  /// moved to [_private] — see [_migrateLegacyPrivateFields].
+  static const _legacyPrivateKeys = ['email', 'friendIds', 'fcmTokens'];
+
+  DocumentReference<Map<String, dynamic>> _public(String uid) => _db.collection('users').doc(uid);
+  DocumentReference<Map<String, dynamic>> _private(String uid) => _public(uid).collection('private').doc('account');
+
   @override
   Future<AppUser?> getByEmail(String email) async {
     final key = email.trim().toLowerCase();
@@ -42,53 +53,108 @@ class FirebaseUsersRepository implements UsersRepository {
 
   @override
   Future<AppUser?> getById(String uid) async {
-    final doc = await _db.collection('users').doc(uid).get();
+    final doc = await _public(uid).get();
     if (!doc.exists) return null;
     return AppUser.fromDoc(uid, doc.data()!);
   }
 
   @override
-  Stream<AppUser?> watchById(String uid) {
-    return _db.collection('users').doc(uid).snapshots().map((doc) {
-      if (!doc.exists) return null;
-      return AppUser.fromDoc(uid, doc.data()!);
-    });
+  Stream<AppUser?> watchOwnAccount(String uid) {
+    late final StreamController<AppUser?> controller;
+    StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? publicSub, privateSub;
+    DocumentSnapshot<Map<String, dynamic>>? publicSnap, privateSnap;
+    var migrationStarted = false;
+
+    void emit() {
+      if (publicSnap == null || privateSnap == null) return;
+      final data = publicSnap!.data();
+      if (data == null) {
+        controller.add(null);
+        return;
+      }
+      if (!migrationStarted && data.keys.any(_legacyPrivateKeys.contains)) {
+        migrationStarted = true;
+        unawaited(_migrateLegacyPrivateFields(uid, data));
+      }
+      controller.add(AppUser.fromDoc(uid, data, private: privateSnap!.data()));
+    }
+
+    controller = StreamController<AppUser?>(
+      onListen: () {
+        publicSub = _public(uid).snapshots().listen((s) {
+          publicSnap = s;
+          emit();
+        }, onError: controller.addError);
+        privateSub = _private(uid).snapshots().listen((s) {
+          privateSnap = s;
+          emit();
+        }, onError: controller.addError);
+      },
+      onCancel: () async {
+        await publicSub?.cancel();
+        await privateSub?.cancel();
+      },
+    );
+    return controller.stream;
+  }
+
+  /// Moves `email`/`friendIds`/`fcmTokens` off an account's public doc (where
+  /// every signed-in user could read them) into its private doc. Runs once,
+  /// the first time an account created before the split signs in.
+  Future<void> _migrateLegacyPrivateFields(String uid, Map<String, dynamic> legacy) async {
+    try {
+      final batch = _db.batch();
+      batch.set(
+        _private(uid),
+        {
+          if (legacy['email'] is String) 'email': legacy['email'],
+          if (legacy['friendIds'] is List && (legacy['friendIds'] as List).isNotEmpty) 'friendIds': FieldValue.arrayUnion(legacy['friendIds'] as List),
+          if (legacy['fcmTokens'] is List && (legacy['fcmTokens'] as List).isNotEmpty) 'fcmTokens': FieldValue.arrayUnion(legacy['fcmTokens'] as List),
+        },
+        SetOptions(merge: true),
+      );
+      batch.update(_public(uid), {for (final k in _legacyPrivateKeys) k: FieldValue.delete()});
+      await batch.commit();
+    } catch (e) {
+      debugPrint('Migration of private user fields failed: $e');
+    }
   }
 
   @override
   Future<void> deleteUser({required String uid, required String email}) async {
     final batch = _db.batch();
-    batch.delete(_db.collection('users').doc(uid));
+    batch.delete(_private(uid));
+    batch.delete(_public(uid));
     if (email.isNotEmpty) batch.delete(_db.collection('emailIndex').doc(email.trim().toLowerCase()));
     await batch.commit();
   }
 
   @override
   Future<void> registerFcmToken({required String uid, required String token}) async {
-    await _db.collection('users').doc(uid).update({
+    await _private(uid).set({
       'fcmTokens': FieldValue.arrayUnion([token]),
-    });
+    }, SetOptions(merge: true));
   }
 
   @override
   Future<void> unregisterFcmToken({required String uid, required String token}) async {
-    await _db.collection('users').doc(uid).update({
+    await _private(uid).set({
       'fcmTokens': FieldValue.arrayRemove([token]),
-    });
+    }, SetOptions(merge: true));
   }
 
   @override
   Future<void> addFriend({required String uid, required String friendUid}) async {
-    await _db.collection('users').doc(uid).update({
+    await _private(uid).set({
       'friendIds': FieldValue.arrayUnion([friendUid]),
-    });
+    }, SetOptions(merge: true));
   }
 
   @override
   Future<void> removeFriend({required String uid, required String friendUid}) async {
-    await _db.collection('users').doc(uid).update({
+    await _private(uid).set({
       'friendIds': FieldValue.arrayRemove([friendUid]),
-    });
+    }, SetOptions(merge: true));
   }
 }
 
@@ -112,7 +178,7 @@ class FakeUsersRepository implements UsersRepository {
   Future<AppUser?> getById(String uid) async => users[uid];
 
   @override
-  Stream<AppUser?> watchById(String uid) {
+  Stream<AppUser?> watchOwnAccount(String uid) {
     Future.microtask(() => _ctrl(uid).add(users[uid]));
     return _ctrl(uid).stream;
   }

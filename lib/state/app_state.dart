@@ -519,7 +519,7 @@ class AppState extends ChangeNotifier {
       unawaited(_rememberAccount(user));
       _groupsSub = groupsRepo.watchMyGroups(user.uid).listen(_onGroupsChanged);
       _serversSub = serversRepo.watchMyServers(user.uid).listen(_onServersChanged);
-      _currentUserSub = usersRepo.watchById(user.uid).listen(_onCurrentUserDocChanged);
+      _currentUserSub = usersRepo.watchOwnAccount(user.uid).listen(_onCurrentUserDocChanged);
       unawaited(notificationsService?.registerForUser(user.uid));
       unawaited(_loadPendingLocalDraft(user.uid));
     } else {
@@ -2213,7 +2213,7 @@ class AppState extends ChangeNotifier {
       await usersRepo.addFriend(uid: me.uid, friendUid: user.uid);
       _memberCache[user.uid] = user;
       // Optimistic — _onCurrentUserDocChanged will reconcile once the
-      // watchById stream picks up the write, but that shouldn't leave the
+      // watchOwnAccount stream picks up the write, but that shouldn't leave the
       // list looking like nothing happened in the meantime.
       if (!friends.any((f) => f.uid == user.uid)) friends = [...friends, user];
       ok = true;
