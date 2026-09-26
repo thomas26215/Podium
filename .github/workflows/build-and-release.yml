@@ -168,7 +168,7 @@ jobs:
             echo "Consignes :"
             echo "- En français, pour les utilisateurs de l'app : aucun jargon technique, aucun nom de fichier ni de code."
             echo "- Mets en avant les nouveautés visibles, puis les corrections ; ignore les changements internes (CI, tests, refactorisation, sécurité côté serveur)."
-            echo "- 80 caractères maximum entre les balises (balises non comprises), espaces compris."
+            echo "- 500 caractères MAXIMUM, balises <fr-FR> et </fr-FR> NON comprises (espaces et retours à la ligne compris) : c'est la limite de la Play Console."
             echo "- Réponds uniquement avec ce bloc, sans rien avant ni après :"
             echo
             echo "<fr-FR>"
