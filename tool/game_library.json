@@ -2649,29 +2649,92 @@
     "countType": "points",
     "pointLimit": 1000,
     "multiRound": true
+   },
+   {
+    "id": "3000",
+    "name": "Partie en 3000",
+    "countType": "points",
+    "pointLimit": 3000,
+    "multiRound": true
    }
   ],
   "ruleSections": [
    {
     "title": "Principe",
     "rules": [
-     "Belote aux enchères : 8 cartes chacun, pas de carte retournée.",
-     "Les enchères partent de 80 et montent de 10 en 10, jusqu’au capot ; on annonce une couleur (ou Sans atout / Tout atout)."
+     "4 joueurs en 2 équipes de 2, les partenaires face à face ; jeu de 32 cartes (du 7 à l’As).",
+     "On joue dans le sens inverse des aiguilles d’une montre ; le donneur change à chaque donne.",
+     "Chaque joueur reçoit 8 cartes (distribuées par 3, 3 puis 2) ; aucune carte n’est retournée : l’atout se décide aux enchères.",
+     "Le but : réaliser le contrat annoncé par son équipe, ou faire chuter celui des adversaires."
     ]
    },
    {
-    "title": "Coinche",
+    "title": "Enchères",
     "rules": [
-     "Un adversaire peut « coincher » une enchère : les points sont doublés.",
-     "Le preneur peut « surcoincher » : les points sont quadruplés."
+     "Le joueur à droite du donneur parle en premier ; chacun peut annoncer un contrat ou passer.",
+     "Un contrat = un nombre de points + un atout (♠, ♥, ♦, ♣, Sans atout ou Tout atout selon les tables).",
+     "Les enchères commencent à 80 et montent de 10 en 10 (80, 90… 160) ; chaque annonce doit dépasser la précédente.",
+     "Au-dessus de 160 : le Capot (250), promesse de faire tous les plis ; certaines tables jouent aussi la Générale (500), tous les plis faits par un seul joueur.",
+     "Les enchères s’arrêtent après 3 « passe » consécutifs ; le dernier contrat annoncé est retenu.",
+     "Si les 4 joueurs passent d’entrée, les cartes sont redistribuées par le donneur suivant."
+    ]
+   },
+   {
+    "title": "Coinche et surcoinche",
+    "rules": [
+     "Un adversaire du dernier enchérisseur peut « coincher » (contrer) : il parie que le contrat va chuter.",
+     "La coinche double la valeur du contrat et met fin aux enchères, sauf surcoinche.",
+     "L’équipe qui a pris peut alors « surcoincher » : la valeur du contrat est quadruplée."
+    ]
+   },
+   {
+    "title": "Valeur des cartes",
+    "rules": [
+     "À l’atout : Valet 20, 9 14, As 11, 10 10, Roi 4, Dame 3, 8 et 7 : 0 (dans cet ordre de force).",
+     "Hors atout : As 11, 10 10, Roi 4, Dame 3, Valet 2, 9, 8 et 7 : 0 (dans cet ordre de force).",
+     "Une donne vaut 162 points au total : 152 dans les cartes + 10 pour le dix de der.",
+     "Sans atout (variante) : As 19, 10 10, Roi 4, Dame 3, Valet 2, 9, 8 et 7 : 0.",
+     "Tout atout (variante) : Valet 14, 9 9, As 6, 10 5, Roi 3, Dame 1, 8 et 7 : 0 ; chaque couleur se joue comme de l’atout."
+    ]
+   },
+   {
+    "title": "Déroulement du jeu",
+    "rules": [
+     "Le joueur à droite du donneur entame le premier pli ; le vainqueur de chaque pli entame le suivant.",
+     "Il faut toujours fournir la couleur demandée.",
+     "Sans la couleur demandée, il faut couper (jouer atout), sauf si son partenaire est maître du pli : on peut alors se défausser.",
+     "Quand on coupe ou quand l’atout est demandé, il faut monter : jouer un atout plus fort que ceux déjà posés si on le peut.",
+     "Si l’on ne peut ni fournir ni couper, on se défausse de la carte de son choix.",
+     "Dix de der : l’équipe qui remporte le dernier pli marque 10 points de plus."
+    ]
+   },
+   {
+    "title": "Belote et annonces",
+    "rules": [
+     "Belote-rebelote : le Roi et la Dame d’atout dans la même main valent 20 points ; on dit « belote » en posant la première, « rebelote » en posant la seconde.",
+     "La belote reste acquise à l’équipe qui la détient, même quand son contrat chute.",
+     "Annonces (variante « coinche avec annonces ») : elles se déclarent au premier pli et ne sont comptées que pour l’équipe qui détient la meilleure.",
+     "Tierce (3 cartes qui se suivent dans la même couleur) : 20 ; Cinquante (4 cartes) : 50 ; Cent (5 cartes ou plus) : 100.",
+     "Carré de Valets : 200 ; carré de 9 : 150 ; carré d’As, de 10, de Rois ou de Dames : 100.",
+     "À valeur égale, la suite la plus haute l’emporte ; une suite à l’atout bat une suite de même valeur dans une autre couleur."
     ]
    },
    {
     "title": "Décompte",
     "rules": [
-     "Contrat réussi : l’équipe marque ses points + la valeur du contrat.",
-     "Contrat chuté : l’adversaire marque 160 + la valeur du contrat.",
-     "Belote-rebelote : 20 points, toujours acquis par l’équipe qui l’a."
+     "Le contrat est réussi si l’équipe preneuse atteint au moins le montant annoncé (points des plis + dix de der + belote et annonces).",
+     "Contrat réussi : l’équipe preneuse marque ses points + la valeur du contrat ; la défense marque les points de ses plis.",
+     "Contrat chuté (« dedans ») : la défense marque 160 + la valeur du contrat, l’équipe preneuse ne marque rien (hors belote).",
+     "Contrat coinché : la valeur du contrat est doublée (×4 s’il est surcoinché), qu’il soit réussi ou chuté.",
+     "Capot : faire tous les plis rapporte 250 points (500 pour la Générale) ; un capot annoncé et raté compte comme un contrat chuté.",
+     "Les scores de chaque donne sont en général arrondis à la dizaine la plus proche."
+    ]
+   },
+   {
+    "title": "Fin de partie",
+    "rules": [
+     "On joue jusqu’à ce qu’une équipe atteigne la limite choisie : 1000, 2000 ou 3000 points.",
+     "La limite se vérifie en fin de donne ; si les deux équipes la dépassent en même temps, celle qui a le plus de points gagne."
     ]
    }
   ],
