@@ -97,8 +97,9 @@ Future<void> showGameActionsSheet(BuildContext context, AppState app, Game game)
               icon: Icons.tune_rounded,
               title: 'Modifier les paramètres',
               subtitle: 'Comptage, limite de points, rôles, manches multiples — et plusieurs règles possibles.',
-              onTap: () {
+              onTap: () async {
                 Navigator.of(sheetContext).pop();
+                if (!await confirmDetachFromLibrary(context, game) || !context.mounted) return;
                 _openGameForm(context, app, () => app.startEditingGame(game));
               },
             ),
@@ -129,6 +130,31 @@ Future<void> showGameActionsSheet(BuildContext context, AppState app, Game game)
       ),
     ),
   );
+}
+
+/// Warns that editing [game] stops it from following its library original
+/// (see [Game.libraryId]) and asks to go on — true right away for a game that
+/// isn't linked to the library, so callers can guard every edit with it.
+Future<bool> confirmDetachFromLibrary(BuildContext context, Game game) async {
+  if (!game.followsLibrary) return true;
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      backgroundColor: AppColors.bg,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
+      title: Text('Modifier « ${game.name} » ?', style: dispFont(size: 18, weight: FontWeight.w700, color: AppColors.ink)),
+      content: Text(
+        'Ce jeu vient de la bibliothèque et reçoit ses mises à jour automatiquement. '
+        'En le modifiant, il deviendra le vôtre et les mises à jour ne suivront plus.',
+        style: bodyFont(size: 14, weight: FontWeight.w600, color: AppColors.mut),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Annuler')),
+        TextButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('Modifier')),
+      ],
+    ),
+  );
+  return confirmed == true;
 }
 
 Future<void> confirmDeleteGame(BuildContext context, AppState app, Game game) async {

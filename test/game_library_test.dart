@@ -18,6 +18,16 @@ void main() {
     expect(names.toSet().length, names.length);
   });
 
+  test('an imported copy keeps its library link until it is edited', () {
+    final copy = Game.fromDoc('abc', {...games.first.toMap(), 'libraryId': games.first.id});
+    expect(copy.followsLibrary, isTrue);
+    expect(Game.fromDoc(copy.id, copy.toMap()).libraryId, games.first.id);
+    expect(copy.copyWith(ruleSections: const []).libraryId, games.first.id);
+    final edited = copy.copyWith(ruleSections: const [], detachFromLibrary: true);
+    expect(edited.followsLibrary, isFalse);
+    expect(edited.toMap().containsKey('libraryId'), isFalse);
+  });
+
   for (final game in games) {
     group(game.name, () {
       test('basics', () {

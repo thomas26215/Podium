@@ -8,10 +8,13 @@ import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
 import '../../widgets/game_filter_bar.dart';
 import '../../widgets/option_chip.dart';
+import 'library_game_preview_screen.dart';
 
 /// Lists games from the shared online library ([AppState.gameLibrary]) so a
 /// group can import ready-made games — including ones with special scoring
-/// rules (roles/ranks) that would be tedious to configure by hand.
+/// rules (roles/ranks) that would be tedious to configure by hand. Tapping
+/// one opens its full preview ([LibraryGamePreviewScreen]), where it's
+/// actually imported; games the catalog already follows are ticked.
 ///
 /// A row of category chips narrows the list to one `Game.category`; the
 /// filter bar then only offers that category's themes. The library holds
@@ -44,6 +47,7 @@ class _GameLibraryBrowserState extends State<GameLibraryBrowser> {
       _shown = _pageSize;
     }
     final visible = games.take(_shown).toList();
+    void preview(Game g) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => LibraryGamePreviewScreen(game: g)));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -78,8 +82,8 @@ class _GameLibraryBrowserState extends State<GameLibraryBrowser> {
         else ...[
           for (final (i, g) in visible.indexed)
             i < _pageSize
-                ? FadeSlideIn(delay: Duration(milliseconds: i * 30), child: _LibraryGameTile(game: g, onTap: () => app.importLibraryGame(g)))
-                : _LibraryGameTile(game: g, onTap: () => app.importLibraryGame(g)),
+                ? FadeSlideIn(delay: Duration(milliseconds: i * 30), child: _LibraryGameTile(game: g, imported: app.libraryCopyOf(g) != null, onTap: () => preview(g)))
+                : _LibraryGameTile(game: g, imported: app.libraryCopyOf(g) != null, onTap: () => preview(g)),
           if (games.length > visible.length)
             Padding(
               padding: const EdgeInsets.only(top: 8),
@@ -137,8 +141,9 @@ class _CategoryChips extends StatelessWidget {
 
 class _LibraryGameTile extends StatelessWidget {
   final Game game;
+  final bool imported;
   final VoidCallback onTap;
-  const _LibraryGameTile({required this.game, required this.onTap});
+  const _LibraryGameTile({required this.game, required this.imported, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -146,6 +151,9 @@ class _LibraryGameTile extends StatelessWidget {
     return GameTileRow(
       emoji: game.emoji,
       onTap: onTap,
+      trailing: imported
+          ? Icon(Icons.check_circle_rounded, color: AppColors.accent, size: 26)
+          : Icon(Icons.chevron_right_rounded, color: AppColors.mut, size: 26),
       title: Row(
         children: [
           Flexible(child: Text(game.name, style: bodyFont(size: 15, weight: FontWeight.w800, color: AppColors.ink), overflow: TextOverflow.ellipsis)),

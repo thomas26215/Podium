@@ -5,6 +5,7 @@ const { getAuth } = require("firebase-admin/auth");
 const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { logger } = require("firebase-functions");
+const { isDeepStrictEqual } = require("node:util");
 
 initializeApp();
 
@@ -350,6 +351,36 @@ exports.onSalonMemberAdded = onDocumentUpdated("servers/{serverId}/salons/{salon
     "podium_groups",
   );
   logger.info(`salon-member-added push sent for salon ${event.params.salonId} to ${tokens.length} device(s)`);
+});
+
+// Pushes an edited `gameLibrary` game onto every group/server catalog copy
+// still following it — the ones imported from the library and never edited
+// since, which keep its id in `libraryId` (see Game.libraryId in
+// lib/models/game.dart; editing a copy drops that field). Each copy is
+// replaced wholesale by the library version, keeping only its own
+// `salonId`/`libraryId`. Re-checked inside a transaction so a copy edited
+// by its group while this runs is left alone.
+//
+// The collection-group query needs the `games.libraryId` field override in
+// firestore.indexes.json.
+exports.onGameLibraryUpdated = onDocumentUpdated("gameLibrary/{libraryId}", async (event) => {
+  const before = event.data?.before?.data();
+  const after = event.data?.after?.data();
+  if (!before || !after || isDeepStrictEqual(before, after)) return;
+
+  const { libraryId } = event.params;
+  const copies = await db.collectionGroup("games").where("libraryId", "==", libraryId).get();
+  let updated = 0;
+  for (const copy of copies.docs) {
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(copy.ref);
+      if (!snap.exists || snap.get("libraryId") !== libraryId) return;
+      const salonId = snap.get("salonId");
+      tx.set(copy.ref, { ...after, libraryId, ...(salonId != null && { salonId }) });
+      updated++;
+    });
+  }
+  logger.info(`library game ${libraryId} synced to ${updated} catalog copie(s)`);
 });
 
 // Mirrors GameMatch.winnerIds() in lib/models/match.dart — keep in sync.

@@ -298,6 +298,14 @@ class Game {
   /// a Group, where the concept doesn't apply.
   final String? salonId;
 
+  /// Id of the `gameLibrary` doc this game was imported from, as long as it
+  /// still mirrors it: the `onGameLibraryWritten` Cloud Function pushes every
+  /// later change of that library game onto each copy still carrying this.
+  /// Any edit of the copy itself drops it (see [copyWith]'s
+  /// `detachFromLibrary`), so a customized game is never overwritten. Null
+  /// for a game created by hand or no longer following the library.
+  final String? libraryId;
+
   const Game({
     required this.id,
     required this.name,
@@ -310,7 +318,10 @@ class Game {
     this.themes = const [],
     this.characterChoice,
     this.salonId,
+    this.libraryId,
   });
+
+  bool get followsLibrary => libraryId != null;
 
   /// Convenience constructor for the common case of a game with exactly one
   /// rule — takes the same flat scoring fields the old single-rule `Game`
@@ -394,7 +405,7 @@ class Game {
   /// to "the game's one rule" when no explicit choice was made.
   GameRule resolveRule(String? id) => ruleById(id) ?? defaultRule;
 
-  Game copyWith({List<GameRuleSection>? ruleSections, List<GameRule>? rules}) => Game(
+  Game copyWith({List<GameRuleSection>? ruleSections, List<GameRule>? rules, bool detachFromLibrary = false}) => Game(
         id: id,
         name: name,
         emoji: emoji,
@@ -406,6 +417,7 @@ class Game {
         themes: themes,
         characterChoice: characterChoice,
         salonId: salonId,
+        libraryId: detachFromLibrary ? null : libraryId,
       );
 
   Map<String, dynamic> toMap() => {
@@ -419,6 +431,7 @@ class Game {
         if (themes.isNotEmpty) 'themes': themes,
         if (characterChoice != null) 'characterChoice': characterChoice!.toMap(),
         if (salonId != null) 'salonId': salonId,
+        if (libraryId != null) 'libraryId': libraryId,
       };
 
   factory Game.fromDoc(String id, Map<String, dynamic> data) {
@@ -440,6 +453,7 @@ class Game {
       themes: ((data['themes'] as List?) ?? const []).map((e) => e as String).toList(),
       characterChoice: data['characterChoice'] is Map ? CharacterChoice.fromMap(Map<String, dynamic>.from(data['characterChoice'] as Map)) : null,
       salonId: data['salonId'] as String?,
+      libraryId: data['libraryId'] as String?,
     );
   }
 

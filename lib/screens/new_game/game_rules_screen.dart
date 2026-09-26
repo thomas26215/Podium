@@ -6,6 +6,7 @@ import '../../services/game_rules_pdf.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
+import 'game_actions_sheet.dart';
 
 /// Rules reminders for a game, grouped into categories the group defines
 /// itself (e.g. for Rami: "Règles générales", "Règle de la première pose",
@@ -59,6 +60,7 @@ class _GameRulesScreenState extends State<GameRulesScreen> {
       .toList();
 
   Future<void> _save(AppState app) async {
+    if (!await confirmDetachFromLibrary(context, widget.game) || !mounted) return;
     final ok = await app.updateGameRules(widget.game, _currentSections());
     if (ok && mounted) Navigator.of(context).pop();
   }

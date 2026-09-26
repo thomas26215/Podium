@@ -2092,7 +2092,9 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     var ok = false;
     try {
-      await _activeGamesRepo.updateGame(root, game.copyWith(ruleSections: sections));
+      // Editing the reminders makes this copy the group's own — it stops
+      // following the library (see Game.libraryId).
+      await _activeGamesRepo.updateGame(root, game.copyWith(ruleSections: sections, detachFromLibrary: true));
       showToast('Règles enregistrées.');
       ok = true;
     } catch (e) {
@@ -2871,20 +2873,36 @@ class AppState extends ChangeNotifier {
   /// and by [libraryFilter] (players/themes).
   List<Game> get filteredLibrary => libraryFilter.apply(libraryInCategory.where((g) => gameMatchesQuery(g, librarySearch)));
 
+  /// The copy of [libraryGame] already in the visible catalog that still
+  /// follows it (see [Game.libraryId]), if any — so the library can offer
+  /// to use it rather than import a duplicate.
+  Game? libraryCopyOf(Game libraryGame) => games.where((g) => g.libraryId == libraryGame.id).firstOrNull;
+
+  /// Leaves the library and selects [copy] (see [libraryCopyOf]) as the
+  /// match's game — the "already imported" counterpart of
+  /// [importLibraryGame].
+  void useLibraryCopy(Game copy) {
+    browsingLibrary = false;
+    pickGame(copy.id);
+  }
+
   /// Imports a library game into the current group's own catalog and
   /// selects it as the match being created — one tap from "browse" straight
-  /// to "playing it".
-  Future<void> importLibraryGame(Game libraryGame) async {
+  /// to "playing it". Returns true on success so the preview screen knows
+  /// it can close.
+  Future<bool> importLibraryGame(Game libraryGame) async {
     final root = _activeRootId;
-    if (root == null) return;
+    if (root == null) return false;
     busy = true;
     flowError = null;
     notifyListeners();
+    var ok = false;
     try {
       final game = await _activeGamesRepo.importGame(
         root,
         libraryGame,
         salonId: activeContext == ActiveContextKind.salon ? currentSalonId : null,
+        libraryId: libraryGame.id,
       );
       // Not `pickGame(game.id)`: the watchGames stream may not have caught
       // up with this just-created doc yet, so `gameById` could still miss
@@ -2894,12 +2912,14 @@ class AppState extends ChangeNotifier {
       if (!game.hasMultipleRules) _applyRule(game.defaultRule);
       browsingLibrary = false;
       showToast('« ${game.name} » ajouté à votre catalogue.');
+      ok = true;
     } catch (e) {
       flowError = e.toString();
     } finally {
       busy = false;
       notifyListeners();
     }
+    return ok;
   }
 
   /// Fetches the game catalogs of every other root group the user belongs
@@ -2958,7 +2978,9 @@ class AppState extends ChangeNotifier {
     flowError = null;
     notifyListeners();
     try {
-      final game = await gamesRepo.importGame(root, source.game);
+      // A copy that still mirrors the library stays linked to it, like the
+      // original.
+      final game = await gamesRepo.importGame(root, source.game, libraryId: source.game.libraryId);
       // See importLibraryGame for why this doesn't just call pickGame.
       draft.gameId = game.id;
       draft.ruleId = null;
@@ -3033,6 +3055,10 @@ class AppState extends ChangeNotifier {
           // game must not silently move it to another Salon's catalog or
           // turn it into a shared one (see Game.salonId).
           salonId: gameById(_editingGameId!)?.salonId,
+          // Not edited by this form, so carried over too — `updateGame`
+          // overwrites the whole doc. `libraryId` deliberately isn't:
+          // an edited game stops following the library (see Game.libraryId).
+          ruleSections: gameById(_editingGameId!)?.ruleSections ?? const [],
         );
         await _activeGamesRepo.updateGame(root, game);
         showToast('Jeu mis à jour.');

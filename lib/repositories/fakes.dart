@@ -438,7 +438,7 @@ class FakeGamesRepository implements GamesRepository {
   }
 
   @override
-  Future<Game> importGame(String rootGroupId, Game source, {String? salonId}) async {
+  Future<Game> importGame(String rootGroupId, Game source, {String? salonId, String? libraryId}) async {
     final list = byGroup.putIfAbsent(rootGroupId, () => []);
     final game = Game(
       id: 'game${list.length + 1}',
@@ -452,6 +452,7 @@ class FakeGamesRepository implements GamesRepository {
       themes: source.themes,
       characterChoice: source.characterChoice,
       salonId: salonId,
+      libraryId: libraryId,
     );
     list.add(game);
     _ctrl(rootGroupId).add(list);

@@ -252,7 +252,10 @@ class GameTileRow extends StatelessWidget {
   final Widget title;
   final Widget subtitle;
   final VoidCallback onTap;
-  const GameTileRow({super.key, required this.emoji, required this.title, required this.subtitle, required this.onTap});
+
+  /// Replaces the default "add" icon at the end of the row.
+  final Widget? trailing;
+  const GameTileRow({super.key, required this.emoji, required this.title, required this.subtitle, required this.onTap, this.trailing});
 
   @override
   Widget build(BuildContext context) {
@@ -278,7 +281,7 @@ class GameTileRow extends StatelessWidget {
                 children: [title, subtitle],
               ),
             ),
-            Icon(Icons.add_circle_rounded, color: AppColors.accent, size: 26),
+            trailing ?? Icon(Icons.add_circle_rounded, color: AppColors.accent, size: 26),
           ],
         ),
       ),

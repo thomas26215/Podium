@@ -21,6 +21,7 @@ import 'package:podium/screens/auth/auth_gate.dart';
 import 'package:podium/logic/game_filter.dart';
 import 'package:podium/logic/game_sort.dart';
 import 'package:podium/screens/new_game/game_form.dart';
+import 'package:podium/screens/new_game/library_game_preview_screen.dart';
 import 'package:podium/screens/new_game/step1_game.dart';
 import 'package:podium/screens/profile/profile_screen.dart';
 import 'package:podium/widgets/common.dart';
@@ -1389,6 +1390,68 @@ void main() {
     await tester.pumpAndSettle();
     await pickPlayers(tester, 8);
     expect(find.text('Aucun jeu ne correspond à ces filtres.'), findsOneWidget);
+  });
+
+  testWidgets('a library game opens a full preview before import, then is ticked as already imported', (tester) async {
+    final seeded = _buildSeededState();
+    final wonders = Game.simple(
+      id: 'wonders', name: '7 Wonders', emoji: '🏛️', category: 'Société', countType: CountType.highWins,
+      minPlayers: 3, maxPlayers: 7, themes: const ['strategie', 'draft'],
+      ruleSections: const [GameRuleSection(title: 'Fin de partie', rules: ['Après le 3e âge'])],
+    );
+    seeded.state.gameLibrary = [wonders];
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Partie simple'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continuer'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Nouveau jeu'));
+    await tester.tap(find.text('Nouveau jeu'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Importer depuis la bibliothèque'));
+    await tester.pumpAndSettle();
+
+    // Tapping only previews — nothing is imported yet.
+    final before = seeded.state.games.length;
+    await tester.tap(find.text('7 Wonders'));
+    await tester.pumpAndSettle();
+    expect(find.byType(LibraryGamePreviewScreen), findsOneWidget);
+    expect(find.text('Après le 3e âge'), findsOneWidget);
+    expect(seeded.state.games.length, before);
+
+    await tester.tap(find.text('Ajouter à mon catalogue'));
+    await tester.pumpAndSettle();
+    expect(find.byType(LibraryGamePreviewScreen), findsNothing);
+    final copy = seeded.state.libraryCopyOf(wonders);
+    expect(copy, isNotNull);
+    expect(copy!.libraryId, 'wonders');
+    expect(seeded.state.draft.gameId, copy.id);
+
+    // Back in the library, the game is ticked and its preview offers the
+    // existing copy instead of a duplicate import.
+    await seeded.state.startBrowsingLibrary();
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
+    await tester.tap(find.text('7 Wonders'));
+    await tester.pumpAndSettle();
+    expect(find.text('Déjà dans votre catalogue'), findsOneWidget);
+    await tester.tap(find.text('Utiliser ce jeu'));
+    await tester.pumpAndSettle();
+    expect(seeded.state.games.length, before + 1);
+    expect(seeded.state.browsingLibrary, isFalse);
+    await tester.pump(const Duration(seconds: 3)); // let the import toast expire
   });
 
   testWidgets('a game created inside one salon is not visible from another salon of the same server', (tester) async {

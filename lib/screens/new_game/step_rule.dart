@@ -5,6 +5,7 @@ import '../../models/game.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
+import 'game_actions_sheet.dart';
 
 /// Wizard step shown right after "Quel jeu ?" whenever the picked game has
 /// more than one rule (see `Game.hasMultipleRules`/`AppState.stepSequence`)
@@ -32,7 +33,9 @@ class StepRule extends StatelessWidget {
           // Already inside the new-game sheet here (this step only ever
           // renders as part of it) — no need for game_actions_sheet's
           // "open the sheet fresh" helper, just flip its internal view.
-          onTap: () => app.startEditingGame(game),
+          onTap: () async {
+            if (await confirmDetachFromLibrary(context, game)) app.startEditingGame(game);
+          },
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 12),
             alignment: Alignment.center,
