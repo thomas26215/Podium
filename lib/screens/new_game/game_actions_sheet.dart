@@ -106,10 +106,10 @@ Future<void> showGameActionsSheet(BuildContext context, AppState app, Game game)
             ),
             const SizedBox(height: 10),
           ],
-          if (!closed && !game.followsLibrary) ...[
+          if (!closed) ...[
             ChooserOption(
               icon: Icons.swap_horiz_rounded,
-              title: 'Remplacer par un jeu de la bibliothèque',
+              title: game.followsLibrary ? 'Remplacer par un autre jeu de la bibliothèque' : 'Remplacer par un jeu de la bibliothèque',
               subtitle: 'Reprend les règles de la bibliothèque et ses mises à jour — les parties déjà jouées sont conservées.',
               onTap: () {
                 Navigator.of(sheetContext).pop();

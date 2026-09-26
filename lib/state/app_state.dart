@@ -2960,8 +2960,8 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  /// Turns `target` — a game of the current catalog, e.g. one created by
-  /// hand — into a copy of `libraryGame` that follows the library (see
+  /// Turns `target` — a game of the current catalog, created by hand or
+  /// imported from another library game — into a copy of `libraryGame` that follows the library (see
   /// [Game.libraryId]), keeping its id so every match and tournament
   /// already recorded for it stays attached. Its name, emoji, scoring rules
   /// and rules reminders are replaced by the library's.
@@ -2975,6 +2975,7 @@ class AppState extends ChangeNotifier {
     final root = _activeRootId;
     if (root == null) return false;
     if (_rejectIfActiveContextClosed()) return false;
+    if (target.libraryId == libraryGame.id) return true;
     final existingCopy = libraryCopyOf(libraryGame);
     final duplicate = existingCopy != null && existingCopy.id != target.id ? existingCopy : null;
     if (duplicate != null && !canManageGameCatalog) {

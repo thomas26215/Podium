@@ -2284,6 +2284,23 @@ void main() {
       await tester.pump(const Duration(milliseconds: 2700));
     });
 
+    testWidgets('a game already from the library can be swapped for another library game', (tester) async {
+      final app = await signedIn(tester, _lea);
+      expect(await app.replaceGameWithLibrary(app.gameById('catan')!, libCoinche), isTrue);
+      await tester.pump();
+      const libBelote = Game(id: 'belote', name: 'Belote', emoji: '♠️', category: 'Cartes', rules: [GameRule(id: '1000', name: 'Partie en 1000', countType: CountType.highWins)]);
+
+      expect(await app.replaceGameWithLibrary(app.gameById('catan')!, libBelote), isTrue);
+      await tester.pump();
+
+      final swapped = app.gameById('catan')!;
+      expect(swapped.name, 'Belote');
+      expect(swapped.libraryId, 'belote');
+      expect(app.libraryCopyOf(libCoinche), isNull, reason: 'no longer follows the Coinche');
+      expect(app.matches.where((m) => m.gameId == 'catan'), hasLength(1));
+      await tester.pump(const Duration(milliseconds: 2700));
+    });
+
     testWidgets('only the owner can merge with an existing copy', (tester) async {
       final app = await signedIn(tester, _tom);
       await app.gamesRepo.importGame('bandits', libCoinche, libraryId: 'coinche');

@@ -20,7 +20,9 @@ class ReplaceWithLibraryScreen extends StatefulWidget {
 }
 
 class _ReplaceWithLibraryScreenState extends State<ReplaceWithLibraryScreen> {
-  late final _searchCtrl = TextEditingController(text: widget.target.name);
+  // A hand-made game most likely has a library match under its own name;
+  // one already from the library is being swapped for a different game.
+  late final _searchCtrl = TextEditingController(text: widget.target.followsLibrary ? '' : widget.target.name);
 
   @override
   void initState() {
@@ -84,7 +86,8 @@ class _ReplaceWithLibraryScreenState extends State<ReplaceWithLibraryScreen> {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final query = _searchCtrl.text;
-    final results = app.gameLibrary.where((g) => gameMatchesQuery(g, query)).take(60).toList();
+    // The library game it already follows (if any) isn't a replacement.
+    final results = app.gameLibrary.where((g) => g.id != widget.target.libraryId && gameMatchesQuery(g, query)).take(60).toList();
 
     return Scaffold(
       backgroundColor: AppColors.bg,
