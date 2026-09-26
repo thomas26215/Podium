@@ -11,6 +11,7 @@ import '../servers/server_form_dialog.dart';
 import 'group_form_dialog.dart';
 import 'invite_dialog.dart';
 import 'qr_scan_screen.dart';
+import 'group_members_dialog.dart';
 import 'reassign_member_dialog.dart';
 
 /// Selects `groupId` as the active group and, if this screen was pushed on
@@ -399,6 +400,11 @@ class _RootGroupCard extends StatelessWidget {
               onSelected: (v) {
                 if (v == 'invite') {
                   showDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: InviteDialog(groupId: group.id, groupName: group.name)));
+                } else if (v == 'members') {
+                  app.flowError = null;
+                  showDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: GroupMembersDialog(groupId: group.id)));
+                } else if (v == 'leave') {
+                  confirmLeaveGroup(context, app, group);
                 } else if (v == 'reassign') {
                   showDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: ReassignMemberDialog(rootGroupId: group.id, rootGroupName: group.name)));
                 } else if (v == 'close') {
@@ -411,11 +417,14 @@ class _RootGroupCard extends StatelessWidget {
               },
               itemBuilder: (_) => [
                 if (!closed) const PopupMenuItem(value: 'invite', child: Text('Inviter un ami')),
+                const PopupMenuItem(value: 'members', child: Text('Membres')),
                 if (app.canDeleteGroup(group) && !closed) const PopupMenuItem(value: 'reassign', child: Text('Réassigner un membre')),
                 if (app.canCloseGroup(group))
                   PopupMenuItem(value: closed ? 'reopen' : 'close', child: Text(closed ? 'Rouvrir le groupe' : 'Fermer le groupe')),
                 if (app.canDeleteGroup(group))
-                  const PopupMenuItem(value: 'delete', child: Text('Supprimer le groupe', style: TextStyle(color: Colors.red))),
+                  const PopupMenuItem(value: 'delete', child: Text('Supprimer le groupe', style: TextStyle(color: Colors.red)))
+                else
+                  const PopupMenuItem(value: 'leave', child: Text('Quitter le groupe', style: TextStyle(color: Colors.red))),
               ],
             ),
           ],

@@ -75,6 +75,7 @@ class Group {
 
   Group copyWith({
     List<String>? memberIds,
+    String? ownerId,
     bool? closed,
     DateTime? closedAt,
     DateTime? inviteExpiresAt,
@@ -85,7 +86,7 @@ class Group {
         emoji: emoji,
         emojiBg: emojiBg,
         memberIds: memberIds ?? this.memberIds,
-        ownerId: ownerId,
+        ownerId: ownerId ?? this.ownerId,
         closed: closed ?? this.closed,
         closedAt: closed == false ? null : (closedAt ?? this.closedAt),
         temporary: temporary,

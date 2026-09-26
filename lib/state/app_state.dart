@@ -1979,6 +1979,63 @@ class AppState extends ChangeNotifier {
     return ok;
   }
 
+  /// Leaves `group` — its matches stay in the history. The owner must hand
+  /// ownership to someone else first (see [transferGroupOwnership]) or
+  /// delete the group instead, so a group is never left without an owner.
+  Future<bool> leaveGroup(Group group) async {
+    final uid = currentUser?.uid;
+    if (uid == null) return false;
+    if (group.ownerId == uid) {
+      flowError = 'Transférez la propriété du groupe à un autre membre avant de le quitter.';
+      notifyListeners();
+      return false;
+    }
+    return _runGroupAction(
+      () => groupsRepo.removeMember(groupId: group.id, memberId: uid),
+      'Vous avez quitté « ${group.name} ».',
+    );
+  }
+
+  /// Owner-only: takes `memberId` (an account or a guest) off `group`'s
+  /// roster. Their past matches stay in the history.
+  Future<bool> removeGroupMember(Group group, String memberId) async {
+    if (!canDeleteGroup(group) || memberId == group.ownerId) return false;
+    final name = playerById(memberId)?.displayName ?? 'Le joueur';
+    return _runGroupAction(
+      () => groupsRepo.removeMember(groupId: group.id, memberId: memberId),
+      '$name a été retiré du groupe.',
+    );
+  }
+
+  /// Owner-only: makes `newOwnerId` (a real account already in `group`) its
+  /// owner. The previous owner stays a plain member.
+  Future<bool> transferGroupOwnership(Group group, String newOwnerId) async {
+    if (!canDeleteGroup(group) || isGuestId(newOwnerId) || !group.memberIds.contains(newOwnerId)) return false;
+    final name = playerById(newOwnerId)?.displayName ?? 'Le joueur';
+    return _runGroupAction(
+      () => groupsRepo.transferOwnership(groupId: group.id, newOwnerId: newOwnerId),
+      '$name est maintenant propriétaire du groupe.',
+    );
+  }
+
+  Future<bool> _runGroupAction(Future<void> Function() action, String successToast) async {
+    busy = true;
+    flowError = null;
+    notifyListeners();
+    var ok = false;
+    try {
+      await action();
+      ok = true;
+      showToast(successToast);
+    } catch (e) {
+      flowError = e.toString();
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+    return ok;
+  }
+
   /// Hands `oldUid`'s slot in `rootGroupId` over to whichever account
   /// `newEmail` belongs to: the group's member list gets `newEmail`'s account
   /// instead, and every past match referencing `oldUid` is rewritten to

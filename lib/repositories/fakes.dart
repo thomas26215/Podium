@@ -207,6 +207,22 @@ class FakeGroupsRepository implements GroupsRepository {
     groups[groupId] = g.copyWith(inviteExpiresAt: DateTime.now().add(const Duration(minutes: 30)));
     _emit();
   }
+
+  @override
+  Future<void> removeMember({required String groupId, required String memberId}) async {
+    final g = groups[groupId];
+    if (g == null) return;
+    groups[groupId] = g.copyWith(memberIds: g.memberIds.where((m) => m != memberId).toList());
+    _emit();
+  }
+
+  @override
+  Future<void> transferOwnership({required String groupId, required String newOwnerId}) async {
+    final g = groups[groupId];
+    if (g == null || !g.memberIds.contains(newOwnerId)) return;
+    groups[groupId] = g.copyWith(ownerId: newOwnerId);
+    _emit();
+  }
 }
 
 class FakeServersRepository implements ServersRepository {

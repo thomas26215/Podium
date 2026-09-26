@@ -49,6 +49,13 @@ abstract class GroupsRepository {
   /// [Group.inviteExpiresAt]. Called whenever the invite dialog's QR tab is
   /// shown, so a freshly displayed code is always good for a fresh window.
   Future<void> refreshInviteWindow(String groupId);
+
+  /// Takes `memberId` off `groupId`'s roster — the caller leaving, or the
+  /// owner removing someone. Their past matches stay in the history.
+  Future<void> removeMember({required String groupId, required String memberId});
+
+  /// Makes `newOwnerId` (already a member) the owner of `groupId`.
+  Future<void> transferOwnership({required String groupId, required String newOwnerId});
 }
 
 class FirebaseGroupsRepository implements GroupsRepository {
@@ -192,5 +199,17 @@ class FirebaseGroupsRepository implements GroupsRepository {
     await _groups.doc(groupId).update({
       'inviteExpiresAt': Timestamp.fromDate(DateTime.now().add(const Duration(minutes: 30))),
     });
+  }
+
+  @override
+  Future<void> removeMember({required String groupId, required String memberId}) async {
+    await _groups.doc(groupId).update({
+      'memberIds': FieldValue.arrayRemove([memberId]),
+    });
+  }
+
+  @override
+  Future<void> transferOwnership({required String groupId, required String newOwnerId}) async {
+    await _groups.doc(groupId).update({'ownerId': newOwnerId});
   }
 }

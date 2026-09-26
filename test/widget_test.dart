@@ -18,6 +18,7 @@ import 'package:podium/repositories/games_repository.dart';
 import 'package:podium/repositories/guests_repository.dart';
 import 'package:podium/repositories/users_repository.dart';
 import 'package:podium/screens/auth/auth_gate.dart';
+import 'package:podium/screens/groups/groups_screen.dart';
 import 'package:podium/logic/game_filter.dart';
 import 'package:podium/logic/game_sort.dart';
 import 'package:podium/screens/new_game/game_form.dart';
@@ -1802,5 +1803,107 @@ void main() {
     expect(find.textContaining('0 parties'), findsOneWidget, reason: 'Salon B has none');
 
     await tester.pump(const Duration(milliseconds: 2700));
+  });
+
+  group('group membership', () {
+    Future<AppState> signedIn(WidgetTester tester, AppUser who) async {
+      final seeded = _buildSeededState();
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(value: seeded.state, child: const MaterialApp(home: GroupsPage())),
+      );
+      seeded.auth.debugSignIn(who);
+      await tester.pumpAndSettle();
+      return seeded.state;
+    }
+
+    Future<void> openGroupMenu(WidgetTester tester) async {
+      await tester.tap(find.byIcon(Icons.more_horiz).first);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('a plain member can leave the group from its menu', (tester) async {
+      final app = await signedIn(tester, _tom);
+      expect(find.text('Les Bandits'), findsOneWidget);
+
+      await openGroupMenu(tester);
+      expect(find.text('Supprimer le groupe'), findsNothing);
+      await tester.tap(find.text('Quitter le groupe'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Quitter'));
+      await tester.pumpAndSettle();
+
+      expect(app.groups, isEmpty);
+      expect(find.text('Les Bandits'), findsNothing);
+      await tester.pump(const Duration(milliseconds: 2700));
+    });
+
+    testWidgets('the owner can remove a member from the members dialog', (tester) async {
+      final app = await signedIn(tester, _lea);
+
+      await openGroupMenu(tester);
+      expect(find.text('Quitter le groupe'), findsNothing);
+      await tester.tap(find.text('Membres'));
+      await tester.pumpAndSettle();
+      expect(find.text('Léa (vous)'), findsOneWidget);
+      expect(find.text('PROPRIÉTAIRE'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Gérer Tom'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Retirer du groupe'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Retirer'));
+      await tester.pumpAndSettle();
+
+      expect(app.groupById('bandits')!.memberIds, ['lea']);
+      expect(find.text('Tom'), findsNothing);
+      await tester.pump(const Duration(milliseconds: 2700));
+    });
+
+    testWidgets('the owner can hand ownership over, then leave', (tester) async {
+      final app = await signedIn(tester, _lea);
+
+      await openGroupMenu(tester);
+      await tester.tap(find.text('Membres'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Gérer Tom'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Rendre propriétaire'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Transférer'));
+      await tester.pumpAndSettle();
+
+      expect(app.groupById('bandits')!.ownerId, 'tom');
+      // No longer the owner: the owner-only actions are gone and leaving is offered.
+      expect(find.byTooltip('Gérer Tom'), findsNothing);
+      await tester.tap(find.text('Quitter le groupe'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Quitter'));
+      await tester.pumpAndSettle();
+
+      expect(app.groups, isEmpty);
+      await tester.pump(const Duration(milliseconds: 2700));
+    });
+
+    testWidgets('the owner cannot leave, nor be removed, nor hand ownership to a guest', (tester) async {
+      final app = await signedIn(tester, _lea);
+      final group = app.groupById('bandits')!;
+
+      expect(await app.leaveGroup(group), isFalse);
+      expect(app.flowError, contains('Transférez la propriété'));
+      expect(await app.removeGroupMember(group, 'lea'), isFalse);
+      expect(await app.transferGroupOwnership(group, 'guest:g1'), isFalse);
+      expect(app.groupById('bandits')!.memberIds, ['lea', 'tom']);
+      expect(app.groupById('bandits')!.ownerId, 'lea');
+    });
+
+    testWidgets('a plain member cannot remove others or take ownership', (tester) async {
+      final app = await signedIn(tester, _tom);
+      final group = app.groupById('bandits')!;
+
+      expect(await app.removeGroupMember(group, 'lea'), isFalse);
+      expect(await app.transferGroupOwnership(group, 'tom'), isFalse);
+      expect(app.groupById('bandits')!.memberIds, ['lea', 'tom']);
+      expect(app.groupById('bandits')!.ownerId, 'lea');
+    });
   });
 }
