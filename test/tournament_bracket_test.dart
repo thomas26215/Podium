@@ -3,6 +3,8 @@
 // these run fast and pin down the bracket algorithms independently of the
 // UI built on top of them.
 
+import 'dart:math';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:podium/logic/tournament_bracket.dart';
 import 'package:podium/models/match.dart';
@@ -400,6 +402,26 @@ void main() {
       ];
       final t = _wrap(buildDoubleElimination(['p0', 'p1', 'p2'], firstRound: layout));
       expect(currentFirstRound(t), layout);
+    });
+  });
+
+  group('shuffleFirstRound', () {
+    test('moves the empty slots too, never leaving a match empty', () {
+      final pairs = firstRoundPairs(['p0', 'p1', 'p2', 'p3', 'p4']); // 3 byes in 4 matches
+      final seenByeSlots = <(int, int)>{};
+      for (var seed = 0; seed < 200; seed++) {
+        final shuffled = shuffleFirstRound(pairs, Random(seed));
+        expect(shuffled.length, pairs.length);
+        expect([for (final p in shuffled) ...p.whereType<String>()]..sort(), ['p0', 'p1', 'p2', 'p3', 'p4']);
+        expect(shuffled.any((p) => p[0] == null && p[1] == null), isFalse);
+        for (final (i, p) in shuffled.indexed) {
+          for (final side in [0, 1]) {
+            if (p[side] == null) seenByeSlots.add((i, side));
+          }
+        }
+      }
+      // Every slot ends up empty at some point — nothing is pinned.
+      expect(seenByeSlots.length, 8);
     });
   });
 }

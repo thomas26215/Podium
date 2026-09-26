@@ -88,6 +88,26 @@ List<List<String?>>? swapFirstRoundSlots(List<List<String?>> pairs, (int, int) a
   return result;
 }
 
+/// Shuffles every first-round slot of [pairs] — empty ones included, so
+/// the byes land anywhere, not just where [firstRoundPairs] puts them —
+/// while never leaving a whole match empty. Uniform over those valid
+/// layouts: the byes take distinct matches (picked at random), each on a
+/// random side, and the entrants are dealt at random into what's left.
+List<List<String?>> shuffleFirstRound(List<List<String?>> pairs, [Random? random]) {
+  final rng = random ?? Random();
+  final entrants = [for (final p in pairs) ...p.whereType<String>()]..shuffle(rng);
+  final byes = pairs.length * 2 - entrants.length;
+  final byeMatches = (List.generate(pairs.length, (i) => i)..shuffle(rng)).take(byes).toSet();
+  var next = 0;
+  return [
+    for (var i = 0; i < pairs.length; i++)
+      if (byeMatches.contains(i))
+        rng.nextBool() ? [entrants[next++], null] : [null, entrants[next++]]
+      else
+        [entrants[next++], entrants[next++]],
+  ];
+}
+
 /// Closure pass over a bracket's matches: propagates every known winner (and
 /// loser, for a double-elimination match with a `loserNextMatchId`) into the
 /// slot it feeds, then — now that may have left some match with exactly one

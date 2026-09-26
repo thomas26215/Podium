@@ -60,7 +60,13 @@ class _TournamentSeedingEditorState extends State<TournamentSeedingEditor> {
       _selectedSeed = null;
       _selectedSlot = null;
     });
-    widget.app.reorderTournamentEntrants(widget.tournament, List.of(widget.tournament.entrants)..shuffle());
+    final t = widget.tournament;
+    if (t.format == TournamentFormat.groupsThenElimination) {
+      widget.app.reorderTournamentEntrants(t, List.of(t.entrants)..shuffle());
+    } else {
+      // Empty slots are shuffled along with everyone else.
+      widget.app.rearrangeFirstRound(t, shuffleFirstRound(currentFirstRound(t)));
+    }
   }
 
   @override
