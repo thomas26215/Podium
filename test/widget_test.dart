@@ -31,6 +31,7 @@ import 'package:podium/logic/tournament_bracket.dart';
 import 'package:podium/logic/game_sort.dart';
 import 'package:podium/screens/new_game/game_form.dart';
 import 'package:podium/screens/new_game/library_game_preview_screen.dart';
+import 'package:podium/screens/new_game/replace_with_library_screen.dart';
 import 'package:podium/screens/new_game/step1_game.dart';
 import 'package:podium/screens/profile/profile_screen.dart';
 import 'package:podium/widgets/common.dart';
@@ -42,7 +43,7 @@ import 'package:podium/state/app_state.dart';
 const _lea = AppUser(uid: 'lea', email: 'lea@test.fr', displayName: 'Léa', color: 0xFFFF5B34);
 const _tom = AppUser(uid: 'tom', email: 'tom@test.fr', displayName: 'Tom', color: 0xFF5B4BE8);
 
-({AppState state, FakeAuthRepository auth}) _buildSeededState() {
+({AppState state, FakeAuthRepository auth}) _buildSeededState({List<Game>? library}) {
   final usersMap = {'lea': _lea, 'tom': _tom};
   final users = FakeUsersRepository(usersMap);
   final auth = FakeAuthRepository(seedUsers: usersMap);
@@ -84,7 +85,7 @@ const _tom = AppUser(uid: 'tom', email: 'tom@test.fr', displayName: 'Tom', color
     tournamentsRepo: FakeTournamentsRepository(),
     usersRepo: users,
     guestsRepo: FakeGuestsRepository(),
-    gameLibraryRepo: FakeGameLibraryRepository(),
+    gameLibraryRepo: FakeGameLibraryRepository(seed: library),
     serversRepo: FakeServersRepository(users: users),
     serverGamesRepo: FakeGamesRepository(),
     serverMatchesRepo: FakeMatchesRepository(),
@@ -2224,5 +2225,106 @@ void main() {
     expect(seeded.state.groupById(other.id)!.memberIds, contains('lea'));
     expect(find.byType(TextField), findsNothing, reason: 'the dialog closes once joined');
     await tester.pump(const Duration(milliseconds: 2700));
+  });
+
+  group('replacing a catalog game with a library game', () {
+    const libCoinche = Game(
+      id: 'coinche',
+      name: 'Coinche',
+      emoji: '♣️',
+      category: 'Cartes',
+      rules: [GameRule(id: '3000', name: 'Partie en 3000', countType: CountType.highWins, pointLimit: 3000, multiRound: true)],
+      ruleSections: [GameRuleSection(title: 'Principe', rules: ['Belote aux enchères.'])],
+      minPlayers: 4,
+      maxPlayers: 4,
+    );
+
+    Future<AppState> signedIn(WidgetTester tester, AppUser who) async {
+      final seeded = _buildSeededState(library: [libCoinche]);
+      seeded.auth.debugSignIn(who);
+      await tester.pump();
+      await tester.pump();
+      return seeded.state;
+    }
+
+    testWidgets('keeps the game id — and so its history — but takes the library content and follows it', (tester) async {
+      final app = await signedIn(tester, _lea);
+      final catan = app.gameById('catan')!;
+      expect(app.matches.where((m) => m.gameId == 'catan'), hasLength(1));
+
+      expect(await app.replaceGameWithLibrary(catan, libCoinche), isTrue);
+      await tester.pump();
+
+      final replaced = app.gameById('catan')!;
+      expect(replaced.name, 'Coinche');
+      expect(replaced.libraryId, 'coinche');
+      expect(replaced.rules.single.name, 'Partie en 3000');
+      expect(replaced.ruleSections.single.title, 'Principe');
+      expect(app.matches.where((m) => m.gameId == 'catan'), hasLength(1), reason: 'the match history stays attached');
+      expect(app.libraryCopyOf(libCoinche)?.id, 'catan');
+      await tester.pump(const Duration(milliseconds: 2700));
+    });
+
+    testWidgets('merges a separately imported copy: its matches move over and the duplicate goes', (tester) async {
+      final app = await signedIn(tester, _lea);
+      final copy = await app.gamesRepo.importGame('bandits', libCoinche, libraryId: 'coinche');
+      await app.matchesRepo.addMatch('bandits', GameMatch(
+        id: '', gameId: copy.id, groupId: 'bandits', mode: 'ffa', unit: 'points', lowWins: false,
+        entries: const [MatchEntry(playerId: 'lea', points: 3), MatchEntry(playerId: 'tom', points: 1)],
+        timeline: const [], createdAt: DateTime(2026, 9, 1),
+      ));
+      await tester.pump();
+
+      expect(await app.replaceGameWithLibrary(app.gameById('catan')!, libCoinche), isTrue);
+      await tester.pump();
+
+      expect(app.gameById(copy.id), isNull, reason: 'the duplicate is gone');
+      expect(app.matches.where((m) => m.gameId == 'catan'), hasLength(2), reason: 'both histories are now one');
+      expect(app.games.where((g) => g.libraryId == 'coinche'), hasLength(1));
+      await tester.pump(const Duration(milliseconds: 2700));
+    });
+
+    testWidgets('only the owner can merge with an existing copy', (tester) async {
+      final app = await signedIn(tester, _tom);
+      await app.gamesRepo.importGame('bandits', libCoinche, libraryId: 'coinche');
+      await tester.pump();
+
+      expect(await app.replaceGameWithLibrary(app.gameById('catan')!, libCoinche), isFalse);
+      expect(app.flowError, contains('seul le propriétaire'));
+      expect(app.gameById('catan')!.name, 'Catan');
+    });
+
+    testWidgets('the picker searches the library from the game\'s name and replaces on confirm', (tester) async {
+      final app = await signedIn(tester, _lea);
+      await tester.pumpWidget(ChangeNotifierProvider.value(
+        value: app,
+        child: MaterialApp(home: Builder(builder: (context) {
+          return Scaffold(
+            body: Center(
+              child: TextButton(
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ReplaceWithLibraryScreen(target: app.gameById('catan')!))),
+                child: const Text('open'),
+              ),
+            ),
+          );
+        })),
+      ));
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Coinche'), findsNothing, reason: 'the search starts from "Catan"');
+      await tester.enterText(find.byType(TextField), 'coin');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Coinche'));
+      await tester.pumpAndSettle();
+      expect(find.text('Remplacer « Catan » ?'), findsOneWidget);
+      expect(find.textContaining('La partie déjà enregistrée est conservée.'), findsOneWidget);
+      await tester.tap(find.text('Remplacer'));
+      await tester.pumpAndSettle();
+
+      expect(app.gameById('catan')!.name, 'Coinche');
+      expect(find.byType(ReplaceWithLibraryScreen), findsNothing, reason: 'closes once replaced');
+      await tester.pump(const Duration(milliseconds: 2700));
+    });
   });
 }

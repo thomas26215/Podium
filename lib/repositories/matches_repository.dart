@@ -38,6 +38,11 @@ abstract class MatchesRepository {
   /// `GroupsRepository.reassignMember` for the membership half).
   Future<void> reassignPlayer({required String rootGroupId, required String oldPlayerId, required String newPlayerId});
 
+  /// Moves every match of game `fromGameId` over to game `toGameId` — used
+  /// when two catalog entries for the same game are merged (see
+  /// `AppState.replaceGameWithLibrary`).
+  Future<void> reassignGame({required String rootGroupId, required String fromGameId, required String toGameId});
+
   /// Records that a match is being scored, right now, by `startedByUid` —
   /// creates the "live session" doc a Cloud Function picks up to push "Une
   /// partie de X a été débutée par Y" to the rest of the group, and that
@@ -144,6 +149,19 @@ class FirebaseMatchesRepository implements MatchesRepository {
   @override
   Future<void> deleteMatch(String rootGroupId, String matchId) async {
     await _col(rootGroupId).doc(matchId).delete();
+  }
+
+  @override
+  Future<void> reassignGame({required String rootGroupId, required String fromGameId, required String toGameId}) async {
+    final snap = await _col(rootGroupId).where('gameId', isEqualTo: fromGameId).get();
+    const chunkSize = 450;
+    for (var i = 0; i < snap.docs.length; i += chunkSize) {
+      final batch = _db.batch();
+      for (final d in snap.docs.skip(i).take(chunkSize)) {
+        batch.update(d.reference, {'gameId': toGameId});
+      }
+      await batch.commit();
+    }
   }
 
   @override

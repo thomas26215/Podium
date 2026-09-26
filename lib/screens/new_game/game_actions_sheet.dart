@@ -7,6 +7,7 @@ import '../../widgets/common.dart';
 import '../games/game_detail_screen.dart';
 import 'game_rules_screen.dart';
 import 'new_game_sheet.dart';
+import 'replace_with_library_screen.dart';
 
 /// Opens the create/edit-game sub-view via [action] (`app.startEditingGame`
 /// or `app.startNewGame`) and makes sure the new-game sheet is actually on
@@ -101,6 +102,18 @@ Future<void> showGameActionsSheet(BuildContext context, AppState app, Game game)
                 Navigator.of(sheetContext).pop();
                 if (!await confirmDetachFromLibrary(context, game) || !context.mounted) return;
                 _openGameForm(context, app, () => app.startEditingGame(game));
+              },
+            ),
+            const SizedBox(height: 10),
+          ],
+          if (!closed && !game.followsLibrary) ...[
+            ChooserOption(
+              icon: Icons.swap_horiz_rounded,
+              title: 'Remplacer par un jeu de la bibliothèque',
+              subtitle: 'Reprend les règles de la bibliothèque et ses mises à jour — les parties déjà jouées sont conservées.',
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                Navigator.of(context).push(MaterialPageRoute(builder: (_) => ReplaceWithLibraryScreen(target: game)));
               },
             ),
             const SizedBox(height: 10),

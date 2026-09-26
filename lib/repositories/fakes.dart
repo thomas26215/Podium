@@ -596,6 +596,16 @@ class FakeMatchesRepository implements MatchesRepository {
   }
 
   @override
+  Future<void> reassignGame({required String rootGroupId, required String fromGameId, required String toGameId}) async {
+    final list = byGroup[rootGroupId];
+    if (list == null) return;
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].gameId == fromGameId) list[i] = list[i].copyWith(gameId: toGameId);
+    }
+    _emitAll(rootGroupId);
+  }
+
+  @override
   Future<void> reassignPlayer({required String rootGroupId, required String oldPlayerId, required String newPlayerId}) async {
     final list = byGroup[rootGroupId];
     if (list == null) return;

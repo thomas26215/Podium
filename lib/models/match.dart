@@ -333,6 +333,7 @@ class GameMatch {
   /// `resetConfirmation: true` clears both [confirmedBy] and [rejectedBy]
   /// (the author editing and resubmitting a rejected match).
   GameMatch copyWith({
+    String? gameId,
     bool? seriesEndedEarly,
     List<String>? confirmedBy,
     String? rejectedBy,
@@ -340,7 +341,7 @@ class GameMatch {
   }) =>
       GameMatch(
         id: id,
-        gameId: gameId,
+        gameId: gameId ?? this.gameId,
         groupId: groupId,
         mode: mode,
         unit: unit,

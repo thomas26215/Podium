@@ -2941,18 +2941,86 @@ class AppState extends ChangeNotifier {
     libraryFilter = const GameFilter();
     libraryCategory = null;
     notifyListeners();
-    if (gameLibrary.isEmpty) {
-      libraryLoading = true;
+    await ensureGameLibraryLoaded();
+  }
+
+  /// Fetches the shared game library once (see [gameLibrary]); a no-op when
+  /// it's already loaded.
+  Future<void> ensureGameLibraryLoaded() async {
+    if (gameLibrary.isNotEmpty || libraryLoading) return;
+    libraryLoading = true;
+    notifyListeners();
+    try {
+      gameLibrary = await gameLibraryRepo.fetchLibrary();
+    } catch (e) {
+      flowError = e.toString();
+    } finally {
+      libraryLoading = false;
       notifyListeners();
-      try {
-        gameLibrary = await gameLibraryRepo.fetchLibrary();
-      } catch (e) {
-        flowError = e.toString();
-      } finally {
-        libraryLoading = false;
-        notifyListeners();
-      }
     }
+  }
+
+  /// Turns `target` — a game of the current catalog, e.g. one created by
+  /// hand — into a copy of `libraryGame` that follows the library (see
+  /// [Game.libraryId]), keeping its id so every match and tournament
+  /// already recorded for it stays attached. Its name, emoji, scoring rules
+  /// and rules reminders are replaced by the library's.
+  ///
+  /// When `libraryGame` was already imported separately (see
+  /// [libraryCopyOf]), that copy's matches and tournaments are moved over
+  /// to `target` and the copy is deleted — the two become one game. That
+  /// deletion is owner/admin-only, like any other (see
+  /// [canManageGameCatalog]).
+  Future<bool> replaceGameWithLibrary(Game target, Game libraryGame) async {
+    final root = _activeRootId;
+    if (root == null) return false;
+    if (_rejectIfActiveContextClosed()) return false;
+    final existingCopy = libraryCopyOf(libraryGame);
+    final duplicate = existingCopy != null && existingCopy.id != target.id ? existingCopy : null;
+    if (duplicate != null && !canManageGameCatalog) {
+      flowError = '« ${duplicate.name} » est déjà dans votre catalogue : seul le propriétaire du groupe peut fusionner les deux jeux.';
+      notifyListeners();
+      return false;
+    }
+    busy = true;
+    flowError = null;
+    notifyListeners();
+    var ok = false;
+    try {
+      await _activeGamesRepo.updateGame(
+        root,
+        Game(
+          id: target.id,
+          name: libraryGame.name,
+          emoji: libraryGame.emoji,
+          category: libraryGame.category,
+          rules: libraryGame.rules,
+          ruleSections: libraryGame.ruleSections,
+          minPlayers: libraryGame.minPlayers,
+          maxPlayers: libraryGame.maxPlayers,
+          themes: libraryGame.themes,
+          characterChoice: libraryGame.characterChoice,
+          salonId: target.salonId,
+          libraryId: libraryGame.id,
+        ),
+      );
+      if (duplicate != null) {
+        await _activeMatchesRepo.reassignGame(rootGroupId: root, fromGameId: duplicate.id, toGameId: target.id);
+        for (final t in tournaments.where((t) => t.gameId == duplicate.id)) {
+          await _activeTournamentsRepo.updateTournament(root, t.copyWith(gameId: target.id));
+        }
+        // Its matches were all moved above, so this only removes the game itself.
+        await _activeGamesRepo.deleteGame(root, duplicate.id);
+      }
+      showToast('« ${target.name} » est maintenant « ${libraryGame.name} » de la bibliothèque.');
+      ok = true;
+    } catch (e) {
+      flowError = e.toString();
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+    return ok;
   }
 
   void setLibrarySearch(String q) {

@@ -234,11 +234,11 @@ class Tournament {
 
   BracketMatch? matchById(String id) => matches.where((m) => m.id == id).firstOrNull;
 
-  Tournament copyWith({List<TournamentEntrant>? entrants, List<BracketMatch>? matches, String? status, String? winnerEntrantId}) => Tournament(
+  Tournament copyWith({String? gameId, List<TournamentEntrant>? entrants, List<BracketMatch>? matches, String? status, String? winnerEntrantId}) => Tournament(
         id: id,
         groupId: groupId,
         salonId: salonId,
-        gameId: gameId,
+        gameId: gameId ?? this.gameId,
         ruleId: ruleId,
         name: name,
         format: format,
