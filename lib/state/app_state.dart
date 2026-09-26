@@ -3647,6 +3647,7 @@ class AppState extends ChangeNotifier {
     if (draft.playerIds.isEmpty || !draft.playerIds.any((id) => (draft.points[id] ?? 0) != 0)) {
       return const [];
     }
+    final low = draft.unit == 'wins' ? false : (draftRule?.lowWins ?? false);
     if (draft.mode == 'team') {
       final sums = <String, int>{};
       for (final id in draft.playerIds) {
@@ -3654,16 +3655,15 @@ class AppState extends ChangeNotifier {
         sums[t] = (sums[t] ?? 0) + (draft.points[id] ?? 0);
       }
       String? bestTeam;
-      var bestVal = -1 << 31;
+      var bestVal = low ? 1 << 31 : -1 << 31;
       sums.forEach((t, v) {
-        if (v > bestVal) {
+        if (low ? v < bestVal : v > bestVal) {
           bestVal = v;
           bestTeam = t;
         }
       });
       return draft.playerIds.where((id) => (draft.team[id] ?? 'A') == bestTeam).toList();
     }
-    final low = draft.unit == 'wins' ? false : (draftRule?.lowWins ?? false);
     String? bestId;
     var best = low ? 1 << 30 : -(1 << 30);
     for (final id in draft.playerIds) {

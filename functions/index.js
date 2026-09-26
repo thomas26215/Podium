@@ -427,10 +427,11 @@ function computeWinnerIds(match) {
       const team = e.teamId || "A";
       sums[team] = (sums[team] || 0) + (e.points || 0);
     }
+    // In a lowWins game (Skyjo, golf…) the team with the lowest total wins.
     let bestTeam = null;
-    let bestVal = -Infinity;
+    let bestVal = match.lowWins ? Infinity : -Infinity;
     for (const [team, val] of Object.entries(sums)) {
-      if (val > bestVal) {
+      if (match.lowWins ? val < bestVal : val > bestVal) {
         bestVal = val;
         bestTeam = team;
       }

@@ -446,10 +446,11 @@ class GameMatch {
       for (final e in entries) {
         sums[e.teamId ?? 'A'] = (sums[e.teamId ?? 'A'] ?? 0) + e.points;
       }
+      // In a lowWins game (Skyjo, golf…) the team with the lowest total wins.
       String? bestTeam;
-      var bestVal = -1 << 31;
+      var bestVal = lowWins ? 1 << 31 : -1 << 31;
       sums.forEach((team, val) {
-        if (val > bestVal) {
+        if (lowWins ? val < bestVal : val > bestVal) {
           bestVal = val;
           bestTeam = team;
         }
