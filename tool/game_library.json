@@ -2637,17 +2637,17 @@
   "category": "Cartes",
   "rules": [
    {
-    "id": "2000",
-    "name": "Partie en 2000",
-    "countType": "points",
-    "pointLimit": 2000,
-    "multiRound": true
-   },
-   {
     "id": "1000",
     "name": "Partie en 1000",
     "countType": "points",
     "pointLimit": 1000,
+    "multiRound": true
+   },
+   {
+    "id": "2000",
+    "name": "Partie en 2000",
+    "countType": "points",
+    "pointLimit": 2000,
     "multiRound": true
    },
    {
