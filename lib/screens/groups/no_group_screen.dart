@@ -6,7 +6,7 @@ import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
 import 'group_form_dialog.dart';
-import 'qr_scan_screen.dart';
+import 'join_by_link_dialog.dart';
 
 /// Shown in place of [MainShell] right after sign-in when the user isn't a
 /// member of any group yet — prompts them to create one or share their email
@@ -63,12 +63,12 @@ class NoGroupScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "Scannez le QR code d'invitation d'un ami pour rejoindre son groupe instantanément.",
+                        "Scannez le QR code d'invitation d'un ami avec l'appareil photo de votre téléphone, ou touchez le lien d'invitation qu'il vous a envoyé : Podium s'ouvrira pour vous faire rejoindre son groupe.",
                         style: bodyFont(size: 13.5, weight: FontWeight.w600, color: AppColors.ink2),
                       ),
                       const SizedBox(height: 14),
                       OutlinedButton.icon(
-                        onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const QrScanScreen())),
+                        onPressed: () => showDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: const JoinByLinkDialog())),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.ink,
                           side: BorderSide(color: AppColors.line, width: 1.5),
@@ -76,8 +76,8 @@ class NoGroupScreen extends StatelessWidget {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
                           minimumSize: const Size.fromHeight(0),
                         ),
-                        icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
-                        label: Text('Scanner un QR code', style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink)),
+                        icon: const Icon(Icons.link_rounded, size: 20),
+                        label: Text("Coller un lien d'invitation", style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink)),
                       ),
                       const SizedBox(height: 18),
                       Text(

@@ -10,8 +10,8 @@ import '../servers/server_detail_screen.dart';
 import '../servers/server_form_dialog.dart';
 import 'group_form_dialog.dart';
 import 'invite_dialog.dart';
-import 'qr_scan_screen.dart';
 import 'group_members_dialog.dart';
+import 'join_by_link_dialog.dart';
 import 'reassign_member_dialog.dart';
 
 /// Selects `groupId` as the active group and, if this screen was pushed on
@@ -197,14 +197,14 @@ class _GroupsScreenState extends State<GroupsScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: Pressable(
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const QrScanScreen())),
+                  onTap: () => showDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: const JoinByLinkDialog())),
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(border: Border.all(color: AppColors.line, width: 2), borderRadius: BorderRadius.circular(AppRadius.lg)),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.qr_code_scanner_rounded, size: 20, color: AppColors.ink2),
+                        Icon(Icons.link_rounded, size: 20, color: AppColors.ink2),
                         const SizedBox(width: 8),
                         Flexible(child: Text('Rejoindre', overflow: TextOverflow.ellipsis, style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink2))),
                       ],

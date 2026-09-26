@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../models/app_user.dart';
+import '../../models/group_invite_code.dart';
 import '../../models/server_invite_code.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
@@ -250,7 +251,7 @@ class _SalonInviteDialogState extends State<SalonInviteDialog> {
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(AppRadius.lg)),
                           child: QrImageView(
-                            data: SalonInviteCode(serverId: widget.serverId, salonId: widget.salonId, name: widget.salonName, emoji: '🎮').encode(),
+                            data: inviteLinkFor(SalonInviteCode(serverId: widget.serverId, salonId: widget.salonId, name: widget.salonName, emoji: '🎮').encode()),
                             size: 200,
                             backgroundColor: Colors.white,
                           ),
@@ -258,7 +259,7 @@ class _SalonInviteDialogState extends State<SalonInviteDialog> {
                       ),
                       const SizedBox(height: 14),
                       Text(
-                        'Faites scanner ce code pour rejoindre le salon (et le serveur) instantanément.',
+                        "Votre ami le scanne avec l'appareil photo de son téléphone pour rejoindre le salon (et le serveur).",
                         textAlign: TextAlign.center,
                         style: bodyFont(size: 13, weight: FontWeight.w600, color: AppColors.mut),
                       ),

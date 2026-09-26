@@ -862,7 +862,7 @@ class AppState extends ChangeNotifier {
     final invite = ServerInviteCode.tryParse(rawCode);
     final uid = currentUser?.uid;
     if (invite == null || uid == null) {
-      flowError = 'Code QR invalide.';
+      flowError = 'Invitation invalide.';
       notifyListeners();
       return false;
     }
@@ -1053,7 +1053,7 @@ class AppState extends ChangeNotifier {
     final invite = SalonInviteCode.tryParse(rawCode);
     final uid = currentUser?.uid;
     if (invite == null || uid == null) {
-      flowError = 'Code QR invalide.';
+      flowError = 'Invitation invalide.';
       notifyListeners();
       return false;
     }
@@ -1959,9 +1959,13 @@ class AppState extends ChangeNotifier {
   Future<String?> shareGroupInviteLink(Group group) async {
     if (_rejectIfGroupClosed(group.id)) return null;
     await refreshInviteWindow(group.id, validFor: inviteLinkValidity);
-    final link = inviteLinkFor(GroupInviteCode(groupId: group.id, name: group.name, emoji: group.emoji).encode());
-    return 'Rejoins « ${group.name} » sur Podium : $link';
+    return 'Rejoins « ${group.name} » sur Podium : ${groupInviteLink(group)}';
   }
+
+  /// The link to join `group` — shared as-is (see [shareGroupInviteLink]) or
+  /// shown as a QR code for the phone's own camera to scan.
+  String groupInviteLink(Group group) =>
+      inviteLinkFor(GroupInviteCode(groupId: group.id, name: group.name, emoji: group.emoji).encode());
 
   /// Rejects a mutating action targeting `groupId` if its group is closed,
   /// surfacing why via [flowError] (rendered inline wherever that action's
@@ -2206,7 +2210,7 @@ class AppState extends ChangeNotifier {
     final invite = GroupInviteCode.tryParse(rawCode);
     final uid = currentUser?.uid;
     if (invite == null || uid == null) {
-      flowError = 'Code QR invalide.';
+      flowError = 'Invitation invalide.';
       notifyListeners();
       return false;
     }

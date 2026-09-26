@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:podium/models/app_user.dart';
@@ -2034,5 +2035,37 @@ void main() {
     expect(find.text('Partager un lien'), findsOneWidget);
     expect(find.text('ou sur place'), findsOneWidget);
     expect(tester.takeException(), isNull);
+    expect(find.byType(QrImageView), findsOneWidget);
+    // The QR is scanned with the phone's own camera, so it holds the https link.
+    final link = seeded.state.groupInviteLink(seeded.state.groupById('bandits')!);
+    expect(link, startsWith(kInviteLinkPage));
+    expect(GroupInviteCode.tryParse(link)?.groupId, 'bandits');
+    await tester.pump(const Duration(milliseconds: 2700));
+  });
+
+  testWidgets('"Rejoindre" joins from a pasted invite link, and rejects anything else', (tester) async {
+    final seeded = _buildSeededState();
+    final other = await seeded.state.groupsRepo.createGroup(name: 'Soirée jeux', emoji: '🎲', emojiBg: 0xFFFFE9E1, ownerId: 'tom');
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(value: seeded.state, child: const MaterialApp(home: GroupsPage())),
+    );
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Rejoindre'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'https://example.com/pas-une-invitation');
+    await tester.tap(find.widgetWithText(PrimaryButton, 'Rejoindre'));
+    await tester.pumpAndSettle();
+    expect(find.text("Ce n'est pas un lien d'invitation Podium."), findsOneWidget);
+
+    final link = inviteLinkFor(GroupInviteCode(groupId: other.id, name: other.name, emoji: other.emoji).encode());
+    await tester.enterText(find.byType(TextField), '  $link  ');
+    await tester.tap(find.widgetWithText(PrimaryButton, 'Rejoindre'));
+    await tester.pumpAndSettle();
+
+    expect(seeded.state.groupById(other.id)!.memberIds, contains('lea'));
+    expect(find.byType(TextField), findsNothing, reason: 'the dialog closes once joined');
+    await tester.pump(const Duration(milliseconds: 2700));
   });
 }

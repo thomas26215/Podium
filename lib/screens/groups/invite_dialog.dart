@@ -7,7 +7,6 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../models/app_user.dart';
 import '../../models/group.dart';
-import '../../models/group_invite_code.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/avatar.dart';
@@ -272,11 +271,7 @@ class _InviteDialogState extends State<InviteDialog> {
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(AppRadius.lg)),
                               child: QrImageView(
-                                data: GroupInviteCode(
-                                  groupId: group.id,
-                                  name: group.name,
-                                  emoji: group.emoji,
-                                ).encode(),
+                                data: app.groupInviteLink(group),
                                 size: 200,
                                 backgroundColor: Colors.white,
                               ),
@@ -284,7 +279,7 @@ class _InviteDialogState extends State<InviteDialog> {
                           ),
                           const SizedBox(height: 14),
                           Text(
-                            'Faites scanner ce code par votre ami depuis Podium pour le faire rejoindre le groupe instantanément.',
+                            "Votre ami le scanne avec l'appareil photo de son téléphone pour rejoindre le groupe.",
                             textAlign: TextAlign.center,
                             style: bodyFont(size: 13, weight: FontWeight.w600, color: AppColors.mut),
                           ),

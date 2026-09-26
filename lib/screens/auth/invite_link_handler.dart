@@ -69,7 +69,7 @@ class _InviteLinkHandlerState extends State<InviteLinkHandler> {
     _prompting = true;
     _pending = null;
     try {
-      final invite = _describe(code);
+      final invite = InviteTarget.parse(code);
       if (invite == null) return;
       final app = context.read<AppState>();
       final join = await showDialog<bool>(
@@ -103,22 +103,29 @@ class _InviteLinkHandlerState extends State<InviteLinkHandler> {
       if (mounted && _pending != null) setState(() {});
     }
   }
-
-  static _Invite? _describe(String code) {
-    final group = GroupInviteCode.tryParse(code);
-    if (group != null) return _Invite(group.name, group.emoji, 'ce groupe', (app) => app.joinGroupByCode(code));
-    final server = ServerInviteCode.tryParse(code);
-    if (server != null) return _Invite(server.name, server.emoji, 'ce serveur', (app) => app.joinServerByCode(code));
-    final salon = SalonInviteCode.tryParse(code);
-    if (salon != null) return _Invite(salon.name, salon.emoji, 'ce salon', (app) => app.joinSalonByCode(code));
-    return null;
-  }
 }
 
-class _Invite {
+/// What a `podium://` invite code (see [unwrapInviteCode]) points to, and
+/// how to join it — shared by incoming links ([InviteLinkHandler]) and a
+/// pasted link (see JoinByLinkDialog).
+class InviteTarget {
   final String name;
   final String emoji;
+
+  /// "ce groupe", "ce serveur" or "ce salon".
   final String kind;
   final Future<bool> Function(AppState app) join;
-  const _Invite(this.name, this.emoji, this.kind, this.join);
+  const InviteTarget._(this.name, this.emoji, this.kind, this.join);
+
+  static InviteTarget? parse(String raw) {
+    final code = unwrapInviteCode(raw);
+    if (code == null) return null;
+    final group = GroupInviteCode.tryParse(code);
+    if (group != null) return InviteTarget._(group.name, group.emoji, 'ce groupe', (app) => app.joinGroupByCode(code));
+    final server = ServerInviteCode.tryParse(code);
+    if (server != null) return InviteTarget._(server.name, server.emoji, 'ce serveur', (app) => app.joinServerByCode(code));
+    final salon = SalonInviteCode.tryParse(code);
+    if (salon != null) return InviteTarget._(salon.name, salon.emoji, 'ce salon', (app) => app.joinSalonByCode(code));
+    return null;
+  }
 }
