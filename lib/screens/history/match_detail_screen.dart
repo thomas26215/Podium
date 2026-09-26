@@ -10,6 +10,7 @@ import '../../widgets/common.dart';
 import '../../widgets/match_card.dart';
 import '../../widgets/score_evolution_chart.dart';
 import '../new_game/new_game_sheet.dart';
+import 'result_share_dialog.dart';
 
 /// Full breakdown of a single match: hero result banner, per-player/team
 /// scores, and — for round-synced matches (Par manche / Plusieurs manches)
@@ -41,6 +42,12 @@ class MatchDetailScreen extends StatelessWidget {
           style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.mut),
         ),
         actions: [
+          if (!match.isRejected)
+            IconButton(
+              onPressed: () => showResultShareDialog(context, game: game, match: match, appState: appState, legs: seriesLegsOf(match, appState)),
+              icon: Icon(Icons.share_rounded, color: AppColors.mut),
+              tooltip: 'Partager le résultat',
+            ),
           if (appState.canDeleteMatch(match))
             IconButton(
               onPressed: () => _confirmDelete(context),

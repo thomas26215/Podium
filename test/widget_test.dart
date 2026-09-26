@@ -33,6 +33,7 @@ import 'package:podium/screens/new_game/step1_game.dart';
 import 'package:podium/screens/profile/profile_screen.dart';
 import 'package:podium/widgets/common.dart';
 import 'package:podium/widgets/game_filter_bar.dart';
+import 'package:podium/widgets/result_share_card.dart';
 import 'package:podium/state/app_state.dart';
 
 const _lea = AppUser(uid: 'lea', email: 'lea@test.fr', displayName: 'Léa', color: 0xFFFF5B34);
@@ -974,7 +975,96 @@ void main() {
     expect(find.text('Pas encore de partie. Lancez-vous avec le bouton +.'), findsNothing, reason: 'the new match should show up in the history list, not the empty state');
     expect(find.textContaining('Catan'), findsWidgets);
 
+    // Right after saving, History offers to share the result.
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Partie de Catan enregistrée !'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, 'Partager'));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Partager le résultat'), findsOneWidget);
+    expect(find.byType(ResultShareCard), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('Fermer'));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Partie de Catan enregistrée !'), findsNothing, reason: 'offered once, then gone');
+    expect(seeded.state.justSavedMatch, isNull);
+
     await tester.pump(const Duration(milliseconds: 2700));
+  });
+
+  group('result share card', () {
+    Future<AppState> signedIn(WidgetTester tester) async {
+      final seeded = _buildSeededState();
+      seeded.auth.debugSignIn(_lea);
+      await tester.pump();
+      return seeded.state;
+    }
+
+    GameMatch matchOf(String mode, bool lowWins, List<MatchEntry> entries, {String? seriesId, int? seriesGame}) => GameMatch(
+          id: 'share-$mode-${seriesGame ?? 0}',
+          gameId: 'catan',
+          groupId: 'bandits',
+          mode: mode,
+          unit: 'points',
+          lowWins: lowWins,
+          entries: entries,
+          timeline: const [],
+          createdAt: DateTime(2026, 9, 26),
+          seriesId: seriesId,
+          seriesGame: seriesGame,
+          seriesLength: seriesId == null ? null : 3,
+        );
+
+    Future<void> render(WidgetTester tester, AppState app, GameMatch match, {List<GameMatch>? legs}) async {
+      final game = kDefaultGames.firstWhere((g) => g.id == 'catan');
+      await tester.pumpWidget(MaterialApp(home: Center(child: ResultShareCard(game: game, match: match, appState: app, legs: legs))));
+      expect(tester.takeException(), isNull);
+    }
+
+    testWidgets('free-for-all: podium with shared places on a tie, the rest listed below', (tester) async {
+      final app = await signedIn(tester);
+      await render(tester, app, matchOf('ffa', false, const [
+        MatchEntry(playerId: 'lea', points: 10),
+        MatchEntry(playerId: 'tom', points: 10),
+      ]));
+      expect(find.text('Catan'), findsOneWidget);
+      expect(find.text('Les Bandits · 26 sept. 2026'), findsOneWidget);
+      expect(find.text('1'), findsNWidgets(2), reason: 'a tie shares first place');
+      expect(find.text('10 pts'), findsNWidgets(2));
+    });
+
+    testWidgets('lowWins: the lowest score is first', (tester) async {
+      final app = await signedIn(tester);
+      await render(tester, app, matchOf('ffa', true, const [
+        MatchEntry(playerId: 'lea', points: 42),
+        MatchEntry(playerId: 'tom', points: 1),
+      ]));
+      expect(find.text('1 pt'), findsOneWidget);
+      final tomBar = tester.getTopLeft(find.text('Tom'));
+      final leaBar = tester.getTopLeft(find.text('Léa'));
+      expect(tomBar.dy, lessThan(leaBar.dy), reason: 'the winner stands on the tallest step');
+    });
+
+    testWidgets('teams, coop and a series each render their own layout', (tester) async {
+      final app = await signedIn(tester);
+      await render(tester, app, matchOf('team', true, const [
+        MatchEntry(playerId: 'lea', points: 30, teamId: 'A'),
+        MatchEntry(playerId: 'tom', points: 12, teamId: 'B'),
+      ]));
+      expect(find.text('Équipe B'), findsOneWidget);
+      expect(find.text('Équipe A'), findsOneWidget);
+      expect(tester.getTopLeft(find.text('Équipe B')).dy, lessThan(tester.getTopLeft(find.text('Équipe A')).dy), reason: 'the winning team comes first');
+
+      await render(tester, app, matchOf('coop', false, const [MatchEntry(playerId: 'lea', points: 0), MatchEntry(playerId: 'tom', points: 0)]));
+      expect(find.text('Défaite collective'), findsOneWidget);
+
+      final legs = [
+        for (final (i, p) in const [(10, 8), (7, 9), (11, 6)].indexed)
+          matchOf('ffa', false, [MatchEntry(playerId: 'lea', points: p.$1), MatchEntry(playerId: 'tom', points: p.$2)], seriesId: 's', seriesGame: i + 1),
+      ];
+      await render(tester, app, legs.last, legs: legs);
+      expect(find.textContaining('Best of 3'), findsOneWidget);
+      expect(find.textContaining('2/3'), findsOneWidget);
+    });
   });
 
   testWidgets('a coop game auto-picks the coop mode and saves a shared group result', (tester) async {

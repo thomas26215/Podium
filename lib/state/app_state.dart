@@ -416,6 +416,11 @@ class AppState extends ChangeNotifier {
   // already-saved match as a local draft.
   bool _justSaved = false;
 
+  /// The match (or a series' last leg) most recently recorded from the
+  /// new-game sheet — the History tab offers to share its result until it's
+  /// dismissed ([dismissJustSavedMatch]) or another match is started.
+  GameMatch? justSavedMatch;
+
   // Set by [_finishTournamentCreation] on success — consumed by
   // `NewGameSheet` (see [takeJustCreatedTournament]) to navigate to the new
   // bracket instead of just closing.
@@ -2573,7 +2578,13 @@ class AppState extends ChangeNotifier {
 
   // ============================== NEW GAME SHEET ==============================
 
+  void dismissJustSavedMatch() {
+    justSavedMatch = null;
+    notifyListeners();
+  }
+
   void openSheet() {
+    justSavedMatch = null;
     sheetOpen = true;
     step = 1;
     gameGridFilter = const GameFilter();
@@ -4193,6 +4204,7 @@ class AppState extends ChangeNotifier {
       salonId: salonId,
       confirmedBy: inSalon ? initialConfirmedBy : null,
     );
+    GameMatch? newlySaved;
     try {
       if (_editingMatchId != null) {
         await _activeMatchesRepo.updateMatch(root, match);
@@ -4204,6 +4216,7 @@ class AppState extends ChangeNotifier {
         showToast(tournamentWarning == null ? 'Partie mise à jour ! Classement mis à jour.' : 'Partie mise à jour, mais $tournamentWarning.');
       } else {
         final saved = await _activeMatchesRepo.addMatch(root, match);
+        newlySaved = saved;
         if (_activeTournamentId != null) {
           await _recordTournamentResult(saved);
         }
@@ -4225,6 +4238,7 @@ class AppState extends ChangeNotifier {
         _activeTournamentId = null;
         _activeTournamentMatchId = null;
         _justSaved = true;
+        justSavedMatch = newlySaved;
         // Ended right here rather than left to closeSheet() (which only runs
         // once the sheet's closing animation resolves) — a spectator
         // shouldn't be able to see "en direct" for even a moment after the

@@ -12,6 +12,7 @@ import '../../widgets/common.dart';
 import '../../widgets/match_card.dart';
 import '../tournaments/tournament_detail_screen.dart';
 import 'match_detail_screen.dart';
+import 'result_share_dialog.dart';
 
 /// One history row: either a single standalone match, every leg of a
 /// "best of N" series (sharing a `seriesId`) collapsed into one grouped
@@ -84,6 +85,15 @@ class HistoryScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ScreenHeading(eyebrow: '${stats['parties']} parties', title: 'Historique'),
+          Builder(builder: (context) {
+            final saved = app.justSavedMatch;
+            // Wait for it to arrive through the matches stream (and hide it if
+            // the view switched to another group meanwhile).
+            final match = saved == null ? null : matches.where((m) => m.id == saved.id).firstOrNull;
+            final game = match == null ? null : app.gameById(match.gameId);
+            if (match == null || game == null) return const SizedBox.shrink();
+            return FadeSlideIn(child: _ShareJustSavedBanner(game: game, match: match, appState: app));
+          }),
           if (items.isEmpty)
             const EmptyState(emoji: '🗂️', message: 'Aucune partie enregistrée pour l\'instant.')
           else
@@ -322,6 +332,46 @@ class _TournamentMatchCardState extends State<_TournamentMatchCard> {
                         ),
                     ],
                   ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// "Partie enregistrée — partager le résultat ?" right after a match is
+/// recorded (see [AppState.justSavedMatch]).
+class _ShareJustSavedBanner extends StatelessWidget {
+  final Game game;
+  final GameMatch match;
+  final AppState appState;
+  const _ShareJustSavedBanner({required this.game, required this.match, required this.appState});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.fromLTRB(14, 10, 4, 10),
+      decoration: BoxDecoration(color: AppColors.accentSoft, borderRadius: BorderRadius.circular(AppRadius.lg)),
+      child: Row(
+        children: [
+          Text(game.emoji, style: const TextStyle(fontSize: 22)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text('Partie de ${game.name} enregistrée !', style: bodyFont(size: 13.5, weight: FontWeight.w700, color: AppColors.ink)),
+          ),
+          TextButton.icon(
+            onPressed: () async {
+              await showResultShareDialog(context, game: game, match: match, appState: appState, legs: seriesLegsOf(match, appState));
+              appState.dismissJustSavedMatch();
+            },
+            icon: Icon(Icons.share_rounded, size: 18, color: AppColors.accent),
+            label: Text('Partager', style: bodyFont(size: 13.5, weight: FontWeight.w800, color: AppColors.accent)),
+          ),
+          IconButton(
+            tooltip: 'Masquer',
+            onPressed: appState.dismissJustSavedMatch,
+            icon: Icon(Icons.close_rounded, size: 18, color: AppColors.mut),
           ),
         ],
       ),
