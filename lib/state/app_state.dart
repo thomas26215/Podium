@@ -4484,16 +4484,40 @@ class AppState extends ChangeNotifier {
 
   /// Rearranges a still-pending tournament's entrants into [order] (the same
   /// entrants, in a new seed order) and rebuilds its bracket from it — the
-  /// "who faces whom" editor on `TournamentDetailScreen`. Applied locally
-  /// first so taps feel instant; the Firestore stream then confirms it.
+  /// "who faces whom" editor on `TournamentDetailScreen` (pools, and the
+  /// shuffle button).
   Future<void> reorderTournamentEntrants(Tournament tournament, List<TournamentEntrant> order) async {
     final root = _activeRootId;
     if (root == null || !tournament.isPending || order.length != tournament.entrants.length) return;
     if (_rejectTournamentOffline()) return;
-    final updated = tournament.copyWith(
-      entrants: order,
-      matches: buildInitialBracket(tournament.format, order.map((e) => e.id).toList(), groupsCount: tournament.groupsCount),
+    await _saveReseededTournament(
+      root,
+      tournament.copyWith(
+        entrants: order,
+        matches: buildInitialBracket(tournament.format, order.map((e) => e.id).toList(), groupsCount: tournament.groupsCount),
+      ),
     );
+  }
+
+  /// Rebuilds a still-pending elimination tournament's bracket from a
+  /// hand-arranged first round (see [swapFirstRoundSlots]) — how an entrant
+  /// is moved onto an empty slot, which a plain reorder can't express since
+  /// the byes' positions aren't part of the entrant order.
+  Future<void> rearrangeFirstRound(Tournament tournament, List<List<String?>> firstRound) async {
+    final root = _activeRootId;
+    if (root == null || !tournament.isPending || tournament.format == TournamentFormat.groupsThenElimination) return;
+    if (_rejectTournamentOffline()) return;
+    await _saveReseededTournament(
+      root,
+      tournament.copyWith(
+        matches: buildInitialBracket(tournament.format, tournament.entrants.map((e) => e.id).toList(), firstRound: firstRound),
+      ),
+    );
+  }
+
+  /// Applied locally first so taps in the seeding editor feel instant; the
+  /// Firestore stream then confirms it.
+  Future<void> _saveReseededTournament(String root, Tournament updated) async {
     _replaceTournamentLocally(updated);
     try {
       await _activeTournamentsRepo.updateTournament(root, updated);

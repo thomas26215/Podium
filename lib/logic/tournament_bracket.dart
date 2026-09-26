@@ -58,6 +58,36 @@ List<List<String?>> firstRoundPairs(List<String> entrantIds) {
   return pairs;
 }
 
+/// The first round as the organizer arranged it on a pending tournament's
+/// screen: [firstRoundPairs]' shape, but with each empty slot (`null`)
+/// wherever it was moved to. Normalized so a lone entrant always sits in
+/// slot A (the builders treat slot B as the bye).
+List<List<String?>> _normalizePairs(List<List<String?>> pairs) => [
+      for (final p in pairs) p[0] == null ? [p[1], null] : [p[0], p[1]],
+    ];
+
+/// The first round currently laid out in [t]'s bracket, one `[a, b]` pair
+/// per round-1 winners match in position order (`b` null for a bye) —
+/// what the seeding editor shows and rearranges.
+List<List<String?>> currentFirstRound(Tournament t) {
+  final r1 = t.matches.where((m) => m.bracket == 'winners' && m.round == 1).toList()
+    ..sort((a, b) => a.position.compareTo(b.position));
+  return [for (final m in r1) [m.entrantAId, m.entrantBId]];
+}
+
+/// Swaps the contents of two first-round slots (`(pair index, 0 | 1)`) —
+/// an entrant with another entrant, or with an empty slot. Returns null if
+/// the swap would leave a match with nobody in it (a whole round-1 match
+/// of byes), which isn't allowed.
+List<List<String?>>? swapFirstRoundSlots(List<List<String?>> pairs, (int, int) a, (int, int) b) {
+  final result = [for (final p in pairs) List<String?>.of(p)];
+  final tmp = result[a.$1][a.$2];
+  result[a.$1][a.$2] = result[b.$1][b.$2];
+  result[b.$1][b.$2] = tmp;
+  if (result.any((p) => p[0] == null && p[1] == null)) return null;
+  return result;
+}
+
 /// Closure pass over a bracket's matches: propagates every known winner (and
 /// loser, for a double-elimination match with a `loserNextMatchId`) into the
 /// slot it feeds, then — now that may have left some match with exactly one
@@ -132,10 +162,12 @@ List<BracketMatch> propagateBracket(List<BracketMatch> matches) {
 /// for [entrantIds] — pads to the next power of two with byes (see
 /// [firstRoundPairs]) and resolves any bye cascades immediately (see
 /// [propagateBracket]), so a bracket that starts with 5 players already
-/// shows its round-1 byes advanced into round 2.
-List<BracketMatch> buildSingleElimination(List<String> entrantIds, {String idPrefix = 'W'}) {
+/// shows its round-1 byes advanced into round 2. [firstRound] overrides the
+/// default [firstRoundPairs] layout with one arranged by hand (see
+/// [swapFirstRoundSlots]).
+List<BracketMatch> buildSingleElimination(List<String> entrantIds, {String idPrefix = 'W', List<List<String?>>? firstRound}) {
   assert(entrantIds.length >= 2, 'a tournament needs at least 2 entrants');
-  final pairs = firstRoundPairs(entrantIds);
+  final pairs = firstRound != null ? _normalizePairs(firstRound) : firstRoundPairs(entrantIds);
   final roundSizes = <int>[pairs.length];
   while (roundSizes.last > 1) {
     roundSizes.add(roundSizes.last ~/ 2);
@@ -199,17 +231,20 @@ List<BracketMatch> buildSingleElimination(List<String> entrantIds, {String idPre
 /// *twice* to be eliminated). Chosen to keep the bracket a fixed, fully
 /// pre-computed structure instead of one that can grow an extra match
 /// mid-tournament — the standard trade-off most casual bracket apps make.
-List<BracketMatch> buildDoubleElimination(List<String> entrantIds) {
+///
+/// [firstRound] overrides the default round-1 layout, as for
+/// [buildSingleElimination].
+List<BracketMatch> buildDoubleElimination(List<String> entrantIds, {List<List<String?>>? firstRound}) {
   assert(entrantIds.length >= 2, 'a tournament needs at least 2 entrants');
   final size = bracketSizeFor(entrantIds.length);
   if (size <= 2) {
     // With only one possible match, there's no meaningful losers bracket —
     // the loser has nobody left to face but the player who just beat them.
     // Falls back to a plain single match, same as single elimination.
-    return buildSingleElimination(entrantIds);
+    return buildSingleElimination(entrantIds, firstRound: firstRound);
   }
 
-  final pairs = firstRoundPairs(entrantIds);
+  final pairs = firstRound != null ? _normalizePairs(firstRound) : firstRoundPairs(entrantIds);
   final k = size.bitLength - 1; // log2(size); size is a power of 2 >= 4
 
   final wSizes = <int>[size ~/ 2];
@@ -386,10 +421,12 @@ List<BracketMatch> buildGroupStage(List<String> entrantIds, int groupsCount) {
 /// the full elimination tree, or just the pools for "poules + élimination"
 /// (its playoffs are appended later — see [buildEliminationFromStandings]).
 /// Used at creation, and again every time the entrants are rearranged while
-/// the tournament is still pending (see `AppState.reorderTournamentEntrants`).
-List<BracketMatch> buildInitialBracket(TournamentFormat format, List<String> entrantIds, {int groupsCount = 1}) => switch (format) {
-      TournamentFormat.singleElimination => buildSingleElimination(entrantIds),
-      TournamentFormat.doubleElimination => buildDoubleElimination(entrantIds),
+/// the tournament is still pending (see `AppState.reorderTournamentEntrants`
+/// and `AppState.rearrangeFirstRound`, which passes [firstRound]).
+List<BracketMatch> buildInitialBracket(TournamentFormat format, List<String> entrantIds, {int groupsCount = 1, List<List<String?>>? firstRound}) =>
+    switch (format) {
+      TournamentFormat.singleElimination => buildSingleElimination(entrantIds, firstRound: firstRound),
+      TournamentFormat.doubleElimination => buildDoubleElimination(entrantIds, firstRound: firstRound),
       TournamentFormat.groupsThenElimination => buildGroupStage(entrantIds, groupsCount),
     };
 

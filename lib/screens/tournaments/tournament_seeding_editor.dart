@@ -9,8 +9,8 @@ import '../../widgets/common.dart';
 /// Shown on a pending tournament's screen (see [Tournament.isPending]):
 /// previews the first round (or the pools, for "poules + élimination")
 /// exactly as the bracket is built, and lets the organizer rearrange it —
-/// tap one participant, then another, to swap their places — or shuffle
-/// everything. Locked once the tournament is started.
+/// tap one place, then another, to swap them (in a bracket, a place can be
+/// empty: that's how a bye is moved) — or shuffle everything. Locked once the tournament is started.
 class TournamentSeedingEditor extends StatefulWidget {
   final AppState app;
   final Tournament tournament;
@@ -22,13 +22,17 @@ class TournamentSeedingEditor extends StatefulWidget {
 }
 
 class _TournamentSeedingEditorState extends State<TournamentSeedingEditor> {
-  /// Seed position of the participant tapped first, waiting for a second tap
-  /// to swap with.
-  int? _selected;
+  /// Pools: seed position of the participant tapped first, waiting for a
+  /// second tap to swap with.
+  int? _selectedSeed;
 
-  void _tap(int position) {
-    final selected = _selected;
-    setState(() => _selected = selected == null ? position : null);
+  /// Elimination: first-round slot `(pair index, 0 | 1)` tapped first —
+  /// possibly an empty one — waiting for a second tap to swap with.
+  (int, int)? _selectedSlot;
+
+  void _tapSeed(int position) {
+    final selected = _selectedSeed;
+    setState(() => _selectedSeed = selected == null ? position : null);
     if (selected == null || selected == position) return;
     final order = List.of(widget.tournament.entrants);
     final tmp = order[selected];
@@ -37,8 +41,25 @@ class _TournamentSeedingEditorState extends State<TournamentSeedingEditor> {
     widget.app.reorderTournamentEntrants(widget.tournament, order);
   }
 
+  void _tapSlot(List<List<String?>> pairs, (int, int) slot) {
+    final selected = _selectedSlot;
+    setState(() => _selectedSlot = selected == null ? slot : null);
+    if (selected == null || selected == slot) return;
+    final swapped = swapFirstRoundSlots(pairs, selected, slot);
+    if (swapped == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Un match du premier tour ne peut pas être entièrement vide.')),
+      );
+      return;
+    }
+    widget.app.rearrangeFirstRound(widget.tournament, swapped);
+  }
+
   void _shuffle() {
-    setState(() => _selected = null);
+    setState(() {
+      _selectedSeed = null;
+      _selectedSlot = null;
+    });
     widget.app.reorderTournamentEntrants(widget.tournament, List.of(widget.tournament.entrants)..shuffle());
   }
 
@@ -46,17 +67,25 @@ class _TournamentSeedingEditorState extends State<TournamentSeedingEditor> {
   Widget build(BuildContext context) {
     final t = widget.tournament;
     final entrants = t.entrants;
-    // Seed positions stand in for entrant ids so the bracket helpers lay
-    // the preview out exactly like the real bracket.
-    final positions = [for (var i = 0; i < entrants.length; i++) '$i'];
+    final isGroups = t.format == TournamentFormat.groupsThenElimination;
+    final firstRound = isGroups ? const <List<String?>>[] : currentFirstRound(t);
+    final hasEmptySlots = firstRound.any((p) => p.contains(null));
 
-    Widget slot(int position) => _SeedSlot(
+    Widget seedSlot(int position) => _SeedSlot(
           label: widget.labelFor(entrants[position]),
-          selected: _selected == position,
-          onTap: () => _tap(position),
+          selected: _selectedSeed == position,
+          onTap: () => _tapSeed(position),
         );
 
-    final isGroups = t.format == TournamentFormat.groupsThenElimination;
+    Widget pairSlot(int pair, int side) {
+      final entrant = t.entrantById(firstRound[pair][side]);
+      return _SeedSlot(
+        label: entrant != null ? widget.labelFor(entrant) : 'Place vide',
+        empty: entrant == null,
+        selected: _selectedSlot == (pair, side),
+        onTap: () => _tapSlot(firstRound, (pair, side)),
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -92,25 +121,23 @@ class _TournamentSeedingEditorState extends State<TournamentSeedingEditor> {
         ),
         const SizedBox(height: 6),
         Text(
-          'Touchez deux participants pour les échanger.'
-          '${!isGroups && entrants.length != bracketSizeFor(entrants.length) ? ' Les exemptés passent directement au tour suivant.' : ''}',
+          hasEmptySlots
+              ? 'Touchez deux places pour les échanger, y compris une place vide. Face à une place vide, on passe directement au tour suivant.'
+              : 'Touchez deux participants pour les échanger.',
           style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
         ),
         const SizedBox(height: 12),
         if (isGroups)
-          for (final (g, members) in splitIntoGroups(positions, t.groupsCount).indexed)
+          for (final (g, members) in splitIntoGroups([for (var i = 0; i < entrants.length; i++) '$i'], t.groupsCount).indexed)
             _Box(
               title: 'Poule ${g + 1}',
-              children: [for (final p in members) slot(int.parse(p))],
+              children: [for (final p in members) seedSlot(int.parse(p))],
             )
         else
-          for (final (i, pair) in firstRoundPairs(positions).indexed)
+          for (var i = 0; i < firstRound.length; i++)
             _Box(
               title: 'Match ${i + 1}',
-              children: [
-                slot(int.parse(pair[0]!)),
-                if (pair[1] != null) slot(int.parse(pair[1]!)) else const _ByeSlot(),
-              ],
+              children: [pairSlot(i, 0), pairSlot(i, 1)],
             ),
       ],
     );
@@ -147,11 +174,13 @@ class _Box extends StatelessWidget {
 class _SeedSlot extends StatelessWidget {
   final String label;
   final bool selected;
+  final bool empty;
   final VoidCallback onTap;
-  const _SeedSlot({required this.label, required this.selected, required this.onTap});
+  const _SeedSlot({required this.label, required this.selected, this.empty = false, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
+    final fg = selected ? Colors.white : (empty ? AppColors.mut : AppColors.ink);
     return Pressable(
       onTap: onTap,
       child: AnimatedContainer(
@@ -159,7 +188,7 @@ class _SeedSlot extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? AppColors.ink : AppColors.bg,
+          color: selected ? AppColors.ink : (empty ? Colors.transparent : AppColors.bg),
           border: Border.all(color: selected ? AppColors.ink : AppColors.line, width: 1.5),
           borderRadius: BorderRadius.circular(AppRadius.md),
         ),
@@ -170,27 +199,13 @@ class _SeedSlot extends StatelessWidget {
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: bodyFont(size: 13.5, weight: FontWeight.w700, color: selected ? Colors.white : AppColors.ink),
+                style: bodyFont(size: 13.5, weight: empty ? FontWeight.w600 : FontWeight.w700, color: fg),
               ),
             ),
             Icon(Icons.swap_vert_rounded, size: 16, color: selected ? Colors.white : AppColors.mut),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _ByeSlot extends StatelessWidget {
-  const _ByeSlot();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.md)),
-      child: Text('Exempt', style: bodyFont(size: 13.5, weight: FontWeight.w600, color: AppColors.mut)),
     );
   }
 }

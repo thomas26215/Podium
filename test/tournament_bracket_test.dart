@@ -354,4 +354,52 @@ void main() {
       expect(standings.map((s) => s.entrantId).toSet(), {'p0', 'p2', 'p4'});
     });
   });
+
+  group('hand-arranged first round', () {
+    test('an entrant can be swapped with an empty slot, moving the bye', () {
+      // 3 entrants: [p0, bye], [p1, p2] by default.
+      final pairs = firstRoundPairs(['p0', 'p1', 'p2']);
+      expect(pairs, [
+        ['p0', null],
+        ['p1', 'p2'],
+      ]);
+      // Move p2 onto the empty slot: now p0 plays p2, and p1 gets the bye.
+      final swapped = swapFirstRoundSlots(pairs, (1, 1), (0, 1))!;
+      final matches = buildSingleElimination(['p0', 'p1', 'p2'], firstRound: swapped);
+      final m0 = _byId(matches, 'W-R1-M0');
+      final m1 = _byId(matches, 'W-R1-M1');
+      expect([m0.entrantAId, m0.entrantBId, m0.bye], ['p0', 'p2', false]);
+      expect([m1.entrantAId, m1.entrantBId, m1.bye, m1.winnerId], ['p1', null, true, 'p1']);
+      expect(_byId(matches, 'W-R2-M0').entrantBId, 'p1');
+    });
+
+    test('an empty slot moved into slot A is normalized so the entrant still advances', () {
+      final matches = buildSingleElimination(['p0', 'p1', 'p2'], firstRound: [
+        [null, 'p0'],
+        ['p1', 'p2'],
+      ]);
+      final m0 = _byId(matches, 'W-R1-M0');
+      expect([m0.entrantAId, m0.bye, m0.winnerId], ['p0', true, 'p0']);
+    });
+
+    test('a swap that would leave a whole match empty is refused', () {
+      final pairs = firstRoundPairs(['p0', 'p1', 'p2']);
+      expect(swapFirstRoundSlots(pairs, (0, 0), (1, 0)), isNotNull); // p0 <-> p1, both still in a match
+      expect(swapFirstRoundSlots([['p0', null], ['p1', 'p2']], (0, 0), (0, 1)), isNotNull); // same match, harmless
+      // 5 entrants: [p0, -], [p1, p2], [p3, -], [p4, -]... moving p3 onto
+      // p0's empty slot would empty match 3.
+      final five = firstRoundPairs(['p0', 'p1', 'p2', 'p3', 'p4']);
+      final byeMatch = five.indexWhere((p) => p[1] == null && p[0] != 'p0');
+      expect(swapFirstRoundSlots(five, (byeMatch, 0), (0, 1)), isNull);
+    });
+
+    test('currentFirstRound reads the layout back from the bracket', () {
+      final layout = [
+        ['p1', null],
+        ['p0', 'p2'],
+      ];
+      final t = _wrap(buildDoubleElimination(['p0', 'p1', 'p2'], firstRound: layout));
+      expect(currentFirstRound(t), layout);
+    });
+  });
 }
