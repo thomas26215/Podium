@@ -2,8 +2,10 @@
 # Release — the same as running, from a terminal:
 #   flutter build apk --release
 #   gh release create v<version> app-release.apk --notes "…"
-# On a pushed v* tag or a manual run, it also builds the Play Store bundle
-# (.aab), after checking its build number is above every AAB built before.
+# A push on main replaces the single "dev" pre-release. A pushed v* tag or a
+# manual run makes a version release, never touched afterwards, that also
+# holds the Play Store bundle (.aab) — built after checking its build number
+# is above every AAB built before.
 # Setup (keystore secrets) is described in CI_SETUP.md.
 name: Build & release (Android)
 
@@ -193,8 +195,17 @@ jobs:
           full=$(grep -m1 '^version:' pubspec.yaml | awk '{print $2}')   # ex. 3.0.1+41
           name=${full%%+*}
           build=${full##*+}
-          # Pushed tag: that tag. Otherwise: v<version of pubspec.yaml>.
-          if [ "$GITHUB_REF_TYPE" = "tag" ]; then tag="$GITHUB_REF_NAME"; else tag="v$name"; fi
+          # Pushed v* tag: a version release on that tag. Manual run: a version
+          # release on v<pubspec version> (v<version>-build<N> if that one
+          # already exists). Push on main: the single "dev" pre-release.
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            tag="$GITHUB_REF_NAME"
+          elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            tag="v$name"
+            if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then tag="v$name-build$build"; fi
+          else
+            tag="dev"
+          fi
           echo "name=$name" >> "$GITHUB_OUTPUT"
           echo "build=$build" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
@@ -216,7 +227,7 @@ jobs:
             else
               # Commits since the previous release tag (any tag but this one),
               # or the last 15 commits when there is none yet.
-              prev_tag=$(git describe --tags --abbrev=0 --exclude "$TAG" HEAD 2>/dev/null || true)
+              prev_tag=$(git describe --tags --abbrev=0 --match 'v*' --exclude "$TAG" HEAD 2>/dev/null || true)
               echo "## Changements${prev_tag:+ depuis $prev_tag}"
               if [ -n "$prev_tag" ]; then
                 git log "$prev_tag..HEAD" --no-merges --pretty=format:'- %s (%h)' | head -n 40
@@ -246,19 +257,18 @@ jobs:
             cp build/app/outputs/bundle/release/app-release.aab "$AAB"
             files+=("$AAB")
           fi
-          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
-            # Tag pushed by hand: publish on that tag (update the files if the release exists).
-            if gh release view "$TAG" >/dev/null 2>&1; then
-              gh release upload "$TAG" "${files[@]}" --clobber
-              gh release edit "$TAG" --notes-file release_notes.txt
-            else
-              gh release create "$TAG" "${files[@]}" --title "Podium $TAG" --notes-file release_notes.txt --verify-tag
-            fi
+          if [ "$TAG" = "dev" ]; then
+            # Push on main: replace the "dev" pre-release, so its tag moves to
+            # the commit just built. Version releases (v*) are never touched.
+            gh release delete dev --cleanup-tag --yes 2>/dev/null || true
+            gh release create dev "${files[@]}" --prerelease --latest=false \
+              --title "Podium dev · $NAME ($(git rev-parse --short HEAD))" --notes-file release_notes.txt --target "$GITHUB_SHA"
+          elif gh release view "$TAG" >/dev/null 2>&1; then
+            # Re-run of a version: update its files in place.
+            gh release upload "$TAG" "${files[@]}" --clobber
+            gh release edit "$TAG" --notes-file release_notes.txt
           else
-            # Push on main (or manual run): same version as before → replace that
-            # release, so its tag moves to the commit that was just built.
-            gh release delete "$TAG" --cleanup-tag --yes 2>/dev/null || true
-            gh release create "$TAG" "${files[@]}" --title "Podium $NAME" --notes-file release_notes.txt --target "$GITHUB_SHA" --latest
+            gh release create "$TAG" "${files[@]}" --title "Podium $TAG" --notes-file release_notes.txt --target "$GITHUB_SHA" --latest
           fi
           echo "Release : ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/$TAG"
 

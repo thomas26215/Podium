@@ -21,12 +21,12 @@ Projet : package `app.podium.games`, version actuelle `1.0.0+1` (`pubspec.yaml`)
 
 | Déclencheur | Release |
 |---|---|
-| Push sur `main` | `v<version du pubspec>` (ex. `v1.0.0`). Si elle existe déjà, elle est **remplacée** par le nouveau build (le tag est déplacé sur le nouveau commit). |
-| Push d’un tag `v1.0.1` | Release `v1.0.1` sur ce tag. |
-| Lancement manuel (onglet *Actions* → *Run workflow*) | Comme un push sur la branche choisie ; le champ « Notes de version » remplace le changelog. |
+| Push sur `main` | La pré-version **`dev`** (APK de développement), **remplacée** à chaque push (son tag suit le dernier commit). |
+| Push d’un tag `v1.0.1` | Release de version `v1.0.1` sur ce tag : APK + AAB + prompt des notes Play Store. |
+| Lancement manuel (onglet *Actions* → *Run workflow*) | Release de version `v<version du pubspec>` sur le commit choisi (ou `v1.0.1-build3` si `v1.0.1` existe déjà) : APK + AAB ; le champ « Notes de version » remplace le changelog. |
 
-Tant que tu ne changes pas `version:` dans `pubspec.yaml`, chaque push met à jour la même release. Quand tu
-passes à `1.0.1+2`, une nouvelle release `v1.0.1` apparaît et `v1.0.0` reste en historique.
+Les releases de version (`v*`) ne sont **jamais modifiées** par les pushes sur `main` : chacune garde l’APK, l’AAB et
+le prompt de la version envoyée au Play Store. Relancer le workflow sur un même tag remplace seulement ses fichiers.
 
 Augmente aussi le numéro de build (`+2`) à chaque version : Android refuse d’installer un APK dont le
 `versionCode` est inférieur à celui déjà installé.
@@ -95,7 +95,8 @@ permissions** → **Save**.
 ## 4. Installer la release sur ton téléphone
 
 1. Sur le téléphone : `https://github.com/thomas26215/Podium/releases` (connecté à GitHub si le dépôt est privé).
-2. Dernière release → **Assets** → `podium-v….apk` → télécharger, puis ouvrir le fichier.
+2. Release **`dev`** (dernier push sur `main`) ou une release de version `v…` → **Assets** → `podium-….apk` →
+   télécharger, puis ouvrir le fichier.
 3. La première fois, autorise l’**installation d’applications inconnues** pour ton navigateur.
 
 **Notifications** : app **GitHub** (Play Store) → dépôt Podium → **Watch → Custom → Releases**.
