@@ -2012,4 +2012,27 @@ void main() {
       expect(app.groupById(groupId), isNull);
     });
   });
+
+  testWidgets('the invite dialog\'s "Lien / QR" tab fits a small phone screen', (tester) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(value: seeded.state, child: const MaterialApp(home: GroupsPage())),
+    );
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.more_horiz).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Inviter un ami'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Lien / QR'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Partager un lien'), findsOneWidget);
+    expect(find.text('ou sur place'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

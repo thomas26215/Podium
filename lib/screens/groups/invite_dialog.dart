@@ -74,7 +74,7 @@ class _InviteDialogState extends State<InviteDialog> {
     return Dialog(
       backgroundColor: AppColors.bg,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -91,7 +91,7 @@ class _InviteDialogState extends State<InviteDialog> {
                 children: [
                   Expanded(child: _ModeTab(label: 'E-mail', selected: _mode == _InviteMode.email, onTap: () => _selectMode(_InviteMode.email, app))),
                   Expanded(child: _ModeTab(label: 'Sans compte', selected: _mode == _InviteMode.guest, onTap: () => _selectMode(_InviteMode.guest, app))),
-                  Expanded(child: _ModeTab(label: 'QR code', selected: _mode == _InviteMode.qr, onTap: () => _selectMode(_InviteMode.qr, app))),
+                  Expanded(child: _ModeTab(label: 'Lien / QR', selected: _mode == _InviteMode.qr, onTap: () => _selectMode(_InviteMode.qr, app))),
                 ],
               ),
             ),
@@ -241,6 +241,32 @@ class _InviteDialogState extends State<InviteDialog> {
                     : Column(
                         key: const ValueKey(_InviteMode.qr),
                         children: [
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: () => _shareLink(app, group),
+                              icon: const Icon(Icons.share_rounded, size: 18),
+                              label: const Text('Partager un lien'),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'À envoyer par message. Valable 7 jours, pour toute personne qui le reçoit.',
+                            textAlign: TextAlign.center,
+                            style: bodyFont(size: 11.5, weight: FontWeight.w600, color: AppColors.mut),
+                          ),
+                          const SizedBox(height: 18),
+                          Row(
+                            children: [
+                              Expanded(child: Divider(color: AppColors.line)),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                                child: Text('ou sur place', style: bodyFont(size: 11.5, weight: FontWeight.w700, color: AppColors.mut)),
+                              ),
+                              Expanded(child: Divider(color: AppColors.line)),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
                           Center(
                             child: Container(
                               padding: const EdgeInsets.all(16),
@@ -265,21 +291,6 @@ class _InviteDialogState extends State<InviteDialog> {
                           const SizedBox(height: 6),
                           Text(
                             'Valable 30 minutes — rouvrez cet écran pour en générer un nouveau.',
-                            textAlign: TextAlign.center,
-                            style: bodyFont(size: 11.5, weight: FontWeight.w600, color: AppColors.mut),
-                          ),
-                          const SizedBox(height: 16),
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton.icon(
-                              onPressed: () => _shareLink(app, group),
-                              icon: const Icon(Icons.share_rounded, size: 18),
-                              label: const Text('Partager un lien'),
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'À envoyer par message. Valable 7 jours, pour toute personne qui le reçoit.',
                             textAlign: TextAlign.center,
                             style: bodyFont(size: 11.5, weight: FontWeight.w600, color: AppColors.mut),
                           ),
