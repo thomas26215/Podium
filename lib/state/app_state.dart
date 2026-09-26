@@ -1934,14 +1934,33 @@ class AppState extends ChangeNotifier {
     return ok;
   }
 
-  /// Opens (or extends) `groupId`'s QR self-join window — call whenever the
-  /// invite dialog's QR tab is shown. Best-effort: a failure here just means
-  /// the shown code keeps whatever window it already had, so it's silent
-  /// rather than surfaced as a [flowError].
-  Future<void> refreshInviteWindow(String groupId) async {
+  /// Opens (or extends) `groupId`'s self-join window for `validFor` — call
+  /// whenever the invite dialog's QR tab is shown (30 minutes, the default)
+  /// or a link is shared (see [shareGroupInviteLink]). Never shortens a
+  /// window that's already open longer, so showing the QR code doesn't cut
+  /// short a link shared earlier. Best-effort: a failure here just means the
+  /// shown code keeps whatever window it already had, so it's silent rather
+  /// than surfaced as a [flowError].
+  Future<void> refreshInviteWindow(String groupId, {Duration validFor = const Duration(minutes: 30)}) async {
+    final until = DateTime.now().add(validFor);
+    final current = groupById(groupId)?.inviteExpiresAt;
+    if (current != null && current.isAfter(until)) return;
     try {
-      await groupsRepo.refreshInviteWindow(groupId);
+      await groupsRepo.refreshInviteWindow(groupId, until: until);
     } catch (_) {}
+  }
+
+  /// How long a shared invite link stays valid (see [shareGroupInviteLink]).
+  static const inviteLinkValidity = Duration(days: 7);
+
+  /// Opens `group`'s self-join window for [inviteLinkValidity] and returns
+  /// the message to share: a link that opens Podium on the invite (see
+  /// [inviteLinkFor]). Null if the group is closed.
+  Future<String?> shareGroupInviteLink(Group group) async {
+    if (_rejectIfGroupClosed(group.id)) return null;
+    await refreshInviteWindow(group.id, validFor: inviteLinkValidity);
+    final link = inviteLinkFor(GroupInviteCode(groupId: group.id, name: group.name, emoji: group.emoji).encode());
+    return 'Rejoins « ${group.name} » sur Podium : $link';
   }
 
   /// Rejects a mutating action targeting `groupId` if its group is closed,

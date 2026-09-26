@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <title>Invitation — Podium</title>
+  <link rel="icon" href="assets/favicon-32.png" />
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="site">
+      <img src="assets/logo-64.png" alt="Logo Podium" />
+      <span class="brand">Podium</span>
+      <nav>
+        <a href="index.html">Accueil</a>
+      </nav>
+    </header>
+
+    <main>
+      <!-- Filled in by the script below from the link's `c` parameter: the
+           same podium:// invite code as the app's QR codes (see
+           lib/models/group_invite_code.dart). -->
+      <h1 id="title">Invitation Podium</h1>
+      <p id="intro">Ce lien d'invitation est incomplet ou invalide. Demandez-en un nouveau à la personne qui vous l'a envoyé.</p>
+
+      <div class="card" id="actions" hidden>
+        <div class="btn-row">
+          <a class="btn btn-primary" id="open-btn" href="#">Ouvrir dans Podium</a>
+          <a class="btn btn-secondary" id="store-btn" href="#">Installer Podium</a>
+        </div>
+        <p class="updated" id="hint">
+          Si l'application ne s'ouvre pas, installez-la depuis le Play Store, connectez-vous,
+          puis touchez à nouveau le lien d'invitation.
+        </p>
+      </div>
+    </main>
+
+    <footer class="site">
+      <p>Podium — développé par Thomas Venouil.
+        Contact : <a href="mailto:venouilthomas123456@gmail.com">venouilthomas123456@gmail.com</a>
+      </p>
+    </footer>
+  </div>
+
+  <script>
+    (function () {
+      var PACKAGE = 'app.podium.games';
+      var STORE = 'https://play.google.com/store/apps/details?id=' + PACKAGE;
+      var KINDS = { 'join': 'le groupe', 'join-server': 'le serveur', 'join-salon': 'le salon' };
+
+      var code = new URLSearchParams(location.search).get('c') || '';
+      var match = /^podium:\/\/(join|join-server|join-salon)\?(.*)$/.exec(code);
+      if (!match) return;
+      var params = new URLSearchParams(match[2]);
+      var name = params.get('n') || 'Podium';
+      var emoji = params.get('e') || '🎲';
+
+      document.getElementById('title').textContent = emoji + ' ' + name;
+      document.getElementById('intro').textContent =
+        'Vous êtes invité·e à rejoindre ' + KINDS[match[1]] + ' « ' + name + ' » sur Podium.';
+      document.getElementById('actions').hidden = false;
+      document.getElementById('store-btn').href = STORE;
+
+      var isAndroid = /Android/i.test(navigator.userAgent);
+      var openBtn = document.getElementById('open-btn');
+      if (isAndroid) {
+        // Opens the app on this invite if it's installed, the Play Store otherwise.
+        openBtn.href = 'intent://' + code.slice('podium://'.length) +
+          '#Intent;scheme=podium;package=' + PACKAGE +
+          ';S.browser_fallback_url=' + encodeURIComponent(STORE) + ';end';
+      } else {
+        openBtn.style.display = 'none';
+        document.getElementById('hint').textContent =
+          'Podium est disponible sur Android. Ouvrez ce lien depuis votre téléphone pour rejoindre directement.';
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -201,10 +201,10 @@ class FakeGroupsRepository implements GroupsRepository {
   }
 
   @override
-  Future<void> refreshInviteWindow(String groupId) async {
+  Future<void> refreshInviteWindow(String groupId, {required DateTime until}) async {
     final g = groups[groupId];
     if (g == null) return;
-    groups[groupId] = g.copyWith(inviteExpiresAt: DateTime.now().add(const Duration(minutes: 30)));
+    groups[groupId] = g.copyWith(inviteExpiresAt: until);
     _emit();
   }
 

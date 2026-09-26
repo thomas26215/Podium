@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../models/app_user.dart';
+import '../../models/group.dart';
 import '../../models/group_invite_code.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
@@ -49,6 +51,12 @@ class _InviteDialogState extends State<InviteDialog> {
   Future<void> _addExisting(AppState app, AppUser person) async {
     final ok = await app.addMemberByUid(groupId: widget.groupId, uid: person.uid);
     if (ok && mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _shareLink(AppState app, Group group) async {
+    final message = await app.shareGroupInviteLink(group);
+    if (message == null) return;
+    await SharePlus.instance.share(ShareParams(text: message, subject: 'Invitation Podium'));
   }
 
   void _selectMode(_InviteMode mode, AppState app) {
@@ -257,6 +265,21 @@ class _InviteDialogState extends State<InviteDialog> {
                           const SizedBox(height: 6),
                           Text(
                             'Valable 30 minutes — rouvrez cet écran pour en générer un nouveau.',
+                            textAlign: TextAlign.center,
+                            style: bodyFont(size: 11.5, weight: FontWeight.w600, color: AppColors.mut),
+                          ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: () => _shareLink(app, group),
+                              icon: const Icon(Icons.share_rounded, size: 18),
+                              label: const Text('Partager un lien'),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'À envoyer par message. Valable 7 jours, pour toute personne qui le reçoit.',
                             textAlign: TextAlign.center,
                             style: bodyFont(size: 11.5, weight: FontWeight.w600, color: AppColors.mut),
                           ),

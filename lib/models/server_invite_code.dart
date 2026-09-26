@@ -1,3 +1,5 @@
+import 'group_invite_code.dart';
+
 /// Self-contained invite payload for joining a [Server] — same pattern as
 /// [GroupInviteCode] (see that file for why it's a dumb client-only URI
 /// rather than something read from Firestore first).
@@ -16,7 +18,7 @@ class ServerInviteCode {
 
   static ServerInviteCode? tryParse(String raw) {
     try {
-      final uri = Uri.parse(raw.trim());
+      final uri = Uri.parse(unwrapInviteCode(raw) ?? raw.trim());
       if (uri.scheme != 'podium' || uri.host != 'join-server') return null;
       final s = uri.queryParameters['s'];
       if (s == null || s.isEmpty) return null;
@@ -47,7 +49,7 @@ class SalonInviteCode {
 
   static SalonInviteCode? tryParse(String raw) {
     try {
-      final uri = Uri.parse(raw.trim());
+      final uri = Uri.parse(unwrapInviteCode(raw) ?? raw.trim());
       if (uri.scheme != 'podium' || uri.host != 'join-salon') return null;
       final s = uri.queryParameters['s'];
       final r = uri.queryParameters['r'];

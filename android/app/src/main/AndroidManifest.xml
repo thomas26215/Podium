@@ -27,6 +27,18 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- Links are handled by app_links, not Flutter's own router
+                 (which would try to push a "/join" route that doesn't exist). -->
+            <meta-data android:name="flutter_deeplinking_enabled" android:value="false" />
+            <!-- Invite links (podium://join, podium://join-server,
+                 podium://join-salon), opened from docs/rejoindre.html — see
+                 lib/screens/auth/invite_link_handler.dart. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="podium"/>
+            </intent-filter>
         </activity>
         <!-- Routes background/terminated FCM notifications to the same
              channel our foreground handler shows on, and gives them a

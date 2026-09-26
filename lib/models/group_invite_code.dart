@@ -1,3 +1,26 @@
+/// Public page that turns a shareable invite link into an "open in Podium"
+/// button (or a Play Store link when the app isn't installed) — see
+/// docs/rejoindre.html. Carries the same `podium://` code as the QR, in `c`.
+const kInviteLinkPage = 'https://thomas26215.github.io/Podium/rejoindre.html';
+
+/// A shareable https link for any `podium://` invite `code` (group, server
+/// or salon) — see [kInviteLinkPage].
+String inviteLinkFor(String code) => '$kInviteLinkPage?c=${Uri.encodeComponent(code)}';
+
+/// The `podium://` invite code inside `raw` — `raw` itself when it's already
+/// one, or the `c` parameter of a pasted [inviteLinkFor] link. Null for
+/// anything else.
+String? unwrapInviteCode(String raw) {
+  final uri = Uri.tryParse(raw.trim());
+  if (uri == null) return null;
+  if (uri.scheme == 'podium') return raw.trim();
+  if (uri.scheme == 'https' && uri.toString().startsWith(kInviteLinkPage)) {
+    final inner = uri.queryParameters['c'];
+    if (inner != null && Uri.tryParse(inner)?.scheme == 'podium') return inner;
+  }
+  return null;
+}
+
 /// Self-contained invite payload encoded into a QR code so a scanning
 /// client can join a group without ever needing to read the group document
 /// first (Firestore only allows members to read a group's data — see
@@ -18,7 +41,7 @@ class GroupInviteCode {
 
   static GroupInviteCode? tryParse(String raw) {
     try {
-      final uri = Uri.parse(raw.trim());
+      final uri = Uri.parse(unwrapInviteCode(raw) ?? raw.trim());
       if (uri.scheme != 'podium' || uri.host != 'join') return null;
       final g = uri.queryParameters['g'];
       if (g == null || g.isEmpty) return null;

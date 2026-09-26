@@ -30,6 +30,8 @@ dependencies:
   connectivity_plus: ^6.1.0
   pdf: ^3.13.0
   printing: ^5.15.0
+  app_links: ^6.4.1
+  share_plus: ^13.3.0
 
 dev_dependencies:
   flutter_test:

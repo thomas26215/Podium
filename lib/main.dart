@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'repositories/users_repository.dart';
 import 'screens/auth/auth_gate.dart';
+import 'screens/auth/invite_link_handler.dart';
 import 'services/notifications_service.dart';
 import 'state/app_state.dart';
 import 'state/session_manager.dart';
@@ -129,7 +130,7 @@ class _ThemedMaterialAppState extends State<_ThemedMaterialApp> with WidgetsBind
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: const [Locale('fr')],
-      home: const AuthGate(),
+      home: const InviteLinkHandler(child: AuthGate()),
     );
   }
 }

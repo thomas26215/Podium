@@ -2,6 +2,8 @@
 // new-game sheet) against the in-memory Fake* repositories, since this
 // environment has no live Firebase project to test against.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -10,6 +12,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:podium/models/app_user.dart';
 import 'package:podium/models/game.dart';
 import 'package:podium/models/group.dart';
+import 'package:podium/models/group_invite_code.dart';
+import 'package:podium/models/server_invite_code.dart';
 import 'package:podium/models/match.dart';
 import 'package:podium/models/tournament.dart';
 import 'package:podium/repositories/fakes.dart';
@@ -18,6 +22,7 @@ import 'package:podium/repositories/games_repository.dart';
 import 'package:podium/repositories/guests_repository.dart';
 import 'package:podium/repositories/users_repository.dart';
 import 'package:podium/screens/auth/auth_gate.dart';
+import 'package:podium/screens/auth/invite_link_handler.dart';
 import 'package:podium/screens/groups/groups_screen.dart';
 import 'package:podium/logic/game_filter.dart';
 import 'package:podium/logic/game_sort.dart';
@@ -1904,6 +1909,107 @@ void main() {
       expect(await app.transferGroupOwnership(group, 'tom'), isFalse);
       expect(app.groupById('bandits')!.memberIds, ['lea', 'tom']);
       expect(app.groupById('bandits')!.ownerId, 'lea');
+    });
+  });
+
+  group('invite links', () {
+    test('a shared link wraps the QR code and parses back from either form', () {
+      const code = GroupInviteCode(groupId: 'bandits', name: 'Les Bandits & co', emoji: '🃏');
+      final link = inviteLinkFor(code.encode());
+      expect(link, startsWith('https://thomas26215.github.io/Podium/rejoindre.html?c='));
+      expect(unwrapInviteCode(link), code.encode());
+      expect(unwrapInviteCode(code.encode()), code.encode());
+      expect(GroupInviteCode.tryParse(link)?.name, 'Les Bandits & co');
+
+      const salon = SalonInviteCode(serverId: 's', salonId: 'r', name: 'Mardi', emoji: '🎮');
+      expect(SalonInviteCode.tryParse(inviteLinkFor(salon.encode()))?.salonId, 'r');
+
+      expect(unwrapInviteCode('https://example.com/rejoindre.html?c=${Uri.encodeComponent(code.encode())}'), isNull);
+      expect(unwrapInviteCode('https://thomas26215.github.io/Podium/rejoindre.html?c=https%3A%2F%2Fevil.fr'), isNull);
+    });
+
+    testWidgets('sharing a link opens the join window for 7 days, and the QR tab never shortens it', (tester) async {
+      final seeded = _buildSeededState();
+      seeded.auth.debugSignIn(_lea);
+      await tester.pump();
+      final app = seeded.state;
+
+      final message = await app.shareGroupInviteLink(app.groupById('bandits')!);
+      expect(message, contains('Les Bandits'));
+      expect(GroupInviteCode.tryParse(message!.split(' ').last)?.groupId, 'bandits');
+      await tester.pump();
+      final linkExpiry = app.groupById('bandits')!.inviteExpiresAt!;
+      expect(linkExpiry.isAfter(DateTime.now().add(const Duration(days: 6))), isTrue);
+
+      await app.refreshInviteWindow('bandits');
+      await tester.pump();
+      expect(app.groupById('bandits')!.inviteExpiresAt, linkExpiry);
+
+      await app.setGroupClosed('bandits', true);
+      await tester.pump();
+      expect(await app.shareGroupInviteLink(app.groupById('bandits')!), isNull);
+      await tester.pump(const Duration(milliseconds: 2700));
+    });
+
+    Future<(AppState, FakeAuthRepository, StreamController<Uri>, String)> pumpWithLinks(WidgetTester tester) async {
+      final seeded = _buildSeededState();
+      final links = StreamController<Uri>();
+      addTearDown(links.close);
+      final other = await seeded.state.groupsRepo.createGroup(name: 'Soirée jeux', emoji: '🎲', emojiBg: 0xFFFFE9E1, ownerId: 'tom');
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: seeded.state,
+          child: MaterialApp(home: InviteLinkHandler(links: links.stream, child: const AuthGate())),
+        ),
+      );
+      return (seeded.state, seeded.auth, links, other.id);
+    }
+
+    testWidgets('a link opening the app asks to join, then joins the group', (tester) async {
+      final (app, auth, links, groupId) = await pumpWithLinks(tester);
+      auth.debugSignIn(_lea);
+      await tester.pumpAndSettle();
+
+      links.add(Uri.parse(GroupInviteCode(groupId: groupId, name: 'Soirée jeux', emoji: '🎲').encode()));
+      await tester.pumpAndSettle();
+      expect(find.text('🎲 Rejoindre « Soirée jeux » ?'), findsOneWidget);
+
+      await tester.tap(find.text('Rejoindre'));
+      await tester.pumpAndSettle();
+      expect(app.groupById(groupId)!.memberIds, contains('lea'));
+      await tester.pump(const Duration(milliseconds: 2700));
+    });
+
+    testWidgets('a link arriving before sign-in waits for it, and cancelling joins nothing', (tester) async {
+      final (app, auth, links, groupId) = await pumpWithLinks(tester);
+      links.add(Uri.parse(GroupInviteCode(groupId: groupId, name: 'Soirée jeux', emoji: '🎲').encode()));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Rejoindre « Soirée jeux »'), findsNothing);
+
+      auth.debugSignIn(_lea);
+      await tester.pumpAndSettle();
+      expect(find.text('🎲 Rejoindre « Soirée jeux » ?'), findsOneWidget);
+
+      await tester.tap(find.text('Annuler'));
+      await tester.pumpAndSettle();
+      expect(app.groupById(groupId), isNull);
+      expect(find.textContaining('Rejoindre « Soirée jeux »'), findsNothing);
+    });
+
+    testWidgets('an expired link says why it can\'t be used', (tester) async {
+      final (app, auth, links, groupId) = await pumpWithLinks(tester);
+      await app.groupsRepo.refreshInviteWindow(groupId, until: DateTime.now().subtract(const Duration(minutes: 1)));
+      auth.debugSignIn(_lea);
+      await tester.pumpAndSettle();
+
+      links.add(Uri.parse(GroupInviteCode(groupId: groupId, name: 'Soirée jeux', emoji: '🎲').encode()));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Rejoindre'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Impossible de rejoindre'), findsOneWidget);
+      expect(find.textContaining('expiré'), findsOneWidget);
+      expect(app.groupById(groupId), isNull);
     });
   });
 }

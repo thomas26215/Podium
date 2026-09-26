@@ -45,10 +45,9 @@ abstract class GroupsRepository {
   /// [Group.closed].
   Future<void> setGroupClosed({required String groupId, required bool closed});
 
-  /// Opens (or extends) `groupId`'s QR self-join window — see
-  /// [Group.inviteExpiresAt]. Called whenever the invite dialog's QR tab is
-  /// shown, so a freshly displayed code is always good for a fresh window.
-  Future<void> refreshInviteWindow(String groupId);
+  /// Sets when `groupId`'s self-join window (QR code or shared link) closes —
+  /// see [Group.inviteExpiresAt] and AppState.refreshInviteWindow.
+  Future<void> refreshInviteWindow(String groupId, {required DateTime until});
 
   /// Takes `memberId` off `groupId`'s roster — the caller leaving, or the
   /// owner removing someone. Their past matches stay in the history.
@@ -195,9 +194,9 @@ class FirebaseGroupsRepository implements GroupsRepository {
   }
 
   @override
-  Future<void> refreshInviteWindow(String groupId) async {
+  Future<void> refreshInviteWindow(String groupId, {required DateTime until}) async {
     await _groups.doc(groupId).update({
-      'inviteExpiresAt': Timestamp.fromDate(DateTime.now().add(const Duration(minutes: 30))),
+      'inviteExpiresAt': Timestamp.fromDate(until),
     });
   }
 
