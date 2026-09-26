@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
@@ -13,8 +14,22 @@ import 'state/app_state.dart';
 import 'state/session_manager.dart';
 import 'theme/app_theme.dart';
 
+/// Hides the status bar and the phone's navigation buttons. "Sticky": a
+/// swipe from the screen edge brings them back for a moment, then they hide
+/// again on their own.
+Future<void> enterFullScreen() => SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await enterFullScreen();
+  // Some system events (the keyboard, a permission dialog…) can bring the
+  // bars back for good — hide them again once things settle.
+  SystemChrome.setSystemUIChangeCallback((systemOverlaysAreVisible) async {
+    if (systemOverlaysAreVisible) {
+      await Future<void>.delayed(const Duration(seconds: 3));
+      await enterFullScreen();
+    }
+  });
 
   if (!isFirebaseConfigured) {
     runApp(const _FirebaseSetupNeededApp());
@@ -94,6 +109,9 @@ class _ThemedMaterialAppState extends State<_ThemedMaterialApp> with WidgetsBind
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Coming back from another app (PDF share, browser…) can leave the
+    // system bars showing.
+    if (state == AppLifecycleState.resumed) enterFullScreen();
     context.read<AppState>().handleAppLifecycleChange(state);
   }
 
