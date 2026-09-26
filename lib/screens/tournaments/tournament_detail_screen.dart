@@ -7,6 +7,7 @@ import '../../models/tournament.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
+import '../history/result_share_dialog.dart';
 import '../new_game/new_game_sheet.dart';
 import 'tournament_seeding_editor.dart';
 import 'tournaments_offline_notice.dart';
@@ -107,6 +108,12 @@ class TournamentDetailScreen extends StatelessWidget {
         foregroundColor: AppColors.ink,
         title: Text(tournament.name, style: bodyFont(size: 17, weight: FontWeight.w800, color: AppColors.ink)),
         actions: [
+          if (!tournament.isPending)
+            IconButton(
+              icon: const Icon(Icons.share_rounded),
+              tooltip: 'Partager le tournoi',
+              onPressed: () => showTournamentShareDialog(context, tournament: tournament, game: game, appState: app),
+            ),
           if (app.canDeleteTournament(tournament))
             IconButton(icon: const Icon(Icons.delete_outline_rounded), onPressed: () => _confirmDelete(context, app, tournament)),
         ],

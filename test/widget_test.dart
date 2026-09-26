@@ -4,6 +4,7 @@
 
 import 'dart:async';
 
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -26,6 +27,7 @@ import 'package:podium/screens/auth/auth_gate.dart';
 import 'package:podium/screens/auth/invite_link_handler.dart';
 import 'package:podium/screens/groups/groups_screen.dart';
 import 'package:podium/logic/game_filter.dart';
+import 'package:podium/logic/tournament_bracket.dart';
 import 'package:podium/logic/game_sort.dart';
 import 'package:podium/screens/new_game/game_form.dart';
 import 'package:podium/screens/new_game/library_game_preview_screen.dart';
@@ -34,6 +36,7 @@ import 'package:podium/screens/profile/profile_screen.dart';
 import 'package:podium/widgets/common.dart';
 import 'package:podium/widgets/game_filter_bar.dart';
 import 'package:podium/widgets/result_share_card.dart';
+import 'package:podium/widgets/tournament_share_card.dart';
 import 'package:podium/state/app_state.dart';
 
 const _lea = AppUser(uid: 'lea', email: 'lea@test.fr', displayName: 'Léa', color: 0xFFFF5B34);
@@ -1064,6 +1067,70 @@ void main() {
       await render(tester, app, legs.last, legs: legs);
       expect(find.textContaining('Best of 3'), findsOneWidget);
       expect(find.textContaining('2/3'), findsOneWidget);
+    });
+
+    testWidgets('a round-by-round match adds the score chart and the rounds table', (tester) async {
+      final app = await signedIn(tester);
+      final t0 = DateTime(2026, 9, 26);
+      final timeline = [
+        for (final (r, d) in const [(3, 5), (4, 1), (2, 6)].indexed) ...[
+          TimelinePoint(playerId: 'lea', val: [3, 7, 9][r], delta: d.$1, time: t0),
+          TimelinePoint(playerId: 'tom', val: [5, 6, 12][r], delta: d.$2, time: t0),
+        ],
+      ];
+      final game = kDefaultGames.firstWhere((g) => g.id == 'catan');
+      final match = GameMatch(
+        id: 'rounds', gameId: 'catan', groupId: 'bandits', mode: 'ffa', unit: 'points', lowWins: false,
+        entries: const [MatchEntry(playerId: 'lea', points: 9), MatchEntry(playerId: 'tom', points: 12)],
+        timeline: timeline, createdAt: t0, inputMode: 'rounds',
+      );
+      await tester.pumpWidget(MaterialApp(home: SingleChildScrollView(child: ResultShareCard(game: game, match: match, appState: app))));
+      expect(tester.takeException(), isNull);
+      expect(find.text('ÉVOLUTION DES SCORES'), findsOneWidget);
+      expect(find.byType(LineChart), findsOneWidget);
+      expect(find.text('MANCHES'), findsOneWidget);
+      expect(find.text('M3'), findsOneWidget);
+      expect(find.text('+6'), findsOneWidget);
+    });
+
+    testWidgets('a match scored by category shows each category per player', (tester) async {
+      final app = await signedIn(tester);
+      const fields = [GameScoreField(id: 'mil', label: 'Militaire', color: 0xFFE5537B), GameScoreField(id: 'sci', label: 'Science', color: 0xFF1F9D57)];
+      final game = kDefaultGames.firstWhere((g) => g.id == 'catan');
+      final match = GameMatch(
+        id: 'cat', gameId: 'catan', groupId: 'bandits', mode: 'ffa', unit: 'points', lowWins: false,
+        entries: const [
+          MatchEntry(playerId: 'lea', points: 17, scoreBreakdown: {'mil': 4, 'sci': 13}),
+          MatchEntry(playerId: 'tom', points: 20, scoreBreakdown: {'mil': 11, 'sci': 9}),
+        ],
+        timeline: const [], createdAt: DateTime(2026, 9, 26), scoreFields: fields,
+      );
+      await tester.pumpWidget(MaterialApp(home: SingleChildScrollView(child: ResultShareCard(game: game, match: match, appState: app))));
+      expect(tester.takeException(), isNull);
+      expect(find.text('DÉTAIL DES POINTS'), findsOneWidget);
+      expect(find.text('Militaire'), findsOneWidget);
+      expect(find.text('13'), findsOneWidget);
+      expect(find.text('Total'), findsOneWidget);
+    });
+
+    testWidgets('a finished tournament shows its champion, finalist and rounds with scores', (tester) async {
+      final app = await signedIn(tester);
+      const entrants = [TournamentEntrant(id: 'eL', playerIds: ['lea']), TournamentEntrant(id: 'eT', playerIds: ['tom'])];
+      var t = Tournament(
+        id: 'cup', groupId: 'bandits', gameId: 'catan', name: 'Coupe du vendredi', format: TournamentFormat.singleElimination,
+        entrants: entrants, matches: buildInitialBracket(TournamentFormat.singleElimination, const ['eL', 'eT']), createdAt: DateTime(2026, 9, 26),
+      );
+      final finalNode = t.matches.firstWhere((m) => m.isReady);
+      // m1 (Léa 10 – Tom 8) is already in the seeded history.
+      t = advanceResult(t, matchId: finalNode.id, winnerEntrantId: 'eL', gameMatchId: 'm1');
+      final game = kDefaultGames.firstWhere((g) => g.id == 'catan');
+      await tester.pumpWidget(MaterialApp(home: SingleChildScrollView(child: TournamentShareCard(tournament: t, game: game, appState: app))));
+      expect(tester.takeException(), isNull);
+      expect(find.text('Coupe du vendredi'), findsOneWidget);
+      expect(find.text('CHAMPION'), findsOneWidget);
+      expect(find.text('Finaliste : Tom'), findsOneWidget);
+      expect(find.text('FINALE'), findsOneWidget);
+      expect(find.text('10 – 8'), findsOneWidget);
     });
   });
 
