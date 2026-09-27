@@ -4074,17 +4074,6 @@
   "category": "Jeu vidéo",
   "rules": [
    {
-    "id": "grand_prix",
-    "name": "Grand Prix (4 courses)",
-    "countType": "points",
-    "multiRound": true
-   },
-   {
-    "id": "bataille",
-    "name": "Bataille de ballons",
-    "countType": "winloss"
-   },
-   {
     "id": "contre_la_montre",
     "name": "Contre-la-montre",
     "countType": "time"
@@ -4918,11 +4907,6 @@
     "id": "sprint",
     "name": "Sprint 40 lignes",
     "countType": "time"
-   },
-   {
-    "id": "versus",
-    "name": "Versus",
-    "countType": "winloss"
    }
   ],
   "ruleSections": [
@@ -5001,12 +4985,6 @@
     "id": "chanson",
     "name": "Chanson (score)",
     "countType": "points"
-   },
-   {
-    "id": "soiree",
-    "name": "Soirée (scores cumulés)",
-    "countType": "points",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -6151,12 +6129,6 @@
     "multiRound": true
    },
    {
-    "id": "match_play",
-    "name": "Match play (trous gagnés)",
-    "countType": "wins",
-    "multiRound": true
-   },
-   {
     "id": "stableford",
     "name": "Stableford (points)",
     "countType": "points",
@@ -6586,12 +6558,6 @@
     "id": "score",
     "name": "Score de la machine",
     "countType": "points"
-   },
-   {
-    "id": "vote",
-    "name": "Vote du public",
-    "countType": "points",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -10290,43 +10256,6 @@
   "minPlayers": 2,
   "maxPlayers": 6,
   "themes": [
-   "course",
-   "gestionMain",
-   "familial",
-   "moyen"
-  ]
- },
- "heat_solo": {
-  "name": "Heat: Pedal to the Metal (solo)",
-  "emoji": "🏎️",
-  "category": "Société",
-  "rules": [
-   {
-    "id": "championnat_points",
-    "name": "Championnat (points)",
-    "countType": "points",
-    "multiRound": true
-   }
-  ],
-  "ruleSections": [
-   {
-    "title": "Principe",
-    "rules": [
-     "Course de Formule 1 des années 60 : on choisit une vitesse et on joue des cartes.",
-     "Aller trop vite dans un virage coûte des cartes Chaleur."
-    ]
-   },
-   {
-    "title": "Fin de partie",
-    "rules": [
-     "Premier à franchir la ligne d’arrivée ; en championnat, points selon la place."
-    ]
-   }
-  ],
-  "minPlayers": 1,
-  "maxPlayers": 1,
-  "themes": [
-   "solo",
    "course",
    "gestionMain",
    "familial",
@@ -15420,40 +15349,6 @@
    "ambiance",
    "familial",
    "apero",
-   "rapide"
-  ]
- },
- "jenga_solo": {
-  "name": "Jenga (solo)",
-  "emoji": "🪵",
-  "category": "Société",
-  "rules": [
-   {
-    "id": "perdant",
-    "name": "Perdant",
-    "countType": "winloss"
-   }
-  ],
-  "ruleSections": [
-   {
-    "title": "Principe",
-    "rules": [
-     "On retire un bloc de la tour et on le pose en haut, d’une seule main."
-    ]
-   },
-   {
-    "title": "Fin de partie",
-    "rules": [
-     "Celui qui fait tomber la tour perd."
-    ]
-   }
-  ],
-  "minPlayers": 1,
-  "maxPlayers": 1,
-  "themes": [
-   "solo",
-   "adresse",
-   "familial",
    "rapide"
   ]
  },
@@ -30551,42 +30446,6 @@
    "rapide"
   ]
  },
- "set_solo": {
-  "name": "Set (solo)",
-  "emoji": "🔷",
-  "category": "Cartes",
-  "rules": [
-   {
-    "id": "sets",
-    "name": "Sets",
-    "countType": "points"
-   }
-  ],
-  "ruleSections": [
-   {
-    "title": "Principe",
-    "rules": [
-     "Trouver 3 cartes dont chaque caractéristique (couleur, forme, nombre, remplissage) est identique ou toute différente."
-    ]
-   },
-   {
-    "title": "Fin de partie",
-    "rules": [
-     "Le plus de sets trouvés."
-    ]
-   }
-  ],
-  "minPlayers": 1,
-  "maxPlayers": 1,
-  "themes": [
-   "solo",
-   "paquetSpecifique",
-   "rapidite",
-   "reflexion",
-   "familial",
-   "rapide"
-  ]
- },
  "ligretto": {
   "name": "Ligretto",
   "emoji": "🟥",
@@ -33327,12 +33186,6 @@
     "id": "partie",
     "name": "Partie",
     "countType": "winloss"
-   },
-   {
-    "id": "serie_manches_gagnees",
-    "name": "Série (manches gagnées)",
-    "countType": "wins",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -33412,12 +33265,6 @@
   "emoji": "🏁",
   "category": "Jeu vidéo",
   "rules": [
-   {
-    "id": "grand_prix_points",
-    "name": "Grand Prix (points)",
-    "countType": "points",
-    "multiRound": true
-   },
    {
     "id": "contre_la_montre_secondes",
     "name": "Contre-la-montre",
@@ -33503,12 +33350,6 @@
   "emoji": "🏁",
   "category": "Jeu vidéo",
   "rules": [
-   {
-    "id": "grand_prix_points",
-    "name": "Grand Prix (points)",
-    "countType": "points",
-    "multiRound": true
-   },
    {
     "id": "contre_la_montre_secondes",
     "name": "Contre-la-montre",
@@ -33596,12 +33437,6 @@
   "category": "Jeu vidéo",
   "rules": [
    {
-    "id": "grand_prix_points",
-    "name": "Grand Prix (points)",
-    "countType": "points",
-    "multiRound": true
-   },
-   {
     "id": "contre_la_montre_secondes",
     "name": "Contre-la-montre",
     "countType": "time"
@@ -33688,12 +33523,6 @@
   "category": "Jeu vidéo",
   "rules": [
    {
-    "id": "grand_prix_points",
-    "name": "Grand Prix (points)",
-    "countType": "points",
-    "multiRound": true
-   },
-   {
     "id": "contre_la_montre_secondes",
     "name": "Contre-la-montre",
     "countType": "time"
@@ -33779,12 +33608,6 @@
   "category": "Jeu vidéo",
   "rules": [
    {
-    "id": "grand_prix_points",
-    "name": "Grand Prix (points)",
-    "countType": "points",
-    "multiRound": true
-   },
-   {
     "id": "contre_la_montre_secondes",
     "name": "Contre-la-montre",
     "countType": "time"
@@ -33869,12 +33692,6 @@
   "category": "Jeu vidéo",
   "rules": [
    {
-    "id": "grand_prix_points",
-    "name": "Grand Prix (points)",
-    "countType": "points",
-    "multiRound": true
-   },
-   {
     "id": "contre_la_montre_secondes",
     "name": "Contre-la-montre",
     "countType": "time"
@@ -33958,12 +33775,6 @@
   "emoji": "🦊",
   "category": "Jeu vidéo",
   "rules": [
-   {
-    "id": "grand_prix_points",
-    "name": "Grand Prix (points)",
-    "countType": "points",
-    "multiRound": true
-   },
    {
     "id": "contre_la_montre_secondes",
     "name": "Contre-la-montre",
@@ -34050,12 +33861,6 @@
   "category": "Jeu vidéo",
   "rules": [
    {
-    "id": "grand_prix_points",
-    "name": "Grand Prix (points)",
-    "countType": "points",
-    "multiRound": true
-   },
-   {
     "id": "contre_la_montre_secondes",
     "name": "Contre-la-montre",
     "countType": "time"
@@ -34139,12 +33944,6 @@
   "emoji": "🐒",
   "category": "Jeu vidéo",
   "rules": [
-   {
-    "id": "grand_prix_points",
-    "name": "Grand Prix (points)",
-    "countType": "points",
-    "multiRound": true
-   },
    {
     "id": "contre_la_montre_secondes",
     "name": "Contre-la-montre",
@@ -34230,12 +34029,6 @@
   "category": "Jeu vidéo",
   "rules": [
    {
-    "id": "grand_prix_points",
-    "name": "Grand Prix (points)",
-    "countType": "points",
-    "multiRound": true
-   },
-   {
     "id": "contre_la_montre_secondes",
     "name": "Contre-la-montre",
     "countType": "time"
@@ -34318,12 +34111,6 @@
   "emoji": "🏎️",
   "category": "Jeu vidéo",
   "rules": [
-   {
-    "id": "grand_prix_points",
-    "name": "Grand Prix (points)",
-    "countType": "points",
-    "multiRound": true
-   },
    {
     "id": "contre_la_montre_secondes",
     "name": "Contre-la-montre",
@@ -34408,12 +34195,6 @@
   "emoji": "🏎️",
   "category": "Jeu vidéo",
   "rules": [
-   {
-    "id": "grand_prix_points",
-    "name": "Grand Prix (points)",
-    "countType": "points",
-    "multiRound": true
-   },
    {
     "id": "contre_la_montre_secondes",
     "name": "Contre-la-montre",
@@ -34500,12 +34281,6 @@
   "category": "Jeu vidéo",
   "rules": [
    {
-    "id": "grand_prix_points",
-    "name": "Grand Prix (points)",
-    "countType": "points",
-    "multiRound": true
-   },
-   {
     "id": "contre_la_montre_secondes",
     "name": "Contre-la-montre",
     "countType": "time"
@@ -34590,12 +34365,6 @@
   "category": "Jeu vidéo",
   "rules": [
    {
-    "id": "grand_prix_points",
-    "name": "Grand Prix (points)",
-    "countType": "points",
-    "multiRound": true
-   },
-   {
     "id": "contre_la_montre_secondes",
     "name": "Contre-la-montre",
     "countType": "time"
@@ -34678,12 +34447,6 @@
   "emoji": "🚨",
   "category": "Jeu vidéo",
   "rules": [
-   {
-    "id": "grand_prix_points",
-    "name": "Grand Prix (points)",
-    "countType": "points",
-    "multiRound": true
-   },
    {
     "id": "contre_la_montre_secondes",
     "name": "Contre-la-montre",
@@ -34768,12 +34531,6 @@
   "emoji": "💥",
   "category": "Jeu vidéo",
   "rules": [
-   {
-    "id": "grand_prix_points",
-    "name": "Grand Prix (points)",
-    "countType": "points",
-    "multiRound": true
-   },
    {
     "id": "contre_la_montre_secondes",
     "name": "Contre-la-montre",
@@ -34942,12 +34699,6 @@
   "emoji": "🚀",
   "category": "Jeu vidéo",
   "rules": [
-   {
-    "id": "grand_prix_points",
-    "name": "Grand Prix (points)",
-    "countType": "points",
-    "multiRound": true
-   },
    {
     "id": "contre_la_montre_secondes",
     "name": "Contre-la-montre",
@@ -35282,12 +35033,6 @@
   "category": "Jeu vidéo",
   "rules": [
    {
-    "id": "grand_prix_points",
-    "name": "Grand Prix (points)",
-    "countType": "points",
-    "multiRound": true
-   },
-   {
     "id": "contre_la_montre_secondes",
     "name": "Contre-la-montre",
     "countType": "time"
@@ -35371,12 +35116,6 @@
   "emoji": "🔥",
   "category": "Jeu vidéo",
   "rules": [
-   {
-    "id": "grand_prix_points",
-    "name": "Grand Prix (points)",
-    "countType": "points",
-    "multiRound": true
-   },
    {
     "id": "contre_la_montre_secondes",
     "name": "Contre-la-montre",
@@ -35463,12 +35202,6 @@
   "category": "Jeu vidéo",
   "rules": [
    {
-    "id": "grand_prix_points",
-    "name": "Grand Prix (points)",
-    "countType": "points",
-    "multiRound": true
-   },
-   {
     "id": "contre_la_montre_secondes",
     "name": "Contre-la-montre",
     "countType": "time"
@@ -35553,12 +35286,6 @@
   "emoji": "🌅",
   "category": "Jeu vidéo",
   "rules": [
-   {
-    "id": "grand_prix_points",
-    "name": "Grand Prix (points)",
-    "countType": "points",
-    "multiRound": true
-   },
    {
     "id": "contre_la_montre_secondes",
     "name": "Contre-la-montre",
@@ -35645,12 +35372,6 @@
   "category": "Jeu vidéo",
   "rules": [
    {
-    "id": "grand_prix_points",
-    "name": "Grand Prix (points)",
-    "countType": "points",
-    "multiRound": true
-   },
-   {
     "id": "contre_la_montre_secondes",
     "name": "Contre-la-montre",
     "countType": "time"
@@ -35731,11 +35452,6 @@
     "id": "meilleur_score",
     "name": "Meilleur score",
     "countType": "points"
-   },
-   {
-    "id": "versus",
-    "name": "Versus",
-    "countType": "winloss"
    }
   ],
   "ruleSections": [
@@ -35988,53 +35704,6 @@
    "sessionLongue"
   ]
  },
- "mario_party_superstars_solo": {
-  "name": "Mario Party Superstars (solo)",
-  "emoji": "⭐",
-  "category": "Jeu vidéo",
-  "rules": [
-   {
-    "id": "partie_score",
-    "name": "Partie (score)",
-    "countType": "points"
-   },
-   {
-    "id": "soiree_scores_cumules",
-    "name": "Soirée (scores cumulés)",
-    "countType": "points",
-    "multiRound": true
-   }
-  ],
-  "ruleSections": [
-   {
-    "title": "Principe",
-    "rules": [
-     "5 plateaux classiques et 100 mini-jeux des anciens épisodes."
-    ]
-   },
-   {
-    "title": "Victoire",
-    "rules": [
-     "Le plus d’étoiles gagne, puis le plus de pièces."
-    ]
-   },
-   {
-    "title": "Comptage",
-    "rules": [
-     "On note le score affiché en fin de partie.",
-     "En soirée, les scores de plusieurs parties se cumulent."
-    ]
-   }
-  ],
-  "minPlayers": 1,
-  "maxPlayers": 1,
-  "themes": [
-   "solo",
-   "adaptationSociete",
-   "familial",
-   "sessionLongue"
-  ]
- },
  "super_mario_party": {
   "name": "Super Mario Party",
   "emoji": "🎲",
@@ -36077,47 +35746,6 @@
   "themes": [
    "party",
    "multiLocal",
-   "adaptationSociete",
-   "familial",
-   "sessionLongue"
-  ]
- },
- "super_mario_party_solo": {
-  "name": "Super Mario Party (solo)",
-  "emoji": "🎲",
-  "category": "Jeu vidéo",
-  "rules": [
-   {
-    "id": "partie_score",
-    "name": "Partie (score)",
-    "countType": "points"
-   },
-   {
-    "id": "soiree_scores_cumules",
-    "name": "Soirée (scores cumulés)",
-    "countType": "points",
-    "multiRound": true
-   }
-  ],
-  "ruleSections": [
-   {
-    "title": "Principe",
-    "rules": [
-     "Chaque personnage a son propre dé ; mode River Survival coopératif."
-    ]
-   },
-   {
-    "title": "Comptage",
-    "rules": [
-     "On note le score affiché en fin de partie.",
-     "En soirée, les scores de plusieurs parties se cumulent."
-    ]
-   }
-  ],
-  "minPlayers": 1,
-  "maxPlayers": 1,
-  "themes": [
-   "solo",
    "adaptationSociete",
    "familial",
    "sessionLongue"
@@ -36170,47 +35798,6 @@
    "sessionLongue"
   ]
  },
- "mario_party_2_solo": {
-  "name": "Mario Party 2 (solo)",
-  "emoji": "🎲",
-  "category": "Jeu vidéo",
-  "rules": [
-   {
-    "id": "partie_score",
-    "name": "Partie (score)",
-    "countType": "points"
-   },
-   {
-    "id": "soiree_scores_cumules",
-    "name": "Soirée (scores cumulés)",
-    "countType": "points",
-    "multiRound": true
-   }
-  ],
-  "ruleSections": [
-   {
-    "title": "Principe",
-    "rules": [
-     "Classique de la N64."
-    ]
-   },
-   {
-    "title": "Comptage",
-    "rules": [
-     "On note le score affiché en fin de partie.",
-     "En soirée, les scores de plusieurs parties se cumulent."
-    ]
-   }
-  ],
-  "minPlayers": 1,
-  "maxPlayers": 1,
-  "themes": [
-   "solo",
-   "retro",
-   "familial",
-   "sessionLongue"
-  ]
- },
  "wii_party": {
   "name": "Wii Party",
   "emoji": "🎉",
@@ -36253,47 +35840,6 @@
   "themes": [
    "party",
    "multiLocal",
-   "familial",
-   "accessible",
-   "sessionMoyenne"
-  ]
- },
- "wii_party_solo": {
-  "name": "Wii Party (solo)",
-  "emoji": "🎉",
-  "category": "Jeu vidéo",
-  "rules": [
-   {
-    "id": "partie_score",
-    "name": "Partie (score)",
-    "countType": "points"
-   },
-   {
-    "id": "soiree_scores_cumules",
-    "name": "Soirée (scores cumulés)",
-    "countType": "points",
-    "multiRound": true
-   }
-  ],
-  "ruleSections": [
-   {
-    "title": "Principe",
-    "rules": [
-     "Party game familial avec plateau et mini-jeux."
-    ]
-   },
-   {
-    "title": "Comptage",
-    "rules": [
-     "On note le score affiché en fin de partie.",
-     "En soirée, les scores de plusieurs parties se cumulent."
-    ]
-   }
-  ],
-  "minPlayers": 1,
-  "maxPlayers": 1,
-  "themes": [
-   "solo",
    "familial",
    "accessible",
    "sessionMoyenne"
@@ -36346,47 +35892,6 @@
    "sessionCourte"
   ]
  },
- "wario_ware_solo": {
-  "name": "WarioWare: Move It! (solo)",
-  "emoji": "🤪",
-  "category": "Jeu vidéo",
-  "rules": [
-   {
-    "id": "partie_score",
-    "name": "Partie (score)",
-    "countType": "points"
-   },
-   {
-    "id": "soiree_scores_cumules",
-    "name": "Soirée (scores cumulés)",
-    "countType": "points",
-    "multiRound": true
-   }
-  ],
-  "ruleSections": [
-   {
-    "title": "Principe",
-    "rules": [
-     "Micro-jeux de quelques secondes enchaînés."
-    ]
-   },
-   {
-    "title": "Comptage",
-    "rules": [
-     "On note le score affiché en fin de partie.",
-     "En soirée, les scores de plusieurs parties se cumulent."
-    ]
-   }
-  ],
-  "minPlayers": 1,
-  "maxPlayers": 1,
-  "themes": [
-   "solo",
-   "humour",
-   "familial",
-   "sessionCourte"
-  ]
- },
  "clubhouse_games": {
   "name": "Clubhouse Games : 51 jeux du monde",
   "emoji": "🃏",
@@ -36431,48 +35936,6 @@
    "jeuDeCartes",
    "adaptationSociete",
    "multiLocal",
-   "familial",
-   "sessionCourte"
-  ]
- },
- "clubhouse_games_solo": {
-  "name": "Clubhouse Games : 51 jeux du monde (solo)",
-  "emoji": "🃏",
-  "category": "Jeu vidéo",
-  "rules": [
-   {
-    "id": "partie_score",
-    "name": "Partie (score)",
-    "countType": "points"
-   },
-   {
-    "id": "soiree_scores_cumules",
-    "name": "Soirée (scores cumulés)",
-    "countType": "points",
-    "multiRound": true
-   }
-  ],
-  "ruleSections": [
-   {
-    "title": "Principe",
-    "rules": [
-     "51 jeux classiques : échecs, mahjong, dames, bowling…"
-    ]
-   },
-   {
-    "title": "Comptage",
-    "rules": [
-     "On note le score affiché en fin de partie.",
-     "En soirée, les scores de plusieurs parties se cumulent."
-    ]
-   }
-  ],
-  "minPlayers": 1,
-  "maxPlayers": 1,
-  "themes": [
-   "solo",
-   "jeuDeCartes",
-   "adaptationSociete",
    "familial",
    "sessionCourte"
   ]
@@ -36571,46 +36034,6 @@
    "sessionCourte"
   ]
  },
- "everybody_1_2_switch_solo": {
-  "name": "Everybody 1-2-Switch! (solo)",
-  "emoji": "📱",
-  "category": "Jeu vidéo",
-  "rules": [
-   {
-    "id": "partie_score",
-    "name": "Partie (score)",
-    "countType": "points"
-   },
-   {
-    "id": "soiree_scores_cumules",
-    "name": "Soirée (scores cumulés)",
-    "countType": "points",
-    "multiRound": true
-   }
-  ],
-  "ruleSections": [
-   {
-    "title": "Principe",
-    "rules": [
-     "Jeux d’équipes pour grand groupe avec smartphones."
-    ]
-   },
-   {
-    "title": "Comptage",
-    "rules": [
-     "On note le score affiché en fin de partie.",
-     "En soirée, les scores de plusieurs parties se cumulent."
-    ]
-   }
-  ],
-  "minPlayers": 1,
-  "maxPlayers": 1,
-  "themes": [
-   "solo",
-   "familial",
-   "sessionCourte"
-  ]
- },
  "jackbox_quiplash": {
   "name": "Quiplash 3",
   "emoji": "💬",
@@ -36699,48 +36122,6 @@
   "maxPlayers": 8,
   "themes": [
    "party",
-   "quiz",
-   "humour",
-   "horreur",
-   "sessionCourte"
-  ]
- },
- "jackbox_trivia_murder_solo": {
-  "name": "Trivia Murder Party (solo)",
-  "emoji": "🔪",
-  "category": "Jeu vidéo",
-  "rules": [
-   {
-    "id": "partie_score",
-    "name": "Partie (score)",
-    "countType": "points"
-   },
-   {
-    "id": "soiree_scores_cumules",
-    "name": "Soirée (scores cumulés)",
-    "countType": "points",
-    "multiRound": true
-   }
-  ],
-  "ruleSections": [
-   {
-    "title": "Principe",
-    "rules": [
-     "Quiz mortel : une mauvaise réponse envoie en salle de mort."
-    ]
-   },
-   {
-    "title": "Comptage",
-    "rules": [
-     "On note le score affiché en fin de partie.",
-     "En soirée, les scores de plusieurs parties se cumulent."
-    ]
-   }
-  ],
-  "minPlayers": 1,
-  "maxPlayers": 1,
-  "themes": [
-   "solo",
    "quiz",
    "humour",
    "horreur",
@@ -36933,47 +36314,6 @@
    "sessionMoyenne"
   ]
  },
- "buzz_quiz_solo": {
-  "name": "Buzz! Quiz TV (solo)",
-  "emoji": "🔴",
-  "category": "Jeu vidéo",
-  "rules": [
-   {
-    "id": "partie_score",
-    "name": "Partie (score)",
-    "countType": "points"
-   },
-   {
-    "id": "soiree_scores_cumules",
-    "name": "Soirée (scores cumulés)",
-    "countType": "points",
-    "multiRound": true
-   }
-  ],
-  "ruleSections": [
-   {
-    "title": "Principe",
-    "rules": [
-     "Quiz télé avec buzzers."
-    ]
-   },
-   {
-    "title": "Comptage",
-    "rules": [
-     "On note le score affiché en fin de partie.",
-     "En soirée, les scores de plusieurs parties se cumulent."
-    ]
-   }
-  ],
-  "minPlayers": 1,
-  "maxPlayers": 1,
-  "themes": [
-   "solo",
-   "quiz",
-   "familial",
-   "sessionMoyenne"
-  ]
- },
  "trivial_pursuit_live": {
   "name": "Trivial Pursuit Live!",
   "emoji": "🥧",
@@ -37112,46 +36452,6 @@
    "party",
    "enLigne",
    "multiLocal",
-   "humour",
-   "sessionLongue"
-  ]
- },
- "pummel_party_solo": {
-  "name": "Pummel Party (solo)",
-  "emoji": "🔨",
-  "category": "Jeu vidéo",
-  "rules": [
-   {
-    "id": "partie_score",
-    "name": "Partie (score)",
-    "countType": "points"
-   },
-   {
-    "id": "soiree_scores_cumules",
-    "name": "Soirée (scores cumulés)",
-    "countType": "points",
-    "multiRound": true
-   }
-  ],
-  "ruleSections": [
-   {
-    "title": "Principe",
-    "rules": [
-     "Plateau à la Mario Party, mais pour se détruire entre amis."
-    ]
-   },
-   {
-    "title": "Comptage",
-    "rules": [
-     "On note le score affiché en fin de partie.",
-     "En soirée, les scores de plusieurs parties se cumulent."
-    ]
-   }
-  ],
-  "minPlayers": 1,
-  "maxPlayers": 1,
-  "themes": [
-   "solo",
    "humour",
    "sessionLongue"
   ]
@@ -37350,7 +36650,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -37435,7 +36735,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -37518,7 +36818,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -37601,7 +36901,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -37683,7 +36983,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -37764,7 +37064,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -37846,7 +37146,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -38105,7 +37405,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -38188,7 +37488,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -38272,7 +37572,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -38356,7 +37656,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -38439,7 +37739,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -38523,7 +37823,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -38607,7 +37907,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -38690,7 +37990,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -38775,7 +38075,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -38862,7 +38162,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -38948,7 +38248,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -39033,7 +38333,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -39116,7 +38416,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -39200,7 +38500,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -39284,7 +38584,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -39367,20 +38667,9 @@
   "category": "Jeu vidéo",
   "rules": [
    {
-    "id": "match_score",
-    "name": "Match (score)",
-    "countType": "points"
-   },
-   {
     "id": "victoire_defaite",
     "name": "Victoire / défaite",
     "countType": "winloss"
-   },
-   {
-    "id": "aller_retour_cumule",
-    "name": "Aller-retour (cumulé)",
-    "countType": "points",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -39460,20 +38749,9 @@
   "category": "Jeu vidéo",
   "rules": [
    {
-    "id": "match_score",
-    "name": "Match (score)",
-    "countType": "points"
-   },
-   {
     "id": "victoire_defaite",
     "name": "Victoire / défaite",
     "countType": "winloss"
-   },
-   {
-    "id": "aller_retour_cumule",
-    "name": "Aller-retour (cumulé)",
-    "countType": "points",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -39553,20 +38831,9 @@
   "category": "Jeu vidéo",
   "rules": [
    {
-    "id": "match_score",
-    "name": "Match (score)",
-    "countType": "points"
-   },
-   {
     "id": "victoire_defaite",
     "name": "Victoire / défaite",
     "countType": "winloss"
-   },
-   {
-    "id": "aller_retour_cumule",
-    "name": "Aller-retour (cumulé)",
-    "countType": "points",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -39645,20 +38912,9 @@
   "category": "Jeu vidéo",
   "rules": [
    {
-    "id": "match_score",
-    "name": "Match (score)",
-    "countType": "points"
-   },
-   {
     "id": "victoire_defaite",
     "name": "Victoire / défaite",
     "countType": "winloss"
-   },
-   {
-    "id": "aller_retour_cumule",
-    "name": "Aller-retour (cumulé)",
-    "countType": "points",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -39738,20 +38994,9 @@
   "category": "Jeu vidéo",
   "rules": [
    {
-    "id": "match_score",
-    "name": "Match (score)",
-    "countType": "points"
-   },
-   {
     "id": "victoire_defaite",
     "name": "Victoire / défaite",
     "countType": "winloss"
-   },
-   {
-    "id": "aller_retour_cumule",
-    "name": "Aller-retour (cumulé)",
-    "countType": "points",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -39831,20 +39076,9 @@
   "category": "Jeu vidéo",
   "rules": [
    {
-    "id": "match_score",
-    "name": "Match (score)",
-    "countType": "points"
-   },
-   {
     "id": "victoire_defaite",
     "name": "Victoire / défaite",
     "countType": "winloss"
-   },
-   {
-    "id": "aller_retour_cumule",
-    "name": "Aller-retour (cumulé)",
-    "countType": "points",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -39925,20 +39159,9 @@
   "category": "Jeu vidéo",
   "rules": [
    {
-    "id": "match_score",
-    "name": "Match (score)",
-    "countType": "points"
-   },
-   {
     "id": "victoire_defaite",
     "name": "Victoire / défaite",
     "countType": "winloss"
-   },
-   {
-    "id": "aller_retour_cumule",
-    "name": "Aller-retour (cumulé)",
-    "countType": "points",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -40018,20 +39241,9 @@
   "category": "Jeu vidéo",
   "rules": [
    {
-    "id": "match_score",
-    "name": "Match (score)",
-    "countType": "points"
-   },
-   {
     "id": "victoire_defaite",
     "name": "Victoire / défaite",
     "countType": "winloss"
-   },
-   {
-    "id": "aller_retour_cumule",
-    "name": "Aller-retour (cumulé)",
-    "countType": "points",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -40112,20 +39324,9 @@
   "category": "Jeu vidéo",
   "rules": [
    {
-    "id": "match_score",
-    "name": "Match (score)",
-    "countType": "points"
-   },
-   {
     "id": "victoire_defaite",
     "name": "Victoire / défaite",
     "countType": "winloss"
-   },
-   {
-    "id": "aller_retour_cumule",
-    "name": "Aller-retour (cumulé)",
-    "countType": "points",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -40199,12 +39400,6 @@
   "emoji": "🎾",
   "category": "Jeu vidéo",
   "rules": [
-   {
-    "id": "match_sets",
-    "name": "Match (sets)",
-    "countType": "wins",
-    "multiRound": true
-   },
    {
     "id": "victoire_defaite",
     "name": "Victoire / défaite",
@@ -40372,20 +39567,9 @@
   "category": "Jeu vidéo",
   "rules": [
    {
-    "id": "match_score",
-    "name": "Match (score)",
-    "countType": "points"
-   },
-   {
     "id": "victoire_defaite",
     "name": "Victoire / défaite",
     "countType": "winloss"
-   },
-   {
-    "id": "aller_retour_cumule",
-    "name": "Aller-retour (cumulé)",
-    "countType": "points",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -40467,20 +39651,9 @@
   "category": "Jeu vidéo",
   "rules": [
    {
-    "id": "match_score",
-    "name": "Match (score)",
-    "countType": "points"
-   },
-   {
     "id": "victoire_defaite",
     "name": "Victoire / défaite",
     "countType": "winloss"
-   },
-   {
-    "id": "aller_retour_cumule",
-    "name": "Aller-retour (cumulé)",
-    "countType": "points",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -40563,20 +39736,9 @@
   "category": "Jeu vidéo",
   "rules": [
    {
-    "id": "match_score",
-    "name": "Match (score)",
-    "countType": "points"
-   },
-   {
     "id": "victoire_defaite",
     "name": "Victoire / défaite",
     "countType": "winloss"
-   },
-   {
-    "id": "aller_retour_cumule",
-    "name": "Aller-retour (cumulé)",
-    "countType": "points",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -40651,12 +39813,6 @@
   "emoji": "🎾",
   "category": "Jeu vidéo",
   "rules": [
-   {
-    "id": "match_sets",
-    "name": "Match (sets)",
-    "countType": "wins",
-    "multiRound": true
-   },
    {
     "id": "victoire_defaite",
     "name": "Victoire / défaite",
@@ -40821,11 +39977,6 @@
     "id": "meilleur_score",
     "name": "Meilleur score",
     "countType": "points"
-   },
-   {
-    "id": "versus",
-    "name": "Versus",
-    "countType": "winloss"
    }
   ],
   "ruleSections": [
@@ -40946,12 +40097,6 @@
   "emoji": "🏓",
   "category": "Jeu vidéo",
   "rules": [
-   {
-    "id": "match_sets",
-    "name": "Match (sets)",
-    "countType": "wins",
-    "multiRound": true
-   },
    {
     "id": "victoire_defaite",
     "name": "Victoire / défaite",
@@ -41207,20 +40352,9 @@
   "category": "Jeu vidéo",
   "rules": [
    {
-    "id": "match_score",
-    "name": "Match (score)",
-    "countType": "points"
-   },
-   {
     "id": "victoire_defaite",
     "name": "Victoire / défaite",
     "countType": "winloss"
-   },
-   {
-    "id": "aller_retour_cumule",
-    "name": "Aller-retour (cumulé)",
-    "countType": "points",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -41298,20 +40432,9 @@
   "category": "Jeu vidéo",
   "rules": [
    {
-    "id": "match_score",
-    "name": "Match (score)",
-    "countType": "points"
-   },
-   {
     "id": "victoire_defaite",
     "name": "Victoire / défaite",
     "countType": "winloss"
-   },
-   {
-    "id": "aller_retour_cumule",
-    "name": "Aller-retour (cumulé)",
-    "countType": "points",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -41390,12 +40513,6 @@
   "emoji": "🚴",
   "category": "Jeu vidéo",
   "rules": [
-   {
-    "id": "grand_prix_points",
-    "name": "Grand Prix (points)",
-    "countType": "points",
-    "multiRound": true
-   },
    {
     "id": "contre_la_montre_secondes",
     "name": "Contre-la-montre",
@@ -41482,12 +40599,6 @@
   "category": "Jeu vidéo",
   "rules": [
    {
-    "id": "grand_prix_points",
-    "name": "Grand Prix (points)",
-    "countType": "points",
-    "multiRound": true
-   },
-   {
     "id": "contre_la_montre_secondes",
     "name": "Contre-la-montre",
     "countType": "time"
@@ -41570,12 +40681,6 @@
     "id": "partie",
     "name": "Partie",
     "countType": "winloss"
-   },
-   {
-    "id": "serie_manches_gagnees",
-    "name": "Série (manches gagnées)",
-    "countType": "wins",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -41652,12 +40757,6 @@
     "id": "501_points_restants",
     "name": "501 (points restants)",
     "countType": "low",
-    "multiRound": true
-   },
-   {
-    "id": "manches",
-    "name": "Manches",
-    "countType": "wins",
     "multiRound": true
    }
   ],
@@ -41738,20 +40837,9 @@
   "category": "Jeu vidéo",
   "rules": [
    {
-    "id": "match_score",
-    "name": "Match (score)",
-    "countType": "points"
-   },
-   {
     "id": "victoire_defaite",
     "name": "Victoire / défaite",
     "countType": "winloss"
-   },
-   {
-    "id": "aller_retour_cumule",
-    "name": "Aller-retour (cumulé)",
-    "countType": "points",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -41832,20 +40920,9 @@
   "category": "Jeu vidéo",
   "rules": [
    {
-    "id": "match_score",
-    "name": "Match (score)",
-    "countType": "points"
-   },
-   {
     "id": "victoire_defaite",
     "name": "Victoire / défaite",
     "countType": "winloss"
-   },
-   {
-    "id": "aller_retour_cumule",
-    "name": "Aller-retour (cumulé)",
-    "countType": "points",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -42349,12 +41426,6 @@
   "emoji": "🟢",
   "category": "Jeu vidéo",
   "rules": [
-   {
-    "id": "match_manches",
-    "name": "Match (manches)",
-    "countType": "wins",
-    "multiRound": true
-   },
    {
     "id": "partie",
     "name": "Partie",
@@ -42937,7 +42008,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -43021,7 +42092,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -43114,7 +42185,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -43208,7 +42279,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -43292,7 +42363,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -43376,7 +42447,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -43461,7 +42532,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -43546,7 +42617,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -43625,12 +42696,6 @@
     "id": "partie",
     "name": "Partie",
     "countType": "winloss"
-   },
-   {
-    "id": "serie_manches_gagnees",
-    "name": "Série (manches gagnées)",
-    "countType": "wins",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -45271,12 +44336,6 @@
     "id": "partie",
     "name": "Partie",
     "countType": "winloss"
-   },
-   {
-    "id": "serie_manches_gagnees",
-    "name": "Série (manches gagnées)",
-    "countType": "wins",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -46351,11 +45410,6 @@
     "id": "meilleur_score",
     "name": "Meilleur score",
     "countType": "points"
-   },
-   {
-    "id": "versus",
-    "name": "Versus",
-    "countType": "winloss"
    }
   ],
   "ruleSections": [
@@ -46962,11 +46016,6 @@
     "id": "speedrun_minutes",
     "name": "Speedrun (minutes)",
     "countType": "low"
-   },
-   {
-    "id": "mini_jeu_pvp",
-    "name": "Mini-jeu PvP",
-    "countType": "winloss"
    }
   ],
   "ruleSections": [
@@ -47051,7 +46100,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -47135,7 +46184,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -47221,7 +46270,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -47378,7 +46427,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -47462,7 +46511,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -47546,7 +46595,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -47716,7 +46765,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -48000,7 +47049,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -48083,7 +47132,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -48166,7 +47215,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -48412,7 +47461,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -48495,7 +47544,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -48578,7 +47627,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -48677,7 +47726,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -48777,7 +47826,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -48955,7 +48004,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -49414,7 +48463,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -49667,7 +48716,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -49836,7 +48885,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -50013,7 +49062,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -50097,7 +49146,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -50238,11 +49287,6 @@
     "countType": "points"
    },
    {
-    "id": "premier_a_finir",
-    "name": "Premier à finir",
-    "countType": "winloss"
-   },
-   {
     "id": "score",
     "name": "Score",
     "countType": "points"
@@ -50333,11 +49377,6 @@
     "id": "completion",
     "name": "Complétion (%)",
     "countType": "points"
-   },
-   {
-    "id": "premier_a_finir",
-    "name": "Premier à finir",
-    "countType": "winloss"
    }
   ],
   "ruleSections": [
@@ -50424,11 +49463,6 @@
     "id": "completion",
     "name": "Complétion (%)",
     "countType": "points"
-   },
-   {
-    "id": "premier_a_finir",
-    "name": "Premier à finir",
-    "countType": "winloss"
    }
   ],
   "ruleSections": [
@@ -50573,11 +49607,6 @@
     "countType": "points"
    },
    {
-    "id": "premier_a_finir",
-    "name": "Premier à finir",
-    "countType": "winloss"
-   },
-   {
     "id": "lunes",
     "name": "Lunes",
     "countType": "points"
@@ -50675,11 +49704,6 @@
     "countType": "points"
    },
    {
-    "id": "premier_a_finir",
-    "name": "Premier à finir",
-    "countType": "winloss"
-   },
-   {
     "id": "etoiles",
     "name": "Étoiles",
     "countType": "points"
@@ -50761,11 +49785,6 @@
   "emoji": "🧱",
   "category": "Jeu vidéo",
   "rules": [
-   {
-    "id": "course_en_ligne",
-    "name": "Course en ligne",
-    "countType": "winloss"
-   },
    {
     "id": "niveaux_reussis",
     "name": "Niveaux réussis",
@@ -50855,11 +49874,6 @@
     "id": "completion",
     "name": "Complétion (%)",
     "countType": "points"
-   },
-   {
-    "id": "premier_a_finir",
-    "name": "Premier à finir",
-    "countType": "winloss"
    }
   ],
   "ruleSections": [
@@ -50946,11 +49960,6 @@
     "id": "completion",
     "name": "Complétion (%)",
     "countType": "points"
-   },
-   {
-    "id": "premier_a_finir",
-    "name": "Premier à finir",
-    "countType": "winloss"
    }
   ],
   "ruleSections": [
@@ -51044,16 +50053,6 @@
     "id": "completion",
     "name": "Complétion (%)",
     "countType": "points"
-   },
-   {
-    "id": "premier_a_finir",
-    "name": "Premier à finir",
-    "countType": "winloss"
-   },
-   {
-    "id": "course_versus",
-    "name": "Course (versus)",
-    "countType": "winloss"
    }
   ],
   "ruleSections": [
@@ -51141,11 +50140,6 @@
     "id": "completion",
     "name": "Complétion (%)",
     "countType": "points"
-   },
-   {
-    "id": "premier_a_finir",
-    "name": "Premier à finir",
-    "countType": "winloss"
    }
   ],
   "ruleSections": [
@@ -51928,7 +50922,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -52012,7 +51006,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -52097,7 +51091,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -52651,11 +51645,6 @@
     "id": "meilleur_score",
     "name": "Meilleur score",
     "countType": "points"
-   },
-   {
-    "id": "versus",
-    "name": "Versus",
-    "countType": "winloss"
    }
   ],
   "ruleSections": [
@@ -52771,11 +51760,6 @@
     "id": "meilleur_score",
     "name": "Meilleur score",
     "countType": "points"
-   },
-   {
-    "id": "versus",
-    "name": "Versus",
-    "countType": "winloss"
    }
   ],
   "ruleSections": [
@@ -52852,11 +51836,6 @@
     "id": "meilleur_score",
     "name": "Meilleur score",
     "countType": "points"
-   },
-   {
-    "id": "versus",
-    "name": "Versus",
-    "countType": "winloss"
    }
   ],
   "ruleSections": [
@@ -52933,11 +51912,6 @@
     "id": "meilleur_score",
     "name": "Meilleur score",
     "countType": "points"
-   },
-   {
-    "id": "versus",
-    "name": "Versus",
-    "countType": "winloss"
    }
   ],
   "ruleSections": [
@@ -53015,11 +51989,6 @@
     "id": "meilleur_score",
     "name": "Meilleur score",
     "countType": "points"
-   },
-   {
-    "id": "versus",
-    "name": "Versus",
-    "countType": "winloss"
    }
   ],
   "ruleSections": [
@@ -53096,11 +52065,6 @@
     "id": "meilleur_score",
     "name": "Meilleur score",
     "countType": "points"
-   },
-   {
-    "id": "versus",
-    "name": "Versus",
-    "countType": "winloss"
    }
   ],
   "ruleSections": [
@@ -53219,12 +52183,6 @@
   "category": "Jeu vidéo",
   "rules": [
    {
-    "id": "manches_gagnees",
-    "name": "Manches gagnées",
-    "countType": "wins",
-    "multiRound": true
-   },
-   {
     "id": "partie",
     "name": "Partie",
     "countType": "winloss"
@@ -53298,12 +52256,6 @@
   "emoji": "💣",
   "category": "Jeu vidéo",
   "rules": [
-   {
-    "id": "manches_gagnees",
-    "name": "Manches gagnées",
-    "countType": "wins",
-    "multiRound": true
-   },
    {
     "id": "partie",
     "name": "Partie",
@@ -53383,11 +52335,6 @@
     "id": "meilleur_score",
     "name": "Meilleur score",
     "countType": "points"
-   },
-   {
-    "id": "versus",
-    "name": "Versus",
-    "countType": "winloss"
    }
   ],
   "ruleSections": [
@@ -53475,11 +52422,6 @@
     "id": "lignes",
     "name": "Lignes",
     "countType": "points"
-   },
-   {
-    "id": "versus",
-    "name": "Versus",
-    "countType": "winloss"
    }
   ],
   "ruleSections": [
@@ -53557,12 +52499,6 @@
     "id": "partie",
     "name": "Partie",
     "countType": "winloss"
-   },
-   {
-    "id": "serie_manches_gagnees",
-    "name": "Série (manches gagnées)",
-    "countType": "wins",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -53635,11 +52571,6 @@
     "id": "meilleur_score",
     "name": "Meilleur score",
     "countType": "points"
-   },
-   {
-    "id": "versus",
-    "name": "Versus",
-    "countType": "winloss"
    }
   ],
   "ruleSections": [
@@ -53832,11 +52763,6 @@
     "id": "score_sur_25_000",
     "name": "Score (sur 25 000)",
     "countType": "points"
-   },
-   {
-    "id": "duel",
-    "name": "Duel",
-    "countType": "winloss"
    }
   ],
   "ruleSections": [
@@ -53986,11 +52912,6 @@
     "id": "meilleur_score",
     "name": "Meilleur score",
     "countType": "points"
-   },
-   {
-    "id": "versus",
-    "name": "Versus",
-    "countType": "winloss"
    }
   ],
   "ruleSections": [
@@ -54186,12 +53107,6 @@
     "id": "chanson_score",
     "name": "Chanson (score)",
     "countType": "points"
-   },
-   {
-    "id": "soiree_scores_cumules",
-    "name": "Soirée (scores cumulés)",
-    "countType": "points",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -54304,12 +53219,6 @@
     "id": "chanson_score",
     "name": "Chanson (score)",
     "countType": "points"
-   },
-   {
-    "id": "soiree_scores_cumules",
-    "name": "Soirée (scores cumulés)",
-    "countType": "points",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -54385,12 +53294,6 @@
     "id": "chanson_score",
     "name": "Chanson (score)",
     "countType": "points"
-   },
-   {
-    "id": "soiree_scores_cumules",
-    "name": "Soirée (scores cumulés)",
-    "countType": "points",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -54463,12 +53366,6 @@
     "id": "chanson_score",
     "name": "Chanson (score)",
     "countType": "points"
-   },
-   {
-    "id": "soiree_scores_cumules",
-    "name": "Soirée (scores cumulés)",
-    "countType": "points",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -54543,12 +53440,6 @@
     "id": "chanson_score",
     "name": "Chanson (score)",
     "countType": "points"
-   },
-   {
-    "id": "soiree_scores_cumules",
-    "name": "Soirée (scores cumulés)",
-    "countType": "points",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -54624,12 +53515,6 @@
     "id": "chanson_score",
     "name": "Chanson (score)",
     "countType": "points"
-   },
-   {
-    "id": "soiree_scores_cumules",
-    "name": "Soirée (scores cumulés)",
-    "countType": "points",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -54705,12 +53590,6 @@
     "id": "chanson_score",
     "name": "Chanson (score)",
     "countType": "points"
-   },
-   {
-    "id": "soiree_scores_cumules",
-    "name": "Soirée (scores cumulés)",
-    "countType": "points",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -54785,12 +53664,6 @@
     "id": "chanson_score",
     "name": "Chanson (score)",
     "countType": "points"
-   },
-   {
-    "id": "soiree_scores_cumules",
-    "name": "Soirée (scores cumulés)",
-    "countType": "points",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -54865,12 +53738,6 @@
     "id": "chanson_score",
     "name": "Chanson (score)",
     "countType": "points"
-   },
-   {
-    "id": "soiree_scores_cumules",
-    "name": "Soirée (scores cumulés)",
-    "countType": "points",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -55305,7 +54172,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -55539,7 +54406,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -55704,17 +54571,6 @@
   "category": "Jeu vidéo",
   "rules": [
    {
-    "id": "combat",
-    "name": "Combat",
-    "countType": "winloss"
-   },
-   {
-    "id": "serie_bo3",
-    "name": "Série (BO3)",
-    "countType": "wins",
-    "multiRound": true
-   },
-   {
     "id": "raid",
     "name": "Raid",
     "countType": "winloss"
@@ -55877,12 +54733,6 @@
     "id": "partie",
     "name": "Partie",
     "countType": "winloss"
-   },
-   {
-    "id": "serie_manches_gagnees",
-    "name": "Série (manches gagnées)",
-    "countType": "wins",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -56525,12 +55375,6 @@
     "id": "partie",
     "name": "Partie",
     "countType": "winloss"
-   },
-   {
-    "id": "serie_manches_gagnees",
-    "name": "Série (manches gagnées)",
-    "countType": "wins",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -56604,47 +55448,6 @@
    "sessionMoyenne"
   ]
  },
- "roblox_solo": {
-  "name": "Roblox (solo)",
-  "emoji": "🟥",
-  "category": "Jeu vidéo",
-  "rules": [
-   {
-    "id": "partie_score",
-    "name": "Partie (score)",
-    "countType": "points"
-   },
-   {
-    "id": "soiree_scores_cumules",
-    "name": "Soirée (scores cumulés)",
-    "countType": "points",
-    "multiRound": true
-   }
-  ],
-  "ruleSections": [
-   {
-    "title": "Principe",
-    "rules": [
-     "Plateforme de millions de mini-jeux créés par les joueurs."
-    ]
-   },
-   {
-    "title": "Comptage",
-    "rules": [
-     "On note le score affiché en fin de partie.",
-     "En soirée, les scores de plusieurs parties se cumulent."
-    ]
-   }
-  ],
-  "minPlayers": 1,
-  "maxPlayers": 1,
-  "themes": [
-   "solo",
-   "bacASable",
-   "enfants",
-   "sessionMoyenne"
-  ]
- },
  "geometry_wars": {
   "name": "Geometry Wars 3",
   "emoji": "🔺",
@@ -56694,11 +55497,6 @@
     "id": "meilleur_score",
     "name": "Meilleur score",
     "countType": "points"
-   },
-   {
-    "id": "versus",
-    "name": "Versus",
-    "countType": "winloss"
    }
   ],
   "ruleSections": [
@@ -56774,11 +55572,6 @@
     "id": "meilleur_score",
     "name": "Meilleur score",
     "countType": "points"
-   },
-   {
-    "id": "versus",
-    "name": "Versus",
-    "countType": "winloss"
    }
   ],
   "ruleSections": [
@@ -56936,12 +55729,6 @@
     "id": "partie",
     "name": "Partie",
     "countType": "winloss"
-   },
-   {
-    "id": "serie",
-    "name": "Série",
-    "countType": "wins",
-    "multiRound": true
    }
   ],
   "ruleSections": [
@@ -57021,7 +55808,7 @@
    },
    {
     "id": "score_de_lequipe",
-    "name": "Score de l’équipe",
+    "name": "Score",
     "countType": "points"
    }
   ],
@@ -58644,12 +57431,6 @@
     "name": "Points",
     "countType": "points",
     "multiRound": true
-   },
-   {
-    "id": "match_sets",
-    "name": "Match (sets)",
-    "countType": "points",
-    "pointLimit": 6
    }
   ],
   "ruleSections": [
