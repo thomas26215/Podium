@@ -2,7 +2,7 @@ name: podium
 description: "Podium — suivi de scores et classements entre amis."
 publish_to: 'none'
 
-version: 1.1.0+2
+version: 1.1.0+3
 
 environment:
   sdk: ^3.12.2
