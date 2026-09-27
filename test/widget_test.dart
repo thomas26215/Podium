@@ -924,6 +924,56 @@ void main() {
     await tester.pump(const Duration(milliseconds: 2700));
   });
 
+  testWidgets('expansions ticked for a match are saved, pre-ticked next time and kept when resumed', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    final state = seeded.state;
+    state.openSheet();
+    state.startNewGame();
+    state.setGameForm((f) => f
+      ..name = 'Dominion'
+      ..expansions = ['Intrigue', 'Rivages', ' ', 'Intrigue']);
+    await state.createGame();
+    await tester.pumpAndSettle();
+    final game = state.games.firstWhere((g) => g.name == 'Dominion');
+    expect(game.expansions, ['Intrigue', 'Rivages']);
+
+    state.pickGame(game.id);
+    expect(state.draft.expansions, isEmpty, reason: 'never played yet');
+    state.togglePlayer('lea');
+    state.togglePlayer('tom');
+    state.toggleExpansion('Intrigue');
+    state.toggleExpansion('Rivages');
+    state.toggleExpansion('Rivages');
+    state.draft.points['lea'] = 30;
+    state.draft.points['tom'] = 25;
+    await state.saveGame();
+    await tester.pumpAndSettle();
+
+    final saved = state.matches.firstWhere((m) => m.gameId == game.id);
+    expect(saved.expansions, ['Intrigue']);
+
+    state.openSheet();
+    state.pickGame(game.id);
+    expect(state.draft.expansions, ['Intrigue'], reason: 'pre-ticked from the last match of this game');
+    state.closeSheet();
+
+    state.resumeMatch(saved, game);
+    expect(state.draft.expansions, ['Intrigue']);
+    state.closeSheet();
+
+    await tester.pump(const Duration(milliseconds: 2700));
+  });
+
   testWidgets('a plain match in a group saves through the full wizard UI', (tester) async {
     final seeded = _buildSeededState();
     await tester.pumpWidget(

@@ -1666,6 +1666,23 @@
   "name": "Dominion",
   "emoji": "🃏",
   "category": "Société",
+  "expansions": [
+   "Dominion (base)",
+   "Intrigue",
+   "Rivages",
+   "Alchimie",
+   "Prospérité",
+   "Abondance",
+   "L'Arrière-pays",
+   "L'Âge des Ténèbres",
+   "Guildes",
+   "Aventures",
+   "Empires",
+   "Nocturne",
+   "Renaissance",
+   "Ménagerie",
+   "Alliés"
+  ],
   "rules": [
    {
     "id": "standard",

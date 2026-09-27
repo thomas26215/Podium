@@ -289,6 +289,12 @@ class Game {
   /// picker (see `MatchEntry.character`).
   final CharacterChoice? characterChoice;
 
+  /// Optional content a match can be played with — Dominion's or Catan's
+  /// expansions, Carcassonne's modules, a deck-builder's card sets… Empty
+  /// for most games; when set, the players step offers a multi-select of
+  /// which ones this match uses (see `GameMatch.expansions`).
+  final List<String> expansions;
+
   /// Only meaningful for a Server's catalog (see
   /// `FirebaseGamesRepository.rootCollection` — a Group's own catalog never
   /// sets this): which Salon this game belongs to, so each Salon gets its
@@ -317,6 +323,7 @@ class Game {
     this.maxPlayers,
     this.themes = const [],
     this.characterChoice,
+    this.expansions = const [],
     this.salonId,
     this.libraryId,
   });
@@ -395,6 +402,8 @@ class Game {
 
   bool get hasCharacters => characterChoice != null && characterChoice!.options.isNotEmpty;
 
+  bool get hasExpansions => expansions.isNotEmpty;
+
   GameRule get defaultRule => rules.first;
   bool get hasMultipleRules => rules.length > 1;
 
@@ -416,6 +425,7 @@ class Game {
         maxPlayers: maxPlayers,
         themes: themes,
         characterChoice: characterChoice,
+        expansions: expansions,
         salonId: salonId,
         libraryId: detachFromLibrary ? null : libraryId,
       );
@@ -430,6 +440,7 @@ class Game {
         if (maxPlayers != null) 'maxPlayers': maxPlayers,
         if (themes.isNotEmpty) 'themes': themes,
         if (characterChoice != null) 'characterChoice': characterChoice!.toMap(),
+        if (expansions.isNotEmpty) 'expansions': expansions,
         if (salonId != null) 'salonId': salonId,
         if (libraryId != null) 'libraryId': libraryId,
       };
@@ -452,6 +463,7 @@ class Game {
       maxPlayers: (data['maxPlayers'] as num?)?.toInt(),
       themes: ((data['themes'] as List?) ?? const []).map((e) => e as String).toList(),
       characterChoice: data['characterChoice'] is Map ? CharacterChoice.fromMap(Map<String, dynamic>.from(data['characterChoice'] as Map)) : null,
+      expansions: ((data['expansions'] as List?) ?? const []).map((e) => e as String).toList(),
       salonId: data['salonId'] as String?,
       libraryId: data['libraryId'] as String?,
     );

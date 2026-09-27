@@ -5,7 +5,7 @@ import '../theme/app_theme.dart';
 import 'common.dart';
 
 /// Everything there is to know about a game, laid out read-only: header,
-/// themes, one card per scoring rule, the per-player pick and the rules
+/// themes, one card per scoring rule, the per-player pick, the expansions and the rules
 /// reminders. Shared by a catalog game's detail screen and the library's
 /// preview before import, so both always show the same thing.
 ///
@@ -70,6 +70,17 @@ class GameOverview extends StatelessWidget {
               spacing: 6,
               runSpacing: 6,
               children: [for (final c in game.characterChoice!.options) _Pill(c)],
+            ),
+          ),
+        ],
+        if (game.hasExpansions) ...[
+          const SizedBox(height: 12),
+          const SectionHeader(title: 'Extensions'),
+          _Card(
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [for (final e in game.expansions) _Pill(e)],
             ),
           ),
         ],

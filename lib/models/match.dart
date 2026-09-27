@@ -232,6 +232,10 @@ class GameMatch {
   /// enough to block confirmation; there's no partial-veto concept.
   final String? rejectedBy;
 
+  /// Which of the game's [Game.expansions] this match was played with —
+  /// empty when none were ticked (or the game has none).
+  final List<String> expansions;
+
   const GameMatch({
     required this.id,
     required this.gameId,
@@ -255,6 +259,7 @@ class GameMatch {
     this.salonId,
     this.confirmedBy,
     this.rejectedBy,
+    this.expansions = const [],
   });
 
   bool get isTeam => mode == 'team';
@@ -324,6 +329,7 @@ class GameMatch {
         salonId: salonId,
         confirmedBy: confirmedBy,
         rejectedBy: rejectedBy,
+        expansions: expansions,
       );
 
   /// Used to flag already-saved legs when a "best of N" series is cut short
@@ -362,6 +368,7 @@ class GameMatch {
         salonId: salonId,
         confirmedBy: resetConfirmation ? const [] : (confirmedBy ?? this.confirmedBy),
         rejectedBy: resetConfirmation ? null : (rejectedBy ?? this.rejectedBy),
+        expansions: expansions,
       );
 
   Map<String, dynamic> toMap() => {
@@ -390,6 +397,7 @@ class GameMatch {
         if (salonId != null) 'salonId': salonId,
         if (confirmedBy != null) 'confirmedBy': confirmedBy,
         if (rejectedBy != null) 'rejectedBy': rejectedBy,
+        if (expansions.isNotEmpty) 'expansions': expansions,
       };
 
   factory GameMatch.fromDoc(String id, Map<String, dynamic> data) {
@@ -422,6 +430,7 @@ class GameMatch {
       salonId: data['salonId'] as String?,
       confirmedBy: (data['confirmedBy'] as List?)?.map((e) => e as String).toList(),
       rejectedBy: data['rejectedBy'] as String?,
+      expansions: ((data['expansions'] as List?) ?? const []).map((e) => e as String).toList(),
     );
   }
 

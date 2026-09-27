@@ -21,6 +21,7 @@ class NewGameDraft {
   Map<String, int> points; // uid -> current score
   Map<String, Map<String, int>> scoreBreakdown; // uid -> fieldId -> score
   Map<String, String> characters; // uid -> picked Game.characters entry
+  List<String> expansions; // picked Game.expansions entries, for the whole match
   String inputMode; // 'quick' | 'rounds'
   List<TimelinePoint> timeline;
   List<String> rankOrder; // CountType.ranks games: best-to-worst finishing order
@@ -85,6 +86,7 @@ class NewGameDraft {
     Map<String, int>? points,
     Map<String, Map<String, int>>? scoreBreakdown,
     Map<String, String>? characters,
+    List<String>? expansions,
     this.inputMode = 'quick',
     List<TimelinePoint>? timeline,
     List<String>? rankOrder,
@@ -104,6 +106,7 @@ class NewGameDraft {
         points = points ?? {},
         scoreBreakdown = scoreBreakdown ?? {},
         characters = characters ?? {},
+        expansions = expansions ?? [],
         timeline = timeline ?? [],
         rankOrder = rankOrder ?? [],
         teamPoints = teamPoints ?? {};
@@ -124,6 +127,7 @@ class NewGameDraft {
         'points': points,
         'scoreBreakdown': scoreBreakdown,
         'characters': characters,
+        'expansions': expansions,
         'inputMode': inputMode,
         'timeline': timeline.map((t) => t.toJson()).toList(),
         'rankOrder': rankOrder,
@@ -152,6 +156,7 @@ class NewGameDraft {
           ),
         ),
         characters: (m['characters'] as Map?)?.map((k, v) => MapEntry(k as String, v as String)),
+        expansions: (m['expansions'] as List?)?.map((e) => e as String).toList(),
         inputMode: m['inputMode'] as String? ?? 'quick',
         timeline: (m['timeline'] as List?)?.map((e) => TimelinePoint.fromJson(Map<String, dynamic>.from(e as Map))).toList(),
         rankOrder: (m['rankOrder'] as List?)?.map((e) => e as String).toList(),
@@ -303,6 +308,10 @@ class GameFormDraft {
   bool characterFeminine;
   List<String> characters;
 
+  /// The game's optional expansions/modules (see [Game.expansions]) — an
+  /// empty list means the game has none.
+  List<String> expansions;
+
   /// One form block per [GameRule] the game will have — always at least
   /// one. See `CreateGameForm`'s repeatable rule cards.
   List<GameRuleFormDraft> rules;
@@ -318,9 +327,11 @@ class GameFormDraft {
     this.characterLabel = CharacterChoice.defaultLabel,
     this.characterFeminine = false,
     List<String>? characters,
+    List<String>? expansions,
     List<GameRuleFormDraft>? rules,
   })  : themes = themes ?? [],
         characters = characters ?? [],
+        expansions = expansions ?? [],
         rules = rules ?? [GameRuleFormDraft()];
 
   factory GameFormDraft.initial() => GameFormDraft();
@@ -344,6 +355,8 @@ class GameFormDraft {
     final allowed = themesForCategory(category).map((t) => t.id).toSet();
     return themes.where(allowed.contains).toList();
   }
+
+  List<String> get cleanExpansions => {for (final e in expansions) if (e.trim().isNotEmpty) e.trim()}.toList();
 
   List<String> get cleanCharacters => {for (final c in characters) if (c.trim().isNotEmpty) c.trim()}.toList();
 

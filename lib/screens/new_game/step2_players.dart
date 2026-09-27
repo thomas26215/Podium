@@ -7,6 +7,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/avatar.dart';
 import '../../widgets/common.dart';
 import '../../widgets/match_card.dart' show relativeDateLabel;
+import '../../widgets/option_chip.dart';
 
 /// One line under the date/format pickers reminding how many players the
 /// game takes (see `Game.playersLabel`) — turns into a warning, never a
@@ -140,6 +141,30 @@ class Step2Players extends StatelessWidget {
             ),
           ),
         ],
+        if (!isTournamentFlow && game != null && game.hasExpansions)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Extensions utilisées', style: bodyFont(size: 13.5, weight: FontWeight.w800, color: AppColors.ink2)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final e in game.expansions)
+                      OptionChip(
+                        label: e,
+                        icon: d.expansions.contains(e) ? Icons.check_rounded : null,
+                        selected: d.expansions.contains(e),
+                        onTap: () => app.toggleExpansion(e),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         if (isTournamentFlow)
           Padding(
             padding: const EdgeInsets.only(bottom: 16),

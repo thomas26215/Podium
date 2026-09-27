@@ -13,7 +13,8 @@ import '../../widgets/theme_picker.dart';
 /// The "create/edit a game" form shown inside the new-game sheet, in airy
 /// sections: who the game is (emoji, name, category), its fixed parameters
 /// (player count, theme tags), what each player picks (heroes, wonders…,
-/// optional), and how it is scored (one or
+/// optional), which expansions a match can use (optional), and how it is
+/// scored (one or
 /// several [GameRule]s). Detail only takes space where it is being edited —
 /// extra rules are collapsible cards.
 class CreateGameForm extends StatelessWidget {
@@ -29,6 +30,8 @@ class CreateGameForm extends StatelessWidget {
         _ParametersSection(),
         SizedBox(height: 28),
         _CharacterChoiceSection(),
+        SizedBox(height: 28),
+        _ExpansionsSection(),
         SizedBox(height: 28),
         _RulesSection(),
       ],
@@ -454,6 +457,87 @@ class _CharacterChoiceSectionState extends State<_CharacterChoiceSection> {
               child: Text('Ajoutez au moins un élément, ou désactivez le choix.', style: bodyFont(size: 12, weight: FontWeight.w700, color: AppColors.accent)),
             ),
         ],
+      ],
+    );
+  }
+}
+
+// ── Expansions ─────────────────────────────────────────────────────────────
+
+/// The "Extensions" section (see [Game.expansions]): the optional content a
+/// match can be played with — Dominion's card sets, Catan's expansions,
+/// Carcassonne's modules… Left empty, the match wizard never asks about it.
+class _ExpansionsSection extends StatefulWidget {
+  const _ExpansionsSection();
+
+  @override
+  State<_ExpansionsSection> createState() => _ExpansionsSectionState();
+}
+
+class _ExpansionsSectionState extends State<_ExpansionsSection> {
+  final _input = TextEditingController();
+  final _inputFocus = FocusNode();
+
+  @override
+  void dispose() {
+    _input.dispose();
+    _inputFocus.dispose();
+    super.dispose();
+  }
+
+  void _add(AppState app) {
+    final name = _input.text.trim();
+    if (name.isEmpty) return;
+    if (!app.gameForm.expansions.contains(name)) app.setGameForm((f) => f..expansions = [...f.expansions, name]);
+    _input.clear();
+    _inputFocus.requestFocus();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final f = app.gameForm;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionTitle('Extensions', hint: 'Optionnel — extensions, modules ou paquets de cartes : on coche ceux utilisés au lancement de chaque partie.'),
+        if (f.expansions.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final e in f.expansions) _SelectedTag(label: e, onRemove: () => app.setGameForm((f) => f..expansions = f.expansions.where((x) => x != e).toList())),
+              ],
+            ),
+          ),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _input,
+                focusNode: _inputFocus,
+                textCapitalization: TextCapitalization.sentences,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _add(app),
+                style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink),
+                decoration: appFieldDecoration(hintText: f.expansions.isEmpty ? 'Ex. Intrigue, Prospérité, Rivages…' : 'Ajouter une extension'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Pressable(
+              onTap: () => _add(app),
+              child: Container(
+                width: 48,
+                height: 48,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: AppColors.accentSoft, border: Border.all(color: AppColors.accent, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.md)),
+                child: Icon(Icons.add_rounded, color: AppColors.accent),
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
