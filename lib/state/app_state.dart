@@ -3390,10 +3390,15 @@ class AppState extends ChangeNotifier {
     return (last?.setupPicks ?? const []).where(game.setupChoice!.options.contains).toList();
   }
 
-  /// Ticks/unticks one of the game's [Game.setupChoice] options for this match.
+  /// Ticks/unticks one of the game's [Game.setupChoice] options for this
+  /// match — replacing the current one for a single pick (a circuit, see
+  /// [Game.isSinglePickSetup]).
   void toggleSetupPick(String option) {
+    final single = gameById(draft.gameId ?? '')?.isSinglePickSetup ?? false;
     if (draft.setupPicks.contains(option)) {
       draft.setupPicks.remove(option);
+    } else if (single) {
+      draft.setupPicks = [option];
     } else {
       draft.setupPicks.add(option);
     }
@@ -3841,15 +3846,18 @@ class AppState extends ChangeNotifier {
   /// `uid`'s best result so far for [gameId] under [ruleId] (see
   /// [Game.resolveRule]) in the current group/salon — the highest score, or
   /// the lowest for a lowWins/time rule. Null before their first match.
+  /// For a game whose records are split by circuit (see
+  /// [Game.isSinglePickSetup]), only matches on [setupPick] count.
   /// [excludeMatchId] leaves out the match being corrected, so editing a
   /// record doesn't compare it against itself.
-  int? personalBest({required String gameId, required String? ruleId, required String uid, String? excludeMatchId}) {
+  int? personalBest({required String gameId, required String? ruleId, required String uid, String? setupPick, String? excludeMatchId}) {
     final game = gameById(gameId);
     if (game == null) return null;
     final rule = game.resolveRule(ruleId);
     int? best;
     for (final m in viewMatches) {
       if (m.gameId != gameId || m.id == excludeMatchId || game.resolveRule(m.ruleId).id != rule.id) continue;
+      if (game.isSinglePickSetup && game.recordPickOf(m) != setupPick) continue;
       for (final e in m.entries) {
         if (e.playerId != uid) continue;
         if (best == null || (rule.lowWins ? e.points < best : e.points > best)) best = e.points;
@@ -3876,13 +3884,16 @@ class AppState extends ChangeNotifier {
   }
 
   /// Opens the new-match sheet on [game] straight away — "Jouer"/"Rejouer"
-  /// in "Mon espace solo". Lands on the rule step when the game has several
-  /// rules and none is given, otherwise on the first step past the game
-  /// (the scores, unless there's something to pick first).
-  void startSoloMatch(Game game, {String? ruleId}) {
+  /// in "Mon espace solo", optionally on [setupPick] (a circuit). Lands on
+  /// the rule step when the game has several rules and none is given,
+  /// otherwise on the first step past the game (the scores, unless there's
+  /// something to pick first).
+  void startSoloMatch(Game game, {String? ruleId, String? setupPick}) {
     openSheet();
     pickGame(game.id);
     if (ruleId != null && game.ruleById(ruleId) != null) pickRule(ruleId);
+    // "Rejouer" on a circuit's record goes again on that same circuit.
+    if (setupPick != null && (game.setupChoice?.options.contains(setupPick) ?? false)) draft.setupPicks = [setupPick];
     final seq = stepSequence;
     final next = seq.indexOf(WizardStepKind.game) + (game.hasMultipleRules && ruleId != null ? 2 : 1);
     step = (next + 1).clamp(1, seq.length);
@@ -3893,7 +3904,8 @@ class AppState extends ChangeNotifier {
   int? draftPersonalBest(String uid) {
     final gameId = draft.gameId;
     if (gameId == null) return null;
-    return personalBest(gameId: gameId, ruleId: draft.ruleId, uid: uid, excludeMatchId: _editingMatchId);
+    final pick = draft.setupPicks.length == 1 ? draft.setupPicks.single : null;
+    return personalBest(gameId: gameId, ruleId: draft.ruleId, uid: uid, setupPick: pick, excludeMatchId: _editingMatchId);
   }
 
   List<String> get draftLeaderIds {

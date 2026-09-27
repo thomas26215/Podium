@@ -33,8 +33,10 @@ import 'package:podium/screens/new_game/game_form.dart';
 import 'package:podium/screens/new_game/library_game_preview_screen.dart';
 import 'package:podium/screens/new_game/replace_with_library_screen.dart';
 import 'package:podium/screens/new_game/step1_game.dart';
+import 'package:podium/screens/new_game/step2_players.dart';
 import 'package:podium/screens/new_game/step3_scores.dart';
 import 'package:podium/screens/profile/profile_screen.dart';
+import 'package:podium/screens/solo/solo_game_screen.dart';
 import 'package:podium/widgets/common.dart';
 import 'package:podium/widgets/game_filter_bar.dart';
 import 'package:podium/widgets/result_share_card.dart';
@@ -1049,6 +1051,95 @@ void main() {
     expect(find.text('1:52.340'), findsWidgets);
     expect(find.byType(ProgressionChart), findsOneWidget);
     expect(find.text('Rejouer'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.pump(const Duration(milliseconds: 2700));
+  });
+
+  testWidgets('solo Mario Kart: pick a character and one circuit, with records kept per circuit', (tester) async {
+    const kart = Game(
+      id: 'mk_solo',
+      name: 'Mario Kart 8 Deluxe (solo)',
+      emoji: '🏎️',
+      category: 'Jeu vidéo',
+      minPlayers: 1,
+      maxPlayers: 1,
+      rules: [GameRule(id: 'clm', name: 'Contre-la-montre', countType: CountType.time)],
+      characterChoice: CharacterChoice(options: ['Mario', 'Luigi']),
+      setupChoice: SetupChoice(label: 'Circuit', options: ['Circuit Mario', 'Route Arc-en-ciel'], count: 1),
+    );
+    final seeded = _buildSeededState(library: [kart]);
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    final state = seeded.state;
+    await state.openPersonalSpace();
+    await tester.pumpAndSettle();
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await state.ensureGameLibraryLoaded();
+    state.openSheet();
+    expect(await state.importLibraryGame(kart), isTrue);
+    await tester.pumpAndSettle();
+    final game = state.games.single;
+    state.closeSheet();
+
+    Future<void> race(String track, int ms) async {
+      state.startSoloMatch(game);
+      expect(state.currentStepKind, WizardStepKind.players, reason: 'a character and a circuit to pick first');
+      if (!state.draft.setupPicks.contains(track)) state.toggleSetupPick(track);
+      expect(state.draft.setupPicks, [track], reason: 'one circuit at a time — tapping another replaces the last one');
+      state.setPlayerCharacter('lea', 'Luigi');
+      state.step = state.stepSequence.length;
+      state.setPoints('lea', ms);
+      await state.saveGame();
+      await tester.pumpAndSettle();
+      state.closeSheet();
+    }
+
+    await race('Circuit Mario', 110000);
+    state.startSoloMatch(game);
+    expect(state.draft.setupPicks, ['Circuit Mario'], reason: 'the last circuit comes pre-picked');
+    state.closeSheet();
+    await race('Route Arc-en-ciel', 180000);
+    state.startSoloMatch(game, setupPick: 'Circuit Mario');
+    expect(state.draft.setupPicks, ['Circuit Mario'], reason: '"Rejouer" goes again on the same circuit');
+    expect(state.draftPersonalBest('lea'), 110000, reason: 'the record on that circuit only');
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: state,
+        child: const MaterialApp(home: Scaffold(body: SingleChildScrollView(child: Step2Players()))),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Circuit', findRichText: true), findsWidgets);
+    expect(find.text('Choisir un personnage'), findsOneWidget);
+    expect(find.text('Format de la partie'), findsNothing, reason: 'no best-of alone');
+    expect(tester.takeException(), isNull);
+    state.closeSheet();
+
+    final saved = state.matches.where((m) => m.gameId == game.id).toList();
+    expect(saved.every((m) => m.entries.single.character == 'Luigi'), isTrue);
+    expect(state.personalRecords.map((r) => r.setupPick), unorderedEquals(['Circuit Mario', 'Route Arc-en-ciel']));
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: state,
+        child: MaterialApp(home: SoloGameScreen(gameId: game.id, initialSetupPick: 'Route Arc-en-ciel')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Route Arc-en-ciel'), findsWidgets);
+    expect(find.text('3:00.000'), findsWidgets);
+    expect(find.text('1:50.000'), findsNothing, reason: 'Circuit Mario times stay on their own circuit');
     expect(tester.takeException(), isNull);
 
     await tester.pump(const Duration(milliseconds: 2700));

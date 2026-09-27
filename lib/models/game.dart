@@ -1,4 +1,5 @@
 import 'game_themes.dart';
+import 'match.dart';
 
 /// How a game's score is counted — mirrors the "Type de comptage" picker
 /// in the new-game creation form.
@@ -468,6 +469,15 @@ class Game {
   bool get hasCharacters => characterChoice != null && characterChoice!.options.isNotEmpty;
 
   bool get hasSetupChoice => setupChoice != null && setupChoice!.options.isNotEmpty;
+
+  /// A setup of exactly one pick — a Mario Kart circuit, a level, a map —
+  /// is picked like a radio button, and records only compare matches on
+  /// the same pick (a time on one circuit says nothing about another).
+  bool get isSinglePickSetup => hasSetupChoice && setupChoice!.count == 1;
+
+  /// What [match] was played on when [isSinglePickSetup] — null otherwise,
+  /// or when nothing was picked.
+  String? recordPickOf(GameMatch match) => isSinglePickSetup && match.setupPicks.length == 1 ? match.setupPicks.single : null;
 
   GameRule get defaultRule => rules.first;
   bool get hasMultipleRules => rules.length > 1;

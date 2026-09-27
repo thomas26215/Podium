@@ -111,6 +111,39 @@ void main() {
       expect(recordsBeaten(attempts.values), 2, reason: 'c and e — first attempts don\'t beat anything');
     });
 
+    test('a single-pick setup (a circuit) splits records, attempts and records beaten', () {
+      const kart = Game(
+        id: 'mk',
+        name: 'Mario Kart',
+        emoji: '🏎️',
+        category: 'Jeu vidéo',
+        rules: [GameRule(id: 'clm', name: 'Contre-la-montre', countType: CountType.time)],
+        setupChoice: SetupChoice(label: 'Circuit', options: ['Circuit Mario', 'Route Arc-en-ciel'], count: 1),
+      );
+      expect(kart.isSinglePickSetup, isTrue);
+      GameMatch on(String id, String track, int ms, int day) => GameMatch(
+            id: id,
+            gameId: 'mk',
+            groupId: 'solo',
+            mode: 'ffa',
+            unit: 'time',
+            lowWins: true,
+            entries: [MatchEntry(playerId: 'me', points: ms)],
+            timeline: const [],
+            createdAt: DateTime(2026, 9, day),
+            ruleId: 'clm',
+            setupPicks: [track],
+          );
+      final matches = [on('a', 'Circuit Mario', 110000, 1), on('b', 'Route Arc-en-ciel', 180000, 2), on('c', 'Circuit Mario', 108000, 3)];
+      final records = computePersonalRecords(matches, (_) => kart, 'me');
+      expect(records.map((r) => (r.setupPick, r.best)), [('Circuit Mario', 108000), ('Route Arc-en-ciel', 180000)]);
+      expect(records.first.title, 'Mario Kart · Circuit Mario');
+      final attempts = computeSoloAttempts(matches, (_) => kart, 'me');
+      expect(attempts['b']!.wasRecord, isTrue, reason: 'first time on that circuit — not compared with Circuit Mario');
+      expect(attempts['b']!.gapToBest, 0);
+      expect(recordsBeaten(attempts.values), 1);
+    });
+
     test('ignores other players and unknown games', () {
       final other = GameMatch(
         id: 'x',

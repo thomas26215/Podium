@@ -31,7 +31,7 @@ class SoloMatchCard extends StatelessWidget {
     } else {
       value = scoreLabel(match.entries.firstOrNull?.points ?? 0, match.unit);
     }
-    final subtitle = [if (game.hasMultipleRules) rule.name, relativeDateLabel(match.createdAt)].join(' · ');
+    final subtitle = [if (game.hasMultipleRules) rule.name, ?game.recordPickOf(match), relativeDateLabel(match.createdAt)].join(' · ');
 
     return Pressable(
       onTap: onTap,

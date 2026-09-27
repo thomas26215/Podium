@@ -22,7 +22,7 @@ class SoloRecordsScreen extends StatelessWidget {
           const ScreenHeading(eyebrow: 'Mon espace solo', title: 'Mes records'),
           PersonalRecordsList(
             records: app.personalRecords,
-            onTap: (r) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => SoloGameScreen(gameId: r.game.id, initialRuleId: r.rule.id))),
+            onTap: (r) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => SoloGameScreen(gameId: r.game.id, initialRuleId: r.rule.id, initialSetupPick: r.setupPick))),
           ),
         ],
       ),

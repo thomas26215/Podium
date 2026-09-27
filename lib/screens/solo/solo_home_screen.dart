@@ -72,7 +72,11 @@ class SoloHomeScreen extends StatelessWidget {
             FadeSlideIn(
               child: last == null || lastGame == null
                   ? const _WelcomeCard()
-                  : _ReplayCard(game: lastGame, match: last, onReplay: () => launchSoloMatch(context, app, lastGame, ruleId: lastGame.resolveRule(last.ruleId).id)),
+                  : _ReplayCard(
+                      game: lastGame,
+                      match: last,
+                      onReplay: () => launchSoloMatch(context, app, lastGame, ruleId: lastGame.resolveRule(last.ruleId).id, setupPick: lastGame.recordPickOf(last)),
+                    ),
             ),
             const SizedBox(height: 14),
             FadeSlideIn(
@@ -92,7 +96,7 @@ class SoloHomeScreen extends StatelessWidget {
             PersonalRecordsList(
               records: records,
               limit: 3,
-              onTap: (r) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => SoloGameScreen(gameId: r.game.id, initialRuleId: r.rule.id))),
+              onTap: (r) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => SoloGameScreen(gameId: r.game.id, initialRuleId: r.rule.id, initialSetupPick: r.setupPick))),
             ),
             if (recent.isNotEmpty) ...[
               const SizedBox(height: 12),
@@ -130,6 +134,7 @@ class _ReplayCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rule = game.resolveRule(match.ruleId);
+    final detail = [if (game.hasMultipleRules) rule.name, ?game.recordPickOf(match)].join(' · ');
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -145,7 +150,7 @@ class _ReplayCard extends StatelessWidget {
                 Text('DERNIER JEU', style: bodyFont(size: 11, weight: FontWeight.w800, color: Colors.white.withValues(alpha: 0.6), letterSpacing: 0.6)),
                 const SizedBox(height: 2),
                 Text(game.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: bodyFont(size: 17, weight: FontWeight.w800, color: Colors.white)),
-                if (game.hasMultipleRules) Text(rule.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: bodyFont(size: 12.5, weight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.7))),
+                if (detail.isNotEmpty) Text(detail, maxLines: 1, overflow: TextOverflow.ellipsis, style: bodyFont(size: 12.5, weight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.7))),
               ],
             ),
           ),

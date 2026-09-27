@@ -123,14 +123,16 @@ class Step2Players extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (!isTournamentFlow) ...[
-          const PlayedAtPicker(),
+        if (!isTournamentFlow) const PlayedAtPicker(),
+        // A "best of 3" against yourself means nothing — hidden in "Mon
+        // espace solo".
+        if (!isTournamentFlow && !app.isPersonalContext) ...[
           Padding(
             padding: const EdgeInsets.only(bottom: 16),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Format de la partie', style: bodyFont(size: 13.5, weight: FontWeight.w800, color: AppColors.ink2)),
+                Flexible(child: Text('Format de la partie', maxLines: 1, overflow: TextOverflow.ellipsis, style: bodyFont(size: 13.5, weight: FontWeight.w800, color: AppColors.ink2))),
                 Container(
                   padding: const EdgeInsets.all(3),
                   decoration: BoxDecoration(color: AppColors.bg, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(11)),
@@ -503,7 +505,7 @@ class _CharacterPill extends StatelessWidget {
           children: [
             Icon(Icons.theater_comedy_rounded, size: 15, color: color),
             const SizedBox(width: 6),
-            Text(character ?? prompt, style: bodyFont(size: 12.5, weight: FontWeight.w800, color: color)),
+            Flexible(child: Text(character ?? prompt, maxLines: 1, overflow: TextOverflow.ellipsis, style: bodyFont(size: 12.5, weight: FontWeight.w800, color: color))),
             const SizedBox(width: 2),
             Icon(Icons.expand_more_rounded, size: 16, color: color),
           ],

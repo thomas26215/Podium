@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../logic/personal_records.dart';
+import '../../logic/text_search.dart';
 import '../../logic/time_format.dart';
 import '../../models/game.dart';
 import '../../state/app_state.dart';
@@ -16,20 +17,22 @@ import '../new_game/new_game_sheet.dart';
 
 /// Opens the new-match sheet straight on [game] (see
 /// [AppState.startSoloMatch]) — every "Jouer"/"Rejouer" of the solo space.
-Future<void> launchSoloMatch(BuildContext context, AppState app, Game game, {String? ruleId}) async {
+Future<void> launchSoloMatch(BuildContext context, AppState app, Game game, {String? ruleId, String? setupPick}) async {
   if (app.activeContextClosed) return;
-  app.startSoloMatch(game, ruleId: ruleId);
+  app.startSoloMatch(game, ruleId: ruleId, setupPick: setupPick);
   await showNewGameSheet(context, app);
 }
 
 /// One game of "Mon espace solo", seen through the player's own results:
 /// the record up front, how it evolved, every attempt — under one rule at
-/// a time (chips on top when the game has several) — and a "Jouer" button
-/// to go again.
+/// a time (chips on top when the game has several) and, for a game whose
+/// records are split by circuit (see [Game.isSinglePickSetup]), one
+/// circuit at a time — and a "Jouer" button to go again.
 class SoloGameScreen extends StatefulWidget {
   final String gameId;
   final String? initialRuleId;
-  const SoloGameScreen({super.key, required this.gameId, this.initialRuleId});
+  final String? initialSetupPick;
+  const SoloGameScreen({super.key, required this.gameId, this.initialRuleId, this.initialSetupPick});
 
   @override
   State<SoloGameScreen> createState() => _SoloGameScreenState();
@@ -37,11 +40,13 @@ class SoloGameScreen extends StatefulWidget {
 
 class _SoloGameScreenState extends State<SoloGameScreen> {
   String? _ruleId;
+  String? _pick;
 
   @override
   void initState() {
     super.initState();
     _ruleId = widget.initialRuleId;
+    _pick = widget.initialSetupPick;
   }
 
   @override
@@ -53,8 +58,16 @@ class _SoloGameScreenState extends State<SoloGameScreen> {
     }
     final rule = game.resolveRule(_ruleId);
     final uid = app.currentUser?.uid;
-    final matches = app.viewMatches.where((m) => m.gameId == game.id && game.resolveRule(m.ruleId).id == rule.id).toList()
+    final ofRule = app.viewMatches.where((m) => m.gameId == game.id && game.resolveRule(m.ruleId).id == rule.id).toList()
       ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    // Circuits played, most recent first — the default is the last one.
+    final playedPicks = <String>[];
+    for (final m in ofRule.reversed) {
+      final p = game.recordPickOf(m);
+      if (p != null && !playedPicks.contains(p)) playedPicks.add(p);
+    }
+    final pick = game.isSinglePickSetup ? (_pick ?? playedPicks.firstOrNull) : null;
+    final matches = game.isSinglePickSetup ? ofRule.where((m) => game.recordPickOf(m) == pick).toList() : ofRule;
     final allAttempts = app.soloAttempts;
     final attempts = [for (final m in matches) ?allAttempts[m.id]];
     final comparable = !rule.isRanks && !rule.isWinLoss;
@@ -93,6 +106,17 @@ class _SoloGameScreenState extends State<SoloGameScreen> {
                     ),
                     const SizedBox(height: 16),
                   ],
+                  if (game.isSinglePickSetup) ...[
+                    _PickSelector(
+                      label: game.setupChoice!.label,
+                      value: pick,
+                      onTap: () async {
+                        final chosen = await _choosePick(context, game, playedPicks, pick);
+                        if (chosen != null) setState(() => _pick = chosen);
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   FadeSlideIn(
                     child: _RecordHero(
                       game: game,
@@ -103,7 +127,7 @@ class _SoloGameScreenState extends State<SoloGameScreen> {
                               ? (best == null ? null : scoreLabel(best.value, best.unit))
                               : '$wins / ${matches.length}',
                       caption: matches.isEmpty
-                          ? 'Pas encore joué${game.hasMultipleRules ? ' avec cette règle' : ''}.'
+                          ? (pick != null ? 'Pas encore joué sur « $pick ».' : 'Pas encore joué${game.hasMultipleRules ? ' avec cette règle' : ''}.')
                           : comparable && best != null
                               ? 'Établi ${_on(best.match.createdAt)}'
                               : '${matches.length} partie${matches.length > 1 ? 's' : ''}',
@@ -192,7 +216,7 @@ class _SoloGameScreenState extends State<SoloGameScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
                 child: PrimaryButton(
                   label: matches.isEmpty ? 'Jouer' : 'Rejouer',
-                  onPressed: () => launchSoloMatch(context, app, game, ruleId: rule.id),
+                  onPressed: () => launchSoloMatch(context, app, game, ruleId: rule.id, setupPick: pick),
                 ),
               ),
           ],
@@ -204,6 +228,94 @@ class _SoloGameScreenState extends State<SoloGameScreen> {
   static String _on(DateTime dt) {
     final label = relativeDateLabel(dt);
     return label.startsWith('Il y a') || label == "Aujourd'hui" || label == 'Hier' ? label.toLowerCase() : 'le ${frenchDayMonth(dt)}';
+  }
+}
+
+/// Lists the game's circuits (see [Game.isSinglePickSetup]) — the ones
+/// already played first — with a search field; returns the one tapped.
+Future<String?> _choosePick(BuildContext context, Game game, List<String> played, String? current) {
+  final choice = game.setupChoice!;
+  var query = '';
+  return showModalBottomSheet<String>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: AppColors.bg,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl))),
+    builder: (sheetContext) => StatefulBuilder(
+      builder: (sheetContext, setState) {
+        final q = foldText(query.trim());
+        bool matches(String o) => q.isEmpty || foldText(o).contains(q);
+        final others = choice.options.where((o) => !played.contains(o)).toList();
+        Widget row(String o) => ListTile(
+              dense: true,
+              title: Text(o, style: bodyFont(size: 14.5, weight: o == current ? FontWeight.w800 : FontWeight.w600, color: AppColors.ink)),
+              trailing: o == current ? Icon(Icons.check_rounded, color: AppColors.accent) : null,
+              onTap: () => Navigator.of(sheetContext).pop(o),
+            );
+        return SafeArea(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(sheetContext).size.height * 0.85),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
+                  child: TextField(
+                    autofocus: false,
+                    onChanged: (v) => setState(() => query = v),
+                    style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink),
+                    decoration: appFieldDecoration(hintText: 'Rechercher', prefixIcon: Icon(Icons.search_rounded, color: AppColors.mut)),
+                  ),
+                ),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+                    children: [
+                      if (played.any(matches)) ...[
+                        Padding(padding: const EdgeInsets.fromLTRB(12, 4, 12, 4), child: Text('DÉJÀ JOUÉS', style: bodyFont(size: 11, weight: FontWeight.w800, color: AppColors.mut, letterSpacing: 0.5))),
+                        for (final o in played.where(matches)) row(o),
+                      ],
+                      if (others.any(matches)) ...[
+                        Padding(padding: const EdgeInsets.fromLTRB(12, 10, 12, 4), child: Text('TOUS', style: bodyFont(size: 11, weight: FontWeight.w800, color: AppColors.mut, letterSpacing: 0.5))),
+                        for (final o in others.where(matches)) row(o),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  );
+}
+
+/// "Circuit : Circuit Mario ▾" — which circuit the screen shows.
+class _PickSelector extends StatelessWidget {
+  final String label;
+  final String? value;
+  final VoidCallback onTap;
+  const _PickSelector({required this.label, required this.value, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Pressable(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+        child: Row(
+          children: [
+            Text('$label : ', style: bodyFont(size: 13.5, weight: FontWeight.w700, color: AppColors.mut)),
+            Expanded(child: Text(value ?? 'Choisir', maxLines: 1, overflow: TextOverflow.ellipsis, style: bodyFont(size: 14.5, weight: FontWeight.w800, color: AppColors.ink))),
+            Icon(Icons.expand_more_rounded, color: AppColors.mut),
+          ],
+        ),
+      ),
+    );
   }
 }
 

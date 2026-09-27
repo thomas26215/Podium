@@ -109,7 +109,7 @@ class _GameTile extends StatelessWidget {
             ? 'Record ${latest.bestLabel}'
             : '${latest.played} partie${latest.played > 1 ? 's' : ''}';
     return Pressable(
-      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => SoloGameScreen(gameId: game.id, initialRuleId: latest?.rule.id))),
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => SoloGameScreen(gameId: game.id, initialRuleId: latest?.rule.id, initialSetupPick: latest?.setupPick))),
       // Same menu as a long press in the new-match picker: edit, rules
       // reminders, delete…
       onLongPress: () => showGameActionsSheet(context, app, game),
@@ -124,6 +124,7 @@ class _GameTile extends StatelessWidget {
             Text(game.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: bodyFont(size: 14, weight: FontWeight.w800, color: AppColors.ink, height: 1.2)),
             const SizedBox(height: 3),
             Text(line, maxLines: 1, overflow: TextOverflow.ellipsis, style: bodyFont(size: 12, weight: FontWeight.w700, color: latest?.bestLabel != null ? AppColors.ink2 : AppColors.mut)),
+            if (latest?.setupPick != null) Text(latest!.setupPick!, maxLines: 1, overflow: TextOverflow.ellipsis, style: bodyFont(size: 11.5, weight: FontWeight.w600, color: AppColors.mut)),
             const SizedBox(height: 12),
             if (!app.activeContextClosed)
               Pressable(

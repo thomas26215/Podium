@@ -42,7 +42,7 @@ class _RecordCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final r = record;
     final gain = r.lastImprovement;
-    final title = r.game.hasMultipleRules ? '${r.game.name} · ${r.rule.name}' : r.game.name;
+    final title = r.title;
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
