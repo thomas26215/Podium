@@ -53,6 +53,37 @@ class NoGroupScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
+              SectionHeader(title: 'Jouer en solo'),
+              FadeSlideIn(
+                delay: const Duration(milliseconds: 40),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.lg)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Contre-la-montre, high scores… Suivez vos records dans un espace rien qu’à vous, sans groupe.',
+                        style: bodyFont(size: 13.5, weight: FontWeight.w600, color: AppColors.ink2),
+                      ),
+                      const SizedBox(height: 14),
+                      OutlinedButton.icon(
+                        onPressed: app.openPersonalSpace,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.ink,
+                          side: BorderSide(color: AppColors.line, width: 1.5),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+                          minimumSize: const Size.fromHeight(0),
+                        ),
+                        icon: const Icon(Icons.timer_outlined, size: 20),
+                        label: Text('Ouvrir mon espace solo', style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
               SectionHeader(title: 'Rejoindre un groupe existant'),
               FadeSlideIn(
                 delay: const Duration(milliseconds: 80),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../logic/time_format.dart';
 import '../../models/game.dart';
 import '../../models/match.dart';
 import '../../state/app_state.dart';
@@ -327,6 +328,8 @@ class MatchDetailScreen extends StatelessWidget {
                   (win ? const SizedBox.shrink() : Text('Défaite', style: bodyFont(size: 12.5, weight: FontWeight.w700, color: AppColors.mut)))
                 else if (e.role != null)
                   Text(e.role!, style: bodyFont(size: 13.5, weight: FontWeight.w800, color: AppColors.ink2))
+                else if (match.unit == 'time')
+                  Text(formatDuration(e.points), style: dispFont(size: 16, weight: FontWeight.w700, color: AppColors.ink))
                 else
                   AnimatedCounter(value: e.points, style: dispFont(size: 16, weight: FontWeight.w700, color: AppColors.ink)),
               ],

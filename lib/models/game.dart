@@ -8,6 +8,7 @@ enum CountType {
   wins, // rounds/hands won (Président, belote…)
   ranks, // per-round finishing order mapped to named roles (Président's roles, etc.)
   winLoss, // no score at all — just mark each player/team victorious or defeated (1v1 games, etc.)
+  time, // a time, fastest wins (contre-la-montre, speedrun…) — stored in milliseconds
 }
 
 CountType countTypeFromString(String s) {
@@ -20,6 +21,8 @@ CountType countTypeFromString(String s) {
       return CountType.ranks;
     case 'winloss':
       return CountType.winLoss;
+    case 'time':
+      return CountType.time;
     default:
       return CountType.highWins;
   }
@@ -35,6 +38,8 @@ String countTypeToString(CountType c) {
       return 'ranks';
     case CountType.winLoss:
       return 'winloss';
+    case CountType.time:
+      return 'time';
     case CountType.highWins:
       return 'points';
   }
@@ -157,13 +162,19 @@ class GameRule {
     this.coop = false,
   });
 
-  bool get lowWins => countType == CountType.lowWins;
+  /// A time ([CountType.time]) is won by the lowest value too.
+  bool get lowWins => countType == CountType.lowWins || countType == CountType.time;
+  bool get isTime => countType == CountType.time;
   bool get isRanks => countType == CountType.ranks;
   bool get isWinLoss => countType == CountType.winLoss;
   bool get hasScoreFields => scoreFields != null && scoreFields!.isNotEmpty;
 
   /// The default scoring unit a new match under this rule should start with.
-  String get defaultUnit => countType == CountType.wins ? 'wins' : 'points';
+  String get defaultUnit => switch (countType) {
+        CountType.wins => 'wins',
+        CountType.time => 'time',
+        _ => 'points',
+      };
 
   /// Role label for finishing at 0-based `position` out of `playerCount`
   /// players. `position` counts from the top (0 = 1st place); positions
@@ -404,6 +415,7 @@ class Game {
   /// when no bound is set.
   String? get playersLabel {
     final lo = minPlayers, hi = maxPlayers;
+    if (isSoloOnly) return 'Solo';
     if (lo != null && hi != null) return lo == hi ? '$lo joueurs' : '$lo–$hi joueurs';
     if (lo != null) return '$lo joueurs min.';
     if (hi != null) return '$hi joueurs max.';
@@ -416,6 +428,36 @@ class Game {
     final bits = [?playersLabel, ...themeTags.take(themeCount).map((t) => t.label)];
     return bits.isEmpty ? null : bits.join(' · ');
   }
+
+  /// Played alone, and only alone — a game of "Mon espace solo" (see
+  /// [asSolo]).
+  bool get isSoloOnly => minPlayers == 1 && maxPlayers == 1;
+
+  /// Whether this game can be played alone at all (a library game offered
+  /// to "Mon espace solo") — no minimum, or a minimum of 1.
+  bool get playableSolo => minPlayers == null || minPlayers! <= 1;
+
+  /// Whether this game can be played by several (a library game offered to
+  /// a group) — anything but [isSoloOnly]-style "1 player max".
+  bool get playableInGroup => maxPlayers == null || maxPlayers! >= 2;
+
+  /// This game as it lives in "Mon espace solo": exactly one player, every
+  /// other setting unchanged.
+  Game asSolo() => Game(
+        id: id,
+        name: name,
+        emoji: emoji,
+        category: category,
+        rules: rules,
+        ruleSections: ruleSections,
+        minPlayers: 1,
+        maxPlayers: 1,
+        themes: themes,
+        characterChoice: characterChoice,
+        setupChoice: setupChoice,
+        salonId: salonId,
+        libraryId: libraryId,
+      );
 
   bool acceptsPlayerCount(int n) => (minPlayers == null || n >= minPlayers!) && (maxPlayers == null || n <= maxPlayers!);
 

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../logic/time_format.dart';
 import '../../models/match.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
@@ -201,7 +202,10 @@ class _LiveMatchBody extends StatelessWidget {
                         ],
                       ),
                     ),
-                    AnimatedCounter(value: entry.points, style: dispFont(size: 22, weight: FontWeight.w700, color: AppColors.ink)),
+                    if (session.unit == 'time')
+                      Text(entry.points > 0 ? formatDuration(entry.points) : '—', style: dispFont(size: 22, weight: FontWeight.w700, color: AppColors.ink))
+                    else
+                      AnimatedCounter(value: entry.points, style: dispFont(size: 22, weight: FontWeight.w700, color: AppColors.ink)),
                   ],
                 ),
               );

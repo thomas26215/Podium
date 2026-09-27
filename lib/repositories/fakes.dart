@@ -124,9 +124,9 @@ class FakeGroupsRepository implements GroupsRepository {
   }
 
   @override
-  Future<Group> createGroup({required String name, required String emoji, required int emojiBg, required String ownerId, bool temporary = false}) async {
+  Future<Group> createGroup({required String name, required String emoji, required int emojiBg, required String ownerId, bool temporary = false, bool personal = false}) async {
     final id = 'g${groups.length + 1}';
-    final group = Group(id: id, name: name, emoji: emoji, emojiBg: emojiBg, memberIds: [ownerId], ownerId: ownerId, temporary: temporary);
+    final group = Group(id: id, name: name, emoji: emoji, emojiBg: emojiBg, memberIds: [ownerId], ownerId: ownerId, temporary: temporary, personal: personal);
     groups[id] = group;
     _emit();
     return group;

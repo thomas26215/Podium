@@ -116,7 +116,9 @@ Future<void> _showNewGameChooser(BuildContext context, AppState app) async {
   // Cross-group catalog browsing doesn't have a Salon equivalent — hidden
   // entirely while a Salon is the active context (see AppState.
   // startBrowsingOtherGroups, which is a Group-only feature).
-  final hasOtherGroups = app.activeContext == ActiveContextKind.group && app.groups.any((g) => g.id != app.currentRootId);
+  // Solo games and group games never cross over — "Mon espace solo" doesn't
+  // import from the groups (and is never offered to them).
+  final hasOtherGroups = app.activeContext == ActiveContextKind.group && !app.isPersonalContext && app.groups.any((g) => g.id != app.currentRootId);
   await showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,

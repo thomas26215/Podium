@@ -14,7 +14,7 @@ abstract class GroupsRepository {
   /// Every group the user is a direct member of.
   Stream<List<Group>> watchMyGroups(String uid);
 
-  Future<Group> createGroup({required String name, required String emoji, required int emojiBg, required String ownerId, bool temporary = false});
+  Future<Group> createGroup({required String name, required String emoji, required int emojiBg, required String ownerId, bool temporary = false, bool personal = false});
 
   Future<void> addMemberByEmail({required String groupId, required String email});
 
@@ -74,7 +74,7 @@ class FirebaseGroupsRepository implements GroupsRepository {
   }
 
   @override
-  Future<Group> createGroup({required String name, required String emoji, required int emojiBg, required String ownerId, bool temporary = false}) async {
+  Future<Group> createGroup({required String name, required String emoji, required int emojiBg, required String ownerId, bool temporary = false, bool personal = false}) async {
     final ref = _groups.doc();
     final group = Group(
       id: ref.id,
@@ -84,6 +84,7 @@ class FirebaseGroupsRepository implements GroupsRepository {
       memberIds: [ownerId],
       ownerId: ownerId,
       temporary: temporary,
+      personal: personal,
     );
     await ref.set(group.toMap());
     return group;

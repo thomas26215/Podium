@@ -3634,8 +3634,8 @@
   "rules": [
    {
     "id": "temps",
-    "name": "Meilleur temps (secondes)",
-    "countType": "low"
+    "name": "Meilleur temps",
+    "countType": "time"
    },
    {
     "id": "reussite",
@@ -3690,6 +3690,11 @@
     "id": "bataille",
     "name": "Bataille de ballons",
     "countType": "winloss"
+   },
+   {
+    "id": "contre_la_montre",
+    "name": "Contre-la-montre",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -4304,8 +4309,8 @@
    },
    {
     "id": "sprint",
-    "name": "Sprint 40 lignes (temps)",
-    "countType": "low"
+    "name": "Sprint 40 lignes",
+    "countType": "time"
    },
    {
     "id": "versus",
@@ -5491,8 +5496,8 @@
    },
    {
     "id": "chrono",
-    "name": "Meilleur tour (secondes)",
-    "countType": "low"
+    "name": "Meilleur tour",
+    "countType": "time"
    },
    {
     "id": "championnat",
@@ -24767,8 +24772,8 @@
   "rules": [
    {
     "id": "temps_secondes",
-    "name": "Temps (secondes)",
-    "countType": "low"
+    "name": "Temps",
+    "countType": "time"
    },
    {
     "id": "reussite",
@@ -28557,8 +28562,8 @@
    },
    {
     "id": "contre_la_montre_secondes",
-    "name": "Contre-la-montre (secondes)",
-    "countType": "low"
+    "name": "Contre-la-montre",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -28606,8 +28611,8 @@
    },
    {
     "id": "contre_la_montre_secondes",
-    "name": "Contre-la-montre (secondes)",
-    "countType": "low"
+    "name": "Contre-la-montre",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -28654,8 +28659,8 @@
    },
    {
     "id": "contre_la_montre_secondes",
-    "name": "Contre-la-montre (secondes)",
-    "countType": "low"
+    "name": "Contre-la-montre",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -28703,8 +28708,8 @@
    },
    {
     "id": "contre_la_montre_secondes",
-    "name": "Contre-la-montre (secondes)",
-    "countType": "low"
+    "name": "Contre-la-montre",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -28752,8 +28757,8 @@
    },
    {
     "id": "contre_la_montre_secondes",
-    "name": "Contre-la-montre (secondes)",
-    "countType": "low"
+    "name": "Contre-la-montre",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -28801,8 +28806,8 @@
    },
    {
     "id": "contre_la_montre_secondes",
-    "name": "Contre-la-montre (secondes)",
-    "countType": "low"
+    "name": "Contre-la-montre",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -28848,8 +28853,8 @@
    },
    {
     "id": "contre_la_montre_secondes",
-    "name": "Contre-la-montre (secondes)",
-    "countType": "low"
+    "name": "Contre-la-montre",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -28896,8 +28901,8 @@
    },
    {
     "id": "contre_la_montre_secondes",
-    "name": "Contre-la-montre (secondes)",
-    "countType": "low"
+    "name": "Contre-la-montre",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -28945,8 +28950,8 @@
    },
    {
     "id": "contre_la_montre_secondes",
-    "name": "Contre-la-montre (secondes)",
-    "countType": "low"
+    "name": "Contre-la-montre",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -28993,8 +28998,8 @@
    },
    {
     "id": "contre_la_montre_secondes",
-    "name": "Contre-la-montre (secondes)",
-    "countType": "low"
+    "name": "Contre-la-montre",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -29040,8 +29045,8 @@
    },
    {
     "id": "contre_la_montre_secondes",
-    "name": "Contre-la-montre (secondes)",
-    "countType": "low"
+    "name": "Contre-la-montre",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -29087,8 +29092,8 @@
    },
    {
     "id": "contre_la_montre_secondes",
-    "name": "Contre-la-montre (secondes)",
-    "countType": "low"
+    "name": "Contre-la-montre",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -29135,8 +29140,8 @@
    },
    {
     "id": "contre_la_montre_secondes",
-    "name": "Contre-la-montre (secondes)",
-    "countType": "low"
+    "name": "Contre-la-montre",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -29184,8 +29189,8 @@
    },
    {
     "id": "contre_la_montre_secondes",
-    "name": "Contre-la-montre (secondes)",
-    "countType": "low"
+    "name": "Contre-la-montre",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -29231,8 +29236,8 @@
    },
    {
     "id": "contre_la_montre_secondes",
-    "name": "Contre-la-montre (secondes)",
-    "countType": "low"
+    "name": "Contre-la-montre",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -29278,8 +29283,8 @@
    },
    {
     "id": "contre_la_montre_secondes",
-    "name": "Contre-la-montre (secondes)",
-    "countType": "low"
+    "name": "Contre-la-montre",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -29314,8 +29319,8 @@
   "rules": [
    {
     "id": "meilleur_temps_secondes",
-    "name": "Meilleur temps (secondes)",
-    "countType": "low"
+    "name": "Meilleur temps",
+    "countType": "time"
    },
    {
     "id": "progression",
@@ -29367,8 +29372,8 @@
    },
    {
     "id": "contre_la_montre_secondes",
-    "name": "Contre-la-montre (secondes)",
-    "countType": "low"
+    "name": "Contre-la-montre",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -29450,8 +29455,8 @@
   "rules": [
    {
     "id": "meilleur_temps_secondes",
-    "name": "Meilleur temps (secondes)",
-    "countType": "low"
+    "name": "Meilleur temps",
+    "countType": "time"
    },
    {
     "id": "progression",
@@ -29490,8 +29495,8 @@
   "rules": [
    {
     "id": "meilleur_temps_secondes",
-    "name": "Meilleur temps (secondes)",
-    "countType": "low"
+    "name": "Meilleur temps",
+    "countType": "time"
    },
    {
     "id": "progression",
@@ -29542,8 +29547,8 @@
    },
    {
     "id": "contre_la_montre_secondes",
-    "name": "Contre-la-montre (secondes)",
-    "countType": "low"
+    "name": "Contre-la-montre",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -29589,8 +29594,8 @@
    },
    {
     "id": "contre_la_montre_secondes",
-    "name": "Contre-la-montre (secondes)",
-    "countType": "low"
+    "name": "Contre-la-montre",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -29637,8 +29642,8 @@
    },
    {
     "id": "contre_la_montre_secondes",
-    "name": "Contre-la-montre (secondes)",
-    "countType": "low"
+    "name": "Contre-la-montre",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -29685,8 +29690,8 @@
    },
    {
     "id": "contre_la_montre_secondes",
-    "name": "Contre-la-montre (secondes)",
-    "countType": "low"
+    "name": "Contre-la-montre",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -29733,8 +29738,8 @@
    },
    {
     "id": "contre_la_montre_secondes",
-    "name": "Contre-la-montre (secondes)",
-    "countType": "low"
+    "name": "Contre-la-montre",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -29810,8 +29815,8 @@
   "rules": [
    {
     "id": "meilleur_temps_secondes",
-    "name": "Meilleur temps (secondes)",
-    "countType": "low"
+    "name": "Meilleur temps",
+    "countType": "time"
    },
    {
     "id": "progression",
@@ -33076,8 +33081,8 @@
    },
    {
     "id": "contre_la_montre_secondes",
-    "name": "Contre-la-montre (secondes)",
-    "countType": "low"
+    "name": "Contre-la-montre",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -33123,8 +33128,8 @@
    },
    {
     "id": "contre_la_montre_secondes",
-    "name": "Contre-la-montre (secondes)",
-    "countType": "low"
+    "name": "Contre-la-montre",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -37992,8 +37997,8 @@
    },
    {
     "id": "speedrun_minutes",
-    "name": "Speedrun (minutes)",
-    "countType": "low"
+    "name": "Speedrun",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -38082,8 +38087,8 @@
    },
    {
     "id": "speedrun_minutes",
-    "name": "Speedrun (minutes)",
-    "countType": "low"
+    "name": "Speedrun",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -38127,8 +38132,8 @@
    },
    {
     "id": "temps_minutes",
-    "name": "Temps (minutes)",
-    "countType": "low"
+    "name": "Temps",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -38168,8 +38173,8 @@
    },
    {
     "id": "temps_minutes",
-    "name": "Temps (minutes)",
-    "countType": "low"
+    "name": "Temps",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -38803,8 +38808,8 @@
   "rules": [
    {
     "id": "speedrun_minutes",
-    "name": "Speedrun (minutes)",
-    "countType": "low"
+    "name": "Speedrun",
+    "countType": "time"
    },
    {
     "id": "completion",
@@ -38854,8 +38859,8 @@
   "rules": [
    {
     "id": "speedrun_minutes",
-    "name": "Speedrun (minutes)",
-    "countType": "low"
+    "name": "Speedrun",
+    "countType": "time"
    },
    {
     "id": "completion",
@@ -38899,8 +38904,8 @@
   "rules": [
    {
     "id": "speedrun_minutes",
-    "name": "Speedrun (minutes)",
-    "countType": "low"
+    "name": "Speedrun",
+    "countType": "time"
    },
    {
     "id": "completion",
@@ -38944,8 +38949,8 @@
   "rules": [
    {
     "id": "speedrun_minutes",
-    "name": "Speedrun (minutes)",
-    "countType": "low"
+    "name": "Speedrun",
+    "countType": "time"
    },
    {
     "id": "completion",
@@ -38994,8 +38999,8 @@
   "rules": [
    {
     "id": "speedrun_minutes",
-    "name": "Speedrun (minutes)",
-    "countType": "low"
+    "name": "Speedrun",
+    "countType": "time"
    },
    {
     "id": "completion",
@@ -39045,8 +39050,8 @@
   "rules": [
    {
     "id": "speedrun_minutes",
-    "name": "Speedrun (minutes)",
-    "countType": "low"
+    "name": "Speedrun",
+    "countType": "time"
    },
    {
     "id": "completion",
@@ -39141,8 +39146,8 @@
   "rules": [
    {
     "id": "speedrun_minutes",
-    "name": "Speedrun (minutes)",
-    "countType": "low"
+    "name": "Speedrun",
+    "countType": "time"
    },
    {
     "id": "completion",
@@ -39187,8 +39192,8 @@
   "rules": [
    {
     "id": "speedrun_minutes",
-    "name": "Speedrun (minutes)",
-    "countType": "low"
+    "name": "Speedrun",
+    "countType": "time"
    },
    {
     "id": "completion",
@@ -39233,8 +39238,8 @@
   "rules": [
    {
     "id": "speedrun_minutes",
-    "name": "Speedrun (minutes)",
-    "countType": "low"
+    "name": "Speedrun",
+    "countType": "time"
    },
    {
     "id": "completion",
@@ -39284,8 +39289,8 @@
   "rules": [
    {
     "id": "speedrun_minutes",
-    "name": "Speedrun (minutes)",
-    "countType": "low"
+    "name": "Speedrun",
+    "countType": "time"
    },
    {
     "id": "completion",
@@ -39329,8 +39334,8 @@
   "rules": [
    {
     "id": "speedrun_minutes",
-    "name": "Speedrun (minutes)",
-    "countType": "low"
+    "name": "Speedrun",
+    "countType": "time"
    },
    {
     "id": "completion",
@@ -39373,8 +39378,8 @@
   "rules": [
    {
     "id": "speedrun_minutes",
-    "name": "Speedrun (minutes)",
-    "countType": "low"
+    "name": "Speedrun",
+    "countType": "time"
    },
    {
     "id": "completion",
@@ -39424,8 +39429,8 @@
   "rules": [
    {
     "id": "speedrun_minutes",
-    "name": "Speedrun (minutes)",
-    "countType": "low"
+    "name": "Speedrun",
+    "countType": "time"
    },
    {
     "id": "completion",
@@ -39474,8 +39479,8 @@
   "rules": [
    {
     "id": "speedrun_minutes",
-    "name": "Speedrun (minutes)",
-    "countType": "low"
+    "name": "Speedrun",
+    "countType": "time"
    },
    {
     "id": "completion",
@@ -39530,8 +39535,8 @@
   "rules": [
    {
     "id": "speedrun_minutes",
-    "name": "Speedrun (minutes)",
-    "countType": "low"
+    "name": "Speedrun",
+    "countType": "time"
    },
    {
     "id": "completion",
@@ -39576,8 +39581,8 @@
   "rules": [
    {
     "id": "speedrun_minutes",
-    "name": "Speedrun (minutes)",
-    "countType": "low"
+    "name": "Speedrun",
+    "countType": "time"
    },
    {
     "id": "completion",
@@ -39622,8 +39627,8 @@
   "rules": [
    {
     "id": "speedrun_minutes",
-    "name": "Speedrun (minutes)",
-    "countType": "low"
+    "name": "Speedrun",
+    "countType": "time"
    },
    {
     "id": "completion",
@@ -39667,8 +39672,8 @@
   "rules": [
    {
     "id": "speedrun_minutes",
-    "name": "Speedrun (minutes)",
-    "countType": "low"
+    "name": "Speedrun",
+    "countType": "time"
    },
    {
     "id": "completion",
@@ -39712,8 +39717,8 @@
   "rules": [
    {
     "id": "speedrun_minutes",
-    "name": "Speedrun (minutes)",
-    "countType": "low"
+    "name": "Speedrun",
+    "countType": "time"
    },
    {
     "id": "completion",
@@ -39758,8 +39763,8 @@
   "rules": [
    {
     "id": "speedrun_minutes",
-    "name": "Speedrun (minutes)",
-    "countType": "low"
+    "name": "Speedrun",
+    "countType": "time"
    },
    {
     "id": "completion",
@@ -39809,8 +39814,8 @@
   "rules": [
    {
     "id": "speedrun_minutes",
-    "name": "Speedrun (minutes)",
-    "countType": "low"
+    "name": "Speedrun",
+    "countType": "time"
    },
    {
     "id": "completion",
@@ -39855,8 +39860,8 @@
   "rules": [
    {
     "id": "speedrun_minutes",
-    "name": "Speedrun (minutes)",
-    "countType": "low"
+    "name": "Speedrun",
+    "countType": "time"
    },
    {
     "id": "completion",
@@ -39901,8 +39906,8 @@
   "rules": [
    {
     "id": "speedrun_minutes",
-    "name": "Speedrun (minutes)",
-    "countType": "low"
+    "name": "Speedrun",
+    "countType": "time"
    },
    {
     "id": "completion",
@@ -40159,8 +40164,8 @@
   "rules": [
    {
     "id": "speedrun_minutes",
-    "name": "Speedrun (minutes)",
-    "countType": "low"
+    "name": "Speedrun",
+    "countType": "time"
    },
    {
     "id": "completion",
@@ -40209,8 +40214,8 @@
   "rules": [
    {
     "id": "speedrun_minutes",
-    "name": "Speedrun (minutes)",
-    "countType": "low"
+    "name": "Speedrun",
+    "countType": "time"
    },
    {
     "id": "completion",
@@ -40254,8 +40259,8 @@
   "rules": [
    {
     "id": "temps_minutes",
-    "name": "Temps (minutes)",
-    "countType": "low"
+    "name": "Temps",
+    "countType": "time"
    },
    {
     "id": "dragon_tue",
@@ -40293,8 +40298,8 @@
   "rules": [
    {
     "id": "speedrun_minutes",
-    "name": "Speedrun (minutes)",
-    "countType": "low"
+    "name": "Speedrun",
+    "countType": "time"
    },
    {
     "id": "completion",
@@ -40344,8 +40349,8 @@
   "rules": [
    {
     "id": "temps_minutes",
-    "name": "Temps (minutes)",
-    "countType": "low"
+    "name": "Temps",
+    "countType": "time"
    },
    {
     "id": "hauteur_atteinte",
@@ -40385,8 +40390,8 @@
   "rules": [
    {
     "id": "temps_minutes",
-    "name": "Temps (minutes)",
-    "countType": "low"
+    "name": "Temps",
+    "countType": "time"
    },
    {
     "id": "chutes",
@@ -42388,8 +42393,8 @@
   "rules": [
    {
     "id": "speedrun_minutes",
-    "name": "Speedrun (minutes)",
-    "countType": "low"
+    "name": "Speedrun",
+    "countType": "time"
    },
    {
     "id": "completion",
@@ -44237,8 +44242,8 @@
   "rules": [
    {
     "id": "temps_secondes",
-    "name": "Temps (secondes)",
-    "countType": "low"
+    "name": "Temps",
+    "countType": "time"
    },
    {
     "id": "classement",
@@ -44284,8 +44289,8 @@
   "rules": [
    {
     "id": "temps_centiemes",
-    "name": "Temps (centièmes)",
-    "countType": "low"
+    "name": "Temps",
+    "countType": "time"
    },
    {
     "id": "classement",
@@ -44325,8 +44330,8 @@
   "rules": [
    {
     "id": "temps_secondes",
-    "name": "Temps (secondes)",
-    "countType": "low"
+    "name": "Temps",
+    "countType": "time"
    },
    {
     "id": "classement",
@@ -44369,8 +44374,8 @@
    },
    {
     "id": "temps_secondes",
-    "name": "Temps (secondes)",
-    "countType": "low"
+    "name": "Temps",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -44405,8 +44410,8 @@
   "rules": [
    {
     "id": "temps_secondes",
-    "name": "Temps (secondes)",
-    "countType": "low"
+    "name": "Temps",
+    "countType": "time"
    },
    {
     "id": "classement",
@@ -44446,8 +44451,8 @@
   "rules": [
    {
     "id": "temps_secondes",
-    "name": "Temps (secondes)",
-    "countType": "low"
+    "name": "Temps",
+    "countType": "time"
    },
    {
     "id": "classement",
@@ -44563,8 +44568,8 @@
   "rules": [
    {
     "id": "temps_secondes",
-    "name": "Temps (secondes)",
-    "countType": "low"
+    "name": "Temps",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -45325,8 +45330,8 @@
    },
    {
     "id": "for_time_secondes",
-    "name": "For time (secondes)",
-    "countType": "low"
+    "name": "For time",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -46245,8 +46250,8 @@
    },
    {
     "id": "temps_minutes",
-    "name": "Temps (minutes)",
-    "countType": "low"
+    "name": "Temps",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -46334,13 +46339,13 @@
   "rules": [
    {
     "id": "temps_secondes",
-    "name": "Temps (secondes)",
-    "countType": "low"
+    "name": "Temps",
+    "countType": "time"
    },
    {
     "id": "moyenne_de_5_secondes",
-    "name": "Moyenne de 5 (secondes)",
-    "countType": "low"
+    "name": "Moyenne de 5",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -46367,8 +46372,8 @@
   "rules": [
    {
     "id": "temps_minutes",
-    "name": "Temps (minutes)",
-    "countType": "low"
+    "name": "Temps",
+    "countType": "time"
    },
    {
     "id": "pieces_posees",
@@ -46400,8 +46405,8 @@
   "rules": [
    {
     "id": "temps_minutes",
-    "name": "Temps (minutes)",
-    "countType": "low"
+    "name": "Temps",
+    "countType": "time"
    }
   ],
   "ruleSections": [
@@ -46428,8 +46433,8 @@
   "rules": [
    {
     "id": "temps_minutes",
-    "name": "Temps (minutes)",
-    "countType": "low"
+    "name": "Temps",
+    "countType": "time"
    },
    {
     "id": "mots_trouves",

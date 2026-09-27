@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/app_user.dart';
 import '../models/game.dart';
+import '../logic/time_format.dart';
 import '../models/match.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
@@ -54,8 +55,10 @@ String matchResultLine(Game game, GameMatch match, AppState appState) {
   // par" reads oddly for more than one name.
   if (game.resolveRule(match.ruleId).isWinLoss) return winnerNames.length > 1 ? '$names gagnent' : '$names gagne';
   final entry = winners.length == 1 ? match.entries.where((e) => e.playerId == winners.first).firstOrNull : null;
-  final scoreLabel = entry?.role ?? (entry != null ? '${entry.points} pts' : '');
-  return 'Gagné par $names${scoreLabel.isNotEmpty ? ' · $scoreLabel' : ''}';
+  final score = entry?.role ?? (entry != null ? scoreLabel(entry.points, match.unit) : '');
+  // Alone against the clock (or a high score): nobody was beaten.
+  if (match.entries.length == 1) return '$names${score.isNotEmpty ? ' · $score' : ''}';
+  return 'Gagné par $names${score.isNotEmpty ? ' · $score' : ''}';
 }
 
 /// "Who's ahead in the series" line for a group of legs sharing a

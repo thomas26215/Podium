@@ -33,12 +33,14 @@ import 'package:podium/screens/new_game/game_form.dart';
 import 'package:podium/screens/new_game/library_game_preview_screen.dart';
 import 'package:podium/screens/new_game/replace_with_library_screen.dart';
 import 'package:podium/screens/new_game/step1_game.dart';
+import 'package:podium/screens/new_game/step3_scores.dart';
 import 'package:podium/screens/profile/profile_screen.dart';
 import 'package:podium/widgets/common.dart';
 import 'package:podium/widgets/game_filter_bar.dart';
 import 'package:podium/widgets/result_share_card.dart';
 import 'package:podium/widgets/tournament_share_card.dart';
 import 'package:podium/state/app_state.dart';
+import 'package:podium/state/new_game_draft.dart';
 
 const _lea = AppUser(uid: 'lea', email: 'lea@test.fr', displayName: 'Léa', color: 0xFFFF5B34);
 const _tom = AppUser(uid: 'tom', email: 'tom@test.fr', displayName: 'Tom', color: 0xFF5B4BE8);
@@ -874,6 +876,168 @@ void main() {
     expect(choice.options, ['Babylone', 'Rhodes']);
     expect(find.text('Affiché « Choisir une merveille » pendant la partie.'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the personal space holds solo time trials, apart from every group, with records instead of a ranking', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    final state = seeded.state;
+    expect(state.personalGroup, isNull);
+    await state.openPersonalSpace();
+    await tester.pumpAndSettle();
+    expect(state.isPersonalContext, isTrue);
+    expect(state.personalGroup!.memberIds, ['lea']);
+    expect(state.groups.map((g) => g.id), ['bandits'], reason: 'never listed among the groups');
+    expect(state.games, isEmpty, reason: 'its own catalog');
+
+    state.openSheet();
+    expect(state.stepSequence.first, WizardStepKind.game, reason: 'no "partie ou tournoi ?" alone');
+    expect(state.draft.playerIds, ['lea']);
+    state.startNewGame();
+    state.setGameForm((f) => f
+      ..name = 'Mario Kart'
+      ..rules = [GameRuleFormDraft(name: 'Contre-la-montre', countType: CountType.time, pointLimit: '50', multiRound: true, coop: true)]);
+    await state.createGame();
+    await tester.pumpAndSettle();
+    final game = state.games.single;
+    expect(game.isSoloOnly, isTrue, reason: 'every game created alone is a 1-player game');
+    final rule = game.rules.single;
+    expect(rule.isTime, isTrue);
+    expect(rule.pointLimit, isNull);
+    expect(rule.multiRound, isFalse);
+    expect(rule.coop, isFalse);
+
+    state.pickGame(game.id);
+    state.step = state.stepSequence.indexOf(WizardStepKind.players) + 1;
+    expect(state.canProceed, isTrue, reason: 'one player is enough here');
+    state.step = state.stepSequence.length;
+    expect(state.canProceed, isFalse, reason: 'a time must be entered');
+    state.setPoints('lea', 115000);
+    await state.saveGame();
+    await tester.pumpAndSettle();
+
+    state.openSheet();
+    state.pickGame(game.id);
+    expect(state.draftPersonalBest('lea'), 115000);
+    state.setPoints('lea', 112340);
+    await state.saveGame();
+    await tester.pumpAndSettle();
+
+    final saved = state.matches.where((m) => m.gameId == game.id).toList();
+    expect(saved, hasLength(2));
+    expect(saved.every((m) => m.unit == 'time' && m.lowWins && m.groupId == state.personalGroup!.id), isTrue);
+    final record = state.personalRecords.single;
+    expect(record.bestLabel, '1:52.340');
+    expect(record.lastImprovement, 2660);
+
+    state.selectGroup('bandits');
+    await tester.pumpAndSettle();
+    expect(state.isPersonalContext, isFalse);
+    expect(state.matches.any((m) => m.gameId == game.id), isFalse, reason: 'solo matches stay out of the group');
+
+    await tester.pump(const Duration(milliseconds: 2700));
+  });
+
+  testWidgets('solo games and group games never cross over: 1 player alone, 2 or more in a group', (tester) async {
+    const solitaire = Game(id: 'solitaire', name: 'Solitaire', emoji: '🃏', category: 'Cartes', minPlayers: 1, maxPlayers: 1, rules: [GameRule(id: 't', name: 'Temps', countType: CountType.time)]);
+    const kart = Game(id: 'kart', name: 'Kart', emoji: '🏎️', category: 'Jeu vidéo', minPlayers: 1, maxPlayers: 12, rules: [GameRule(id: 't', name: 'Temps', countType: CountType.time)]);
+    const chess = Game(id: 'chess', name: 'Échecs', emoji: '♟️', category: 'Société', minPlayers: 2, maxPlayers: 2, rules: [GameRule(id: 'w', name: 'Standard', countType: CountType.winLoss)]);
+    final seeded = _buildSeededState(library: [solitaire, kart, chess]);
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    final state = seeded.state;
+    await state.ensureGameLibraryLoaded();
+    expect(state.contextLibrary.map((g) => g.id), unorderedEquals(['kart', 'chess']), reason: 'a one-player game has no place in a group');
+
+    await state.openPersonalSpace();
+    await tester.pumpAndSettle();
+    expect(state.contextLibrary.map((g) => g.id), unorderedEquals(['solitaire', 'kart']), reason: 'a game needing 2 has no place alone');
+
+    state.openSheet();
+    expect(await state.importLibraryGame(kart), isTrue);
+    await tester.pumpAndSettle();
+    final imported = state.games.single;
+    expect(imported.isSoloOnly, isTrue, reason: 'the solo copy is fixed at 1 player');
+    expect(imported.libraryId, 'kart', reason: 'and still follows the library');
+    expect(imported.playersLabel, 'Solo');
+
+    state.startEditingGame(imported);
+    expect(state.gameForm.isValid, isTrue, reason: 'the hidden player count never blocks saving');
+    await state.createGame();
+    await tester.pumpAndSettle();
+    expect(state.games.single.isSoloOnly, isTrue);
+    state.closeSheet();
+
+    await tester.pump(const Duration(milliseconds: 2700));
+  });
+
+  testWidgets('a time is typed in on the scores step, checked, and flagged as a new record', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    final state = seeded.state;
+    await state.openPersonalSpace();
+    state.openSheet();
+    state.startNewGame();
+    state.setGameForm((f) => f
+      ..name = 'Mario Kart'
+      ..rules = [GameRuleFormDraft(name: 'Contre-la-montre', countType: CountType.time)]);
+    await state.createGame();
+    await tester.pumpAndSettle();
+    state.pickGame(state.games.single.id);
+    state.step = state.stepSequence.length;
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: state,
+        child: const MaterialApp(home: Scaffold(body: SingleChildScrollView(child: Step3Scores()))),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Saisissez votre temps.'), findsOneWidget);
+
+    await tester.tap(find.text('Saisir'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '1:75');
+    await tester.tap(find.text('Valider'));
+    await tester.pumpAndSettle();
+    expect(find.text('Format attendu : 1:52.340'), findsOneWidget, reason: 'invalid input keeps the dialog open');
+
+    await tester.enterText(find.byType(TextField), "1'52\"340");
+    await tester.tap(find.text('Valider'));
+    await tester.pumpAndSettle();
+    expect(state.draft.points['lea'], 112340);
+    expect(find.text('1:52.340'), findsOneWidget);
+    expect(find.text('🏆 Premier temps enregistré'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    state.closeSheet();
+
+    await tester.pump(const Duration(milliseconds: 2700));
   });
 
   testWidgets('each player can pick a character, saved on the match and kept when resumed', (tester) async {

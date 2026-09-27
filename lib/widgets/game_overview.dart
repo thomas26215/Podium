@@ -25,6 +25,7 @@ class GameOverview extends StatelessWidget {
         CountType.wins => 'Manches gagnées',
         CountType.ranks => 'Classement',
         CountType.winLoss => 'Victoire / défaite',
+        CountType.time => 'Temps — le plus rapide gagne',
       };
 
   @override

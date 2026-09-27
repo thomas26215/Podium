@@ -87,7 +87,7 @@ class _ReplaceWithLibraryScreenState extends State<ReplaceWithLibraryScreen> {
     final app = context.watch<AppState>();
     final query = _searchCtrl.text;
     // The library game it already follows (if any) isn't a replacement.
-    final results = app.gameLibrary.where((g) => g.id != widget.target.libraryId && gameMatchesQuery(g, query)).take(60).toList();
+    final results = app.contextLibrary.where((g) => g.id != widget.target.libraryId && gameMatchesQuery(g, query)).take(60).toList();
 
     return Scaffold(
       backgroundColor: AppColors.bg,

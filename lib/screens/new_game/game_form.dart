@@ -279,14 +279,18 @@ class _ParametersSection extends StatelessWidget {
         const _SectionTitle('Paramètres du jeu', hint: 'Optionnel — pour décrire le jeu et le retrouver plus facilement.'),
         _fieldLabel('Nombre de joueurs'),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(child: _playersField('Min. (ex. 2)', f.minPlayers, (f, v) => f.minPlayers = v, app)),
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: _helper('à')),
-            Expanded(child: _playersField('Max. (ex. 4)', f.maxPlayers, (f, v) => f.maxPlayers = v, app)),
-          ],
-        ),
-        if (!f.playersValid)
+        // "Mon espace solo" only holds one-player games (see Game.asSolo).
+        if (app.isPersonalContext)
+          _helper('1 joueur — les jeux de votre espace solo se jouent seul.')
+        else
+          Row(
+            children: [
+              Expanded(child: _playersField('Min. (ex. 2)', f.minPlayers, (f, v) => f.minPlayers = v, app)),
+              Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: _helper('à')),
+              Expanded(child: _playersField('Max. (ex. 4)', f.maxPlayers, (f, v) => f.maxPlayers = v, app)),
+            ],
+          ),
+        if (!app.isPersonalContext && !f.playersValid)
           Padding(
             padding: const EdgeInsets.only(top: 6),
             child: Text('Au moins 2 joueurs, et le minimum ne peut pas dépasser le maximum.', style: bodyFont(size: 12, weight: FontWeight.w700, color: AppColors.accent)),
@@ -663,6 +667,7 @@ String _countLabel(CountType t) => switch (t) {
       CountType.wins => 'Manches gagnées',
       CountType.ranks => 'Classement',
       CountType.winLoss => 'Victoire / défaite',
+      CountType.time => 'Temps',
     };
 
 String _countHint(CountType t) => switch (t) {
@@ -671,6 +676,7 @@ String _countHint(CountType t) => switch (t) {
       CountType.wins => 'On compte les manches gagnées — Président, belote, ping-pong…',
       CountType.ranks => 'Un classement, avec ou sans places nommées (Président…).',
       CountType.winLoss => 'Qui a gagné, sans points — échecs, matchs 1 contre 1…',
+      CountType.time => 'Un temps, le plus rapide gagne — contre-la-montre Mario Kart, speedrun…',
     };
 
 /// Short one-line summary of a rule's counting config (e.g. "Points · plus
@@ -807,27 +813,30 @@ class _RuleFields extends StatelessWidget {
           const SizedBox(height: 6),
           _helper('La partie est signalée comme terminée dès qu’un joueur atteint ce score.'),
         ],
-        const SizedBox(height: 22),
-        _FormCard(
-          padding: EdgeInsets.zero,
-          child: Column(
-            children: [
-              _SwitchRow(
-                title: 'Partie coopérative',
-                subtitle: 'Tout le groupe joue ensemble contre le jeu.',
-                value: f.coop,
-                onChanged: (v) => _setCoop(app, v),
-              ),
-              Divider(height: 1, thickness: 1, color: AppColors.line),
-              _SwitchRow(
-                title: 'Manches multiples',
-                subtitle: f.scoreFields.isNotEmpty ? 'Indisponible avec des catégories de score.' : 'Les scores se cumulent manche après manche.',
-                value: f.multiRound,
-                onChanged: f.scoreFields.isNotEmpty ? null : (v) => app.setGameForm((f) => f..rules[index].multiRound = v),
-              ),
-            ],
+        // A time is one run per player: no shared outcome, no rounds.
+        if (f.countType != CountType.time) ...[
+          const SizedBox(height: 22),
+          _FormCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                _SwitchRow(
+                  title: 'Partie coopérative',
+                  subtitle: 'Tout le groupe joue ensemble contre le jeu.',
+                  value: f.coop,
+                  onChanged: (v) => _setCoop(app, v),
+                ),
+                Divider(height: 1, thickness: 1, color: AppColors.line),
+                _SwitchRow(
+                  title: 'Manches multiples',
+                  subtitle: f.scoreFields.isNotEmpty ? 'Indisponible avec des catégories de score.' : 'Les scores se cumulent manche après manche.',
+                  value: f.multiRound,
+                  onChanged: f.scoreFields.isNotEmpty ? null : (v) => app.setGameForm((f) => f..rules[index].multiRound = v),
+                ),
+              ],
+            ),
           ),
-        ),
+        ],
       ],
     );
   }

@@ -53,7 +53,7 @@ class _GameLibraryBrowserState extends State<GameLibraryBrowser> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (app.gameLibrary.isNotEmpty) ...[
-          _CategoryChips(library: app.gameLibrary, selected: app.libraryCategory, onChanged: app.setLibraryCategory),
+          _CategoryChips(library: app.contextLibrary, selected: app.libraryCategory, onChanged: app.setLibraryCategory),
           const SizedBox(height: 12),
         ],
         TextField(

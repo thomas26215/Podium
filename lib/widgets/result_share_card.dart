@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+import '../logic/time_format.dart';
 import '../models/app_user.dart';
 import '../models/game.dart';
 import '../models/match.dart';
@@ -108,7 +109,7 @@ class ResultShareCard extends StatelessWidget {
     for (var i = 0; i < entries.length; i++) {
       final e = entries[i];
       final place = i > 0 && key(entries[i - 1]) == key(e) ? out[i - 1].place : i + 1;
-      final score = rule.isWinLoss ? (winners.contains(e.playerId) ? 'Victoire' : '') : (e.role ?? sharePts(e.points));
+      final score = rule.isWinLoss ? (winners.contains(e.playerId) ? 'Victoire' : '') : (e.role ?? (match.unit == 'time' ? formatDuration(e.points) : sharePts(e.points)));
       out.add(_Ranked(e.playerId, _name(e.playerId), _player(e.playerId)?.initial ?? '?', _color(e.playerId), score, place));
     }
     return out;

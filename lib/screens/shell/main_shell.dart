@@ -80,7 +80,7 @@ class MainShell extends StatelessWidget {
           child: Row(
             children: [
               _NavItem(icon: Icons.home_rounded, label: 'Accueil', selected: app.tab == AppTab.home, onTap: () => app.setTab(AppTab.home)),
-              _NavItem(icon: Icons.emoji_events_rounded, label: 'Classement', selected: app.tab == AppTab.ranking, onTap: () => app.setTab(AppTab.ranking)),
+              _NavItem(icon: Icons.emoji_events_rounded, label: app.isPersonalContext ? 'Records' : 'Classement', selected: app.tab == AppTab.ranking, onTap: () => app.setTab(AppTab.ranking)),
               SizedBox(
                 width: 64,
                 child: Center(
@@ -105,13 +105,18 @@ class MainShell extends StatelessWidget {
                 ),
               ),
               _NavItem(icon: Icons.schedule_rounded, label: 'Parties', selected: app.tab == AppTab.history, onTap: () => app.setTab(AppTab.history)),
-              _NavItem(
-                icon: Icons.forum_rounded,
-                label: 'Discussion',
-                selected: app.tab == AppTab.games,
-                onTap: () => app.setTab(AppTab.games),
-                showBadge: app.tab != AppTab.games && app.hasUnreadDiscussionMessages,
-              ),
+              // Nobody to talk to in "Mon espace solo" — the slot stays so
+              // the "+" keeps its place in the middle.
+              if (app.isPersonalContext)
+                const Expanded(child: SizedBox.shrink())
+              else
+                _NavItem(
+                  icon: Icons.forum_rounded,
+                  label: 'Discussion',
+                  selected: app.tab == AppTab.games,
+                  onTap: () => app.setTab(AppTab.games),
+                  showBadge: app.tab != AppTab.games && app.hasUnreadDiscussionMessages,
+                ),
             ],
           ),
         ),

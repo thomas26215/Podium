@@ -141,10 +141,15 @@ class _GroupsScreenState extends State<GroupsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const ScreenHeading(eyebrow: 'Vos communautés', title: 'Mes groupes & serveurs'),
+                if (!app.groupsLoading) ...[
+                  const _SectionLabel('SOLO'),
+                  const FadeSlideIn(child: _PersonalSpaceCard()),
+                  const SizedBox(height: 12),
+                ],
                 if (app.groupsLoading)
                   Padding(padding: EdgeInsets.symmetric(vertical: 40), child: Center(child: CircularProgressIndicator(color: AppColors.accent)))
                 else if (nothingAtAll)
-                  const EmptyState(emoji: '👥', message: 'Créez votre premier groupe pour commencer.')
+                  const EmptyState(emoji: '👥', message: 'Créez votre premier groupe pour jouer entre amis.')
                 else ...[
                   if (activeGroups.isNotEmpty) ...[
                     const _SectionLabel('GROUPES'),
@@ -216,6 +221,60 @@ class _GroupsScreenState extends State<GroupsScreen> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// "Mon espace solo" (see `AppState.openPersonalSpace`): always offered,
+/// even before it exists — it's created on first tap.
+class _PersonalSpaceCard extends StatelessWidget {
+  const _PersonalSpaceCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final personal = app.personalGroup;
+    final active = personal != null && app.isPersonalContext;
+    final parties = personal == null ? 0 : app.groupPartyCount(personal.id);
+    return Pressable(
+      onTap: () async {
+        await app.openPersonalSpace();
+        if (context.mounted && app.isPersonalContext && Navigator.of(context).canPop()) Navigator.of(context).pop();
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          border: Border.all(color: active ? AppColors.accent : AppColors.line, width: 1.5),
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(color: AppColors.accentSoft, borderRadius: BorderRadius.circular(14)),
+              child: const Text('⏱️', style: TextStyle(fontSize: 24)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Mon espace solo', style: bodyFont(size: 16, weight: FontWeight.w800, color: AppColors.ink)),
+                  const SizedBox(height: 2),
+                  Text(
+                    personal == null ? 'Contre-la-montre, high scores… rien que pour vous' : 'Rien que pour vous · $parties parties',
+                    style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: AppColors.mut),
+          ],
+        ),
+      ),
     );
   }
 }

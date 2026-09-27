@@ -382,8 +382,10 @@ exports.onSalonMemberAdded = onDocumentUpdated("servers/{serverId}/salons/{salon
 // since, which keep its id in `libraryId` (see Game.libraryId in
 // lib/models/game.dart; editing a copy drops that field). Each copy is
 // replaced wholesale by the library version, keeping only its own
-// `salonId`/`libraryId`. Re-checked inside a transaction so a copy edited
-// by its group while this runs is left alone.
+// `salonId`/`libraryId` — and, for a copy in someone's "Mon espace solo"
+// (exactly 1 player, see Game.asSolo), its player count. Re-checked inside
+// a transaction so a copy edited by its group while this runs is left
+// alone.
 //
 // The collection-group query needs the `games.libraryId` field override in
 // firestore.indexes.json.
@@ -400,7 +402,13 @@ exports.onGameLibraryUpdated = onDocumentUpdated("gameLibrary/{libraryId}", asyn
       const snap = await tx.get(copy.ref);
       if (!snap.exists || snap.get("libraryId") !== libraryId) return;
       const salonId = snap.get("salonId");
-      tx.set(copy.ref, { ...after, libraryId, ...(salonId != null && { salonId }) });
+      const solo = snap.get("minPlayers") === 1 && snap.get("maxPlayers") === 1;
+      tx.set(copy.ref, {
+        ...after,
+        libraryId,
+        ...(salonId != null && { salonId }),
+        ...(solo && { minPlayers: 1, maxPlayers: 1 }),
+      });
       updated++;
     });
   }

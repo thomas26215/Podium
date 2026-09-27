@@ -51,12 +51,12 @@ class Step2Players extends StatelessWidget {
     final d = app.draft;
     final players = app.viewPlayers;
     final rule = app.draftRule;
-    // Ranks and win/loss rules are always solo scoring, and a rule flagged
+    // Ranks, win/loss and time rules are always solo scoring, and a rule flagged
     // GameRule.coop picks the mode by itself — none of these ever show the
     // "Chacun pour soi"/"Équipes" choice (see AppState._applyRule, which
     // sets draft.mode accordingly up front). Every other rule keeps that
     // choice exactly as before.
-    final modeFixed = rule != null && (rule.isRanks || rule.isWinLoss || rule.coop);
+    final modeFixed = app.isPersonalContext || (rule != null && (rule.isRanks || rule.isWinLoss || rule.isTime || rule.coop));
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
@@ -151,7 +151,7 @@ class Step2Players extends StatelessWidget {
               style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
             ),
           ),
-        if (!isTournamentFlow) _PlayerCountHint(game: game, selected: d.playerIds.length),
+        if (!isTournamentFlow && !app.isPersonalContext) _PlayerCountHint(game: game, selected: d.playerIds.length),
         if (!modeFixed) ...[
           Row(
             children: [

@@ -14,6 +14,7 @@ import '../models/group.dart';
 import '../models/group_invite_code.dart';
 import '../logic/game_filter.dart';
 import '../logic/game_sort.dart';
+import '../logic/personal_records.dart';
 import '../logic/text_search.dart';
 import '../logic/tournament_bracket.dart';
 import '../models/match.dart';
@@ -225,7 +226,13 @@ class AppState extends ChangeNotifier {
   List<AppUser> friends = [];
 
   // ---- groups ----
+  /// Every shared group the user belongs to — never their private
+  /// [personalGroup], which lives apart from every list of groups.
   List<Group> groups = [];
+
+  /// The user's "Mon espace solo" (see [Group.personal]/[openPersonalSpace])
+  /// — null until it's first opened.
+  Group? personalGroup;
   bool groupsLoading = true;
   String? currentGroupId;
   final Map<String, AppUser> _memberCache = {};
@@ -513,6 +520,7 @@ class AppState extends ChangeNotifier {
     eventsLoaded = false;
     messagesLoaded = false;
     currentGroupId = null;
+    personalGroup = null;
     currentServerId = null;
     currentSalonId = null;
     currentSalonServerId = null;
@@ -656,10 +664,14 @@ class AppState extends ChangeNotifier {
   // ============================== GROUPS ==============================
 
   void _onGroupsChanged(List<Group> gs) {
-    groups = gs;
+    groups = gs.where((g) => !g.personal).toList();
+    // Kept if the stream hasn't caught up with one just created by
+    // openPersonalSpace yet.
+    personalGroup = gs.where((g) => g.personal && g.ownerId == currentUser?.uid).firstOrNull ?? personalGroup;
     groupsLoading = false;
-    if (currentGroupId == null || groups.every((g) => g.id != currentGroupId)) {
-      currentGroupId = groups.isNotEmpty ? groups.first.id : null;
+    if (currentGroupId == null || _findGroup(currentGroupId!) == null) {
+      // Someone who only ever plays solo lands straight in their space.
+      currentGroupId = groups.firstOrNull?.id ?? personalGroup?.id;
     }
     unawaited(_ensureMembersLoaded());
     // Only actually (re)subscribe games/matches/tournaments if a Group is
@@ -1085,7 +1097,27 @@ class AppState extends ChangeNotifier {
     for (final g in groups) {
       if (g.id == id) return g;
     }
-    return null;
+    return personalGroup?.id == id ? personalGroup : null;
+  }
+
+  /// Whether the user is in their private "Mon espace solo" (see
+  /// [Group.personal]) — matches there have a single player, no tournament,
+  /// no discussion, and records replace the ranking.
+  bool get isPersonalContext => activeContext == ActiveContextKind.group && currentGroup?.personal == true;
+
+  /// Switches to the user's "Mon espace solo", creating it the first time.
+  Future<void> openPersonalSpace() async {
+    final uid = currentUser?.uid;
+    if (uid == null) return;
+    if (personalGroup == null) {
+      try {
+        personalGroup = await groupsRepo.createGroup(name: 'Mon espace solo', emoji: '⏱️', emojiBg: 0xFFE7EBFF, ownerId: uid, personal: true);
+      } catch (e) {
+        showToast("Impossible d'ouvrir l'espace solo.");
+        return;
+      }
+    }
+    selectGroup(personalGroup!.id);
   }
 
   Group? get currentGroup => currentGroupId == null ? null : _findGroup(currentGroupId!);
@@ -1123,7 +1155,7 @@ class AppState extends ChangeNotifier {
   /// groups screen is opened (a match played elsewhere since the last
   /// refresh would otherwise look stale there).
   Future<void> refreshGroupPartyCounts() async {
-    final futures = <Future<void>>[for (final g in groups) _refreshOneGroupPartyCount(g.id, g.id, [g.id])];
+    final futures = <Future<void>>[for (final g in [...groups, ?personalGroup]) _refreshOneGroupPartyCount(g.id, g.id, [g.id])];
     await Future.wait(futures);
     notifyListeners();
   }
@@ -2610,6 +2642,11 @@ class AppState extends ChangeNotifier {
     _draftHasProgress = false;
     _justSaved = false;
     _justCreatedTournament = null;
+    if (isPersonalContext) {
+      draft.creationKind = 'game';
+      final uid = currentUser?.uid;
+      if (uid != null) draft.playerIds = [uid];
+    }
     notifyListeners();
   }
 
@@ -2925,8 +2962,10 @@ class AppState extends ChangeNotifier {
       name: game.name,
       emoji: game.emoji,
       category: game.category,
-      minPlayers: game.minPlayers?.toString() ?? '',
-      maxPlayers: game.maxPlayers?.toString() ?? '',
+      // Hidden (and forced to 1 on save) in "Mon espace solo" — see
+      // createGame; left blank so its "at least 2" check stays out of the way.
+      minPlayers: isPersonalContext ? '' : game.minPlayers?.toString() ?? '',
+      maxPlayers: isPersonalContext ? '' : game.maxPlayers?.toString() ?? '',
       themes: List.of(game.themes),
       characterEnabled: game.characterChoice != null,
       characterLabel: game.characterChoice?.label ?? CharacterChoice.defaultLabel,
@@ -3002,8 +3041,8 @@ class AppState extends ChangeNotifier {
           category: libraryGame.category,
           rules: libraryGame.rules,
           ruleSections: libraryGame.ruleSections,
-          minPlayers: libraryGame.minPlayers,
-          maxPlayers: libraryGame.maxPlayers,
+          minPlayers: isPersonalContext ? 1 : libraryGame.minPlayers,
+          maxPlayers: isPersonalContext ? 1 : libraryGame.maxPlayers,
           themes: libraryGame.themes,
           characterChoice: libraryGame.characterChoice,
           setupChoice: libraryGame.setupChoice,
@@ -3050,7 +3089,12 @@ class AppState extends ChangeNotifier {
 
   /// The library restricted to [libraryCategory] — what the filter bar
   /// draws its themes from.
-  List<Game> get libraryInCategory => libraryCategory == null ? gameLibrary : gameLibrary.where((g) => g.category == libraryCategory).toList();
+  List<Game> get libraryInCategory => libraryCategory == null ? contextLibrary : contextLibrary.where((g) => g.category == libraryCategory).toList();
+
+  /// The library games that fit where the catalog lives: only ones playable
+  /// alone for "Mon espace solo", only ones playable by several for a
+  /// group or salon (see [Game.playableSolo]/[Game.playableInGroup]).
+  List<Game> get contextLibrary => gameLibrary.where((g) => isPersonalContext ? g.playableSolo : g.playableInGroup).toList();
 
   /// [libraryInCategory] narrowed by the search box (name, category or theme)
   /// and by [libraryFilter] (players/themes).
@@ -3083,7 +3127,7 @@ class AppState extends ChangeNotifier {
     try {
       final game = await _activeGamesRepo.importGame(
         root,
-        libraryGame,
+        isPersonalContext ? libraryGame.asSolo() : libraryGame,
         salonId: activeContext == ActiveContextKind.salon ? currentSalonId : null,
         libraryId: libraryGame.id,
       );
@@ -3193,11 +3237,13 @@ class AppState extends ChangeNotifier {
     // No numeric score at all for a rounds-won tally, a ranks-based
     // classement, or a plain win/loss mark — a point limit only makes sense
     // when there's actually a running point total.
-    final noPointLimit = f.countType == CountType.wins || isRanks || f.countType == CountType.winLoss;
+    final isTime = f.countType == CountType.time;
+    final noPointLimit = f.countType == CountType.wins || isRanks || f.countType == CountType.winLoss || isTime;
     final scoreFields = isPointGame
         ? f.scoreFields.where((field) => field.label.trim().isNotEmpty).map((field) => field.copyWith(label: field.label.trim())).toList()
         : null;
-    final multiRound = scoreFields != null && scoreFields.isNotEmpty ? false : f.multiRound;
+    // A time is one run per player — never spread over several rounds.
+    final multiRound = isTime || (scoreFields != null && scoreFields.isNotEmpty) ? false : f.multiRound;
     return GameRule(
       id: f.id,
       name: f.name.trim(),
@@ -3210,7 +3256,7 @@ class AppState extends ChangeNotifier {
       multiRound: multiRound,
       scoreFields: scoreFields,
       // A classement has no notion of a shared group outcome — see GameRule.coop.
-      coop: isRanks ? false : f.coop,
+      coop: isRanks || isTime ? false : f.coop,
     );
   }
 
@@ -3231,8 +3277,9 @@ class AppState extends ChangeNotifier {
           emoji: gameForm.emoji,
           category: gameForm.category,
           rules: rules,
-          minPlayers: gameForm.parsedMinPlayers,
-          maxPlayers: gameForm.parsedMaxPlayers,
+          // "Mon espace solo" only ever holds one-player games.
+          minPlayers: isPersonalContext ? 1 : gameForm.parsedMinPlayers,
+          maxPlayers: isPersonalContext ? 1 : gameForm.parsedMaxPlayers,
           themes: gameForm.cleanThemes,
           characterChoice: gameForm.cleanCharacterChoice,
           setupChoice: gameForm.cleanSetupChoice,
@@ -3256,8 +3303,9 @@ class AppState extends ChangeNotifier {
           emoji: gameForm.emoji,
           category: gameForm.category,
           rules: rules,
-          minPlayers: gameForm.parsedMinPlayers,
-          maxPlayers: gameForm.parsedMaxPlayers,
+          // "Mon espace solo" only ever holds one-player games.
+          minPlayers: isPersonalContext ? 1 : gameForm.parsedMinPlayers,
+          maxPlayers: isPersonalContext ? 1 : gameForm.parsedMaxPlayers,
           themes: gameForm.cleanThemes,
           characterChoice: gameForm.cleanCharacterChoice,
           setupChoice: gameForm.cleanSetupChoice,
@@ -3308,7 +3356,7 @@ class AppState extends ChangeNotifier {
     // Step2Players.modeFixed).
     if (rule != null && rule.coop) {
       draft.mode = 'coop';
-    } else if (rule != null && (rule.isRanks || rule.isWinLoss)) {
+    } else if (rule != null && (rule.isRanks || rule.isWinLoss || rule.isTime)) {
       draft.mode = 'ffa';
     }
     draft.scoreBreakdown.clear();
@@ -3394,6 +3442,16 @@ class AppState extends ChangeNotifier {
   /// rule step".
   List<WizardStepKind> get stepSequence {
     final needsRuleStep = gameById(draft.gameId ?? '')?.hasMultipleRules ?? false;
+    // No tournament alone — straight to the game (see openSheet, which
+    // answers the "partie ou tournoi ?" step up front).
+    if (isPersonalContext) {
+      return [
+        WizardStepKind.game,
+        if (needsRuleStep) WizardStepKind.rule,
+        WizardStepKind.players,
+        WizardStepKind.scores,
+      ];
+    }
     if (isTournamentFlow) {
       return [
         WizardStepKind.kind,
@@ -3776,6 +3834,41 @@ class AppState extends ChangeNotifier {
 
   /// Player(s) currently in the lead within the draft, for the "EN TÊTE"
   /// highlight during quick/live scoring.
+  /// `uid`'s best result so far for [gameId] under [ruleId] (see
+  /// [Game.resolveRule]) in the current group/salon — the highest score, or
+  /// the lowest for a lowWins/time rule. Null before their first match.
+  /// [excludeMatchId] leaves out the match being corrected, so editing a
+  /// record doesn't compare it against itself.
+  int? personalBest({required String gameId, required String? ruleId, required String uid, String? excludeMatchId}) {
+    final game = gameById(gameId);
+    if (game == null) return null;
+    final rule = game.resolveRule(ruleId);
+    int? best;
+    for (final m in viewMatches) {
+      if (m.gameId != gameId || m.id == excludeMatchId || game.resolveRule(m.ruleId).id != rule.id) continue;
+      for (final e in m.entries) {
+        if (e.playerId != uid) continue;
+        if (best == null || (rule.lowWins ? e.points < best : e.points > best)) best = e.points;
+      }
+    }
+    return best;
+  }
+
+  /// The signed-in user's records in the current group/salon — what "Mon
+  /// espace solo" shows instead of a ranking (see [isPersonalContext]).
+  List<PersonalRecord> get personalRecords {
+    final uid = currentUser?.uid;
+    if (uid == null) return const [];
+    return computePersonalRecords(viewMatches, gameById, uid);
+  }
+
+  /// [personalBest] for `uid` on the match currently being scored.
+  int? draftPersonalBest(String uid) {
+    final gameId = draft.gameId;
+    if (gameId == null) return null;
+    return personalBest(gameId: gameId, ruleId: draft.ruleId, uid: uid, excludeMatchId: _editingMatchId);
+  }
+
   List<String> get draftLeaderIds {
     if (draft.playerIds.isEmpty || !draft.playerIds.any((id) => (draft.points[id] ?? 0) != 0)) {
       return const [];
@@ -3924,9 +4017,12 @@ class AppState extends ChangeNotifier {
       case WizardStepKind.rule:
         return draft.ruleId != null;
       case WizardStepKind.players:
-        return draft.playerIds.length >= 2 && draftTeamsValid && !(isTournamentFlow && !isOnline);
+        return draft.playerIds.length >= (isPersonalContext ? 1 : 2) && draftTeamsValid && !(isTournamentFlow && !isOnline);
       case WizardStepKind.scores:
         final rule = draftRule;
+        // Every player needs an actual time — 0 would be an unbeatable,
+        // meaningless "record".
+        if (rule?.isTime == true) return draft.playerIds.every((id) => (draft.points[id] ?? 0) > 0);
         // Both a CountType.winLoss rule and the generic "Manches gagnées"
         // unit share the same round-by-round "one winner per manche" input
         // (see _WinLossRoundsInput) and the same guard against saving a

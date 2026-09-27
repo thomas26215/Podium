@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/app_user.dart';
+import '../../logic/time_format.dart';
 import '../../models/game.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
@@ -307,6 +308,149 @@ class _WinLossScoreList extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Scoring UI for [CountType.time] rules: one time per player, typed in
+/// (see [parseDuration]), with that player's current record for this rule
+/// alongside — and a "Nouveau record" badge the moment it's beaten.
+class _TimeScoreList extends StatelessWidget {
+  const _TimeScoreList();
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final d = app.draft;
+    // The fastest time actually entered — an untouched 0 isn't a time.
+    final entered = [for (final id in d.playerIds) if ((d.points[id] ?? 0) > 0) d.points[id]!];
+    final fastest = d.playerIds.length > 1 && entered.isNotEmpty ? entered.reduce((a, b) => a < b ? a : b) : null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(d.playerIds.length > 1 ? 'Saisissez le temps de chacun — le plus rapide gagne.' : 'Saisissez votre temps.', style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.mut)),
+        const SizedBox(height: 14),
+        for (final uid in d.playerIds)
+          Builder(builder: (_) {
+            final p = app.playerById(uid);
+            if (p == null) return const SizedBox.shrink();
+            final ms = d.points[uid] ?? 0;
+            final best = app.draftPersonalBest(uid);
+            final isRecord = ms > 0 && (best == null || ms < best);
+            final isLead = ms > 0 && ms == fastest;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.only(bottom: 9),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isLead ? AppColors.greenSoft : AppColors.card,
+                border: Border.all(color: isLead ? AppColors.green : AppColors.line, width: 1.5),
+                borderRadius: BorderRadius.circular(AppRadius.lg),
+              ),
+              child: Row(
+                children: [
+                  Avatar(initial: p.initial, color: Color(p.color), size: 40, fontSize: 15),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(p.displayName, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
+                        if (isRecord && best != null)
+                          Text('🏆 Nouveau record (avant : ${formatDuration(best)})', style: bodyFont(size: 11.5, weight: FontWeight.w800, color: AppColors.green))
+                        else if (isRecord)
+                          Text('🏆 Premier temps enregistré', style: bodyFont(size: 11.5, weight: FontWeight.w800, color: AppColors.green))
+                        else if (best != null)
+                          Text('Record : ${formatDuration(best)}', style: bodyFont(size: 11.5, weight: FontWeight.w700, color: AppColors.mut)),
+                      ],
+                    ),
+                  ),
+                  Pressable(
+                    onTap: () => _showEditTimeDialog(context, p.displayName, ms, onSubmit: (v) => app.setPoints(uid, v)),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: ms > 0 ? AppColors.bg : AppColors.accentSoft,
+                        border: Border.all(color: ms > 0 ? AppColors.line : AppColors.accent, width: 1.5),
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.timer_outlined, size: 17, color: ms > 0 ? AppColors.ink2 : AppColors.accent),
+                          const SizedBox(width: 6),
+                          Text(
+                            ms > 0 ? formatDuration(ms) : 'Saisir',
+                            style: ms > 0 ? dispFont(size: 17, weight: FontWeight.w700, color: AppColors.ink) : bodyFont(size: 13.5, weight: FontWeight.w800, color: AppColors.accent),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+      ],
+    );
+  }
+}
+
+/// Asks for a time as text ("1:52.340", "1'52\"340"…, see [parseDuration])
+/// — invalid input keeps the dialog open with a hint instead of guessing.
+Future<void> _showEditTimeDialog(BuildContext context, String playerName, int currentMs, {required void Function(int ms) onSubmit}) async {
+  final ctrl = TextEditingController(text: currentMs > 0 ? formatDuration(currentMs) : '');
+  String? error;
+  await showDialog(
+    context: context,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (dialogContext, setState) {
+        void submit() {
+          final ms = parseDuration(ctrl.text);
+          if (ms == null) {
+            setState(() => error = 'Format attendu : 1:52.340');
+            return;
+          }
+          onSubmit(ms);
+          Navigator.of(dialogContext).pop();
+        }
+
+        return Dialog(
+          backgroundColor: AppColors.bg,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Temps de $playerName', style: dispFont(size: 18, weight: FontWeight.w700, color: AppColors.ink)),
+                const SizedBox(height: 4),
+                Text('Minutes:secondes.millièmes — ex. 1:52.340', style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: ctrl,
+                  autofocus: true,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  textAlign: TextAlign.center,
+                  style: dispFont(size: 28, weight: FontWeight.w700, color: AppColors.ink),
+                  decoration: appFieldDecoration(hintText: '1:52.340'),
+                  onChanged: (_) {
+                    if (error != null) setState(() => error = null);
+                  },
+                  onSubmitted: (_) => submit(),
+                ),
+                if (error != null) ...[
+                  const SizedBox(height: 6),
+                  Text(error!, style: bodyFont(size: 12, weight: FontWeight.w700, color: AppColors.accent)),
+                ],
+                const SizedBox(height: 18),
+                PrimaryButton(label: 'Valider', onPressed: submit),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  );
 }
 
 /// Multi-round variant of [_WinLossScoreList]: mark winners/losers for the
@@ -892,6 +1036,15 @@ class Step3Scores extends StatelessWidget {
             const SizedBox(height: 16),
           ],
           useRounds ? const _WinLossRoundsInput() : const _WinLossScoreList(),
+        ],
+      );
+    }
+    if (rule?.isTime == true) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (d.bestOf > 1) const _SeriesProgressBanner(),
+          const _TimeScoreList(),
         ],
       );
     }

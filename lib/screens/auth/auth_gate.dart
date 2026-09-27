@@ -33,7 +33,7 @@ class AuthGate extends StatelessWidget {
         backgroundColor: AppColors.bg,
         body: Center(child: CircularProgressIndicator(color: AppColors.accent)),
       );
-    } else if (app.groups.isEmpty) {
+    } else if (app.groups.isEmpty && !app.isPersonalContext) {
       key = const ValueKey('noGroup');
       child = const NoGroupScreen();
     } else {

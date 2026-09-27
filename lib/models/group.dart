@@ -35,6 +35,12 @@ class Group {
   /// forever-valid bearer token.
   final DateTime? inviteExpiresAt;
 
+  /// The owner's private "Mon espace solo" (see `AppState.openPersonalSpace`)
+  /// — one per account, never shared: it holds the matches played alone
+  /// (a Mario Kart contre-la-montre…) with their own catalog, kept out of
+  /// every list of groups ([AppState.groups] never contains it).
+  final bool personal;
+
   const Group({
     required this.id,
     required this.name,
@@ -46,6 +52,7 @@ class Group {
     this.closedAt,
     this.temporary = false,
     this.inviteExpiresAt,
+    this.personal = false,
   });
 
   Map<String, dynamic> toMap() => {
@@ -56,6 +63,7 @@ class Group {
         'ownerId': ownerId,
         'closed': closed,
         'temporary': temporary,
+        if (personal) 'personal': true,
       };
 
   factory Group.fromDoc(String id, Map<String, dynamic> data) {
@@ -70,6 +78,7 @@ class Group {
       closedAt: (data['closedAt'] as Timestamp?)?.toDate(),
       temporary: (data['temporary'] as bool?) ?? false,
       inviteExpiresAt: (data['inviteExpiresAt'] as Timestamp?)?.toDate(),
+      personal: (data['personal'] as bool?) ?? false,
     );
   }
 
@@ -91,5 +100,6 @@ class Group {
         closedAt: closed == false ? null : (closedAt ?? this.closedAt),
         temporary: temporary,
         inviteExpiresAt: inviteExpiresAt ?? this.inviteExpiresAt,
+        personal: personal,
       );
 }
