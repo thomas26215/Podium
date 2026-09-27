@@ -162,12 +162,20 @@ class SectionHeader extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(title, style: bodyFont(size: 17, weight: FontWeight.w800, color: AppColors.ink, letterSpacing: -0.3)),
+          // Shortened rather than overflowing when an action shares the
+          // row — only then, since a bare header may sit in a Row of its own
+          // (unbounded width, where Flexible can't lay out).
           if (actionLabel != null)
+            Flexible(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: bodyFont(size: 17, weight: FontWeight.w800, color: AppColors.ink, letterSpacing: -0.3)))
+          else
+            Text(title, style: bodyFont(size: 17, weight: FontWeight.w800, color: AppColors.ink, letterSpacing: -0.3)),
+          if (actionLabel != null) ...[
+            const SizedBox(width: 12),
             Pressable(
               onTap: onAction,
               child: Text(actionLabel!, style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.accent)),
             ),
+          ],
         ],
       ),
     );

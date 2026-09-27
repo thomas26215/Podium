@@ -42,7 +42,7 @@ import 'new_game_draft.dart';
 import 'player_row.dart';
 
 /// Which of the 5 tabs is showing.
-enum AppTab { home, ranking, history, profile, groups, games }
+enum AppTab { home, ranking, history, profile, groups, games, soloGames }
 
 /// Which kind of "place to record matches" is currently active — a friend
 /// [Group] (the original, freely-editable model) or a [Salon] within a
@@ -3443,12 +3443,16 @@ class AppState extends ChangeNotifier {
   List<WizardStepKind> get stepSequence {
     final needsRuleStep = gameById(draft.gameId ?? '')?.hasMultipleRules ?? false;
     // No tournament alone — straight to the game (see openSheet, which
-    // answers the "partie ou tournoi ?" step up front).
+    // answers the "partie ou tournoi ?" step up front) — and no players step
+    // unless the game has something to pick there (the date moves onto the
+    // scores step instead, see Step3Scores).
     if (isPersonalContext) {
+      final game = gameById(draft.gameId ?? '');
+      final hasPicks = game != null && (game.hasSetupChoice || game.hasCharacters);
       return [
         WizardStepKind.game,
         if (needsRuleStep) WizardStepKind.rule,
-        WizardStepKind.players,
+        if (hasPicks) WizardStepKind.players,
         WizardStepKind.scores,
       ];
     }
@@ -3860,6 +3864,29 @@ class AppState extends ChangeNotifier {
     final uid = currentUser?.uid;
     if (uid == null) return const [];
     return computePersonalRecords(viewMatches, gameById, uid);
+  }
+
+  /// The signed-in user's results in the current group/salon, keyed by
+  /// match id — whether each was a record when played, and its gap to
+  /// today's best (see [SoloAttempt]).
+  Map<String, SoloAttempt> get soloAttempts {
+    final uid = currentUser?.uid;
+    if (uid == null) return const {};
+    return computeSoloAttempts(viewMatches, gameById, uid);
+  }
+
+  /// Opens the new-match sheet on [game] straight away — "Jouer"/"Rejouer"
+  /// in "Mon espace solo". Lands on the rule step when the game has several
+  /// rules and none is given, otherwise on the first step past the game
+  /// (the scores, unless there's something to pick first).
+  void startSoloMatch(Game game, {String? ruleId}) {
+    openSheet();
+    pickGame(game.id);
+    if (ruleId != null && game.ruleById(ruleId) != null) pickRule(ruleId);
+    final seq = stepSequence;
+    final next = seq.indexOf(WizardStepKind.game) + (game.hasMultipleRules && ruleId != null ? 2 : 1);
+    step = (next + 1).clamp(1, seq.length);
+    notifyListeners();
   }
 
   /// [personalBest] for `uid` on the match currently being scored.

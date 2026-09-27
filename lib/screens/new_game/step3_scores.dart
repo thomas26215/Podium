@@ -11,6 +11,7 @@ import '../../widgets/common.dart';
 import '../../widgets/match_card.dart';
 import '../../widgets/score_evolution_chart.dart';
 import '../../widgets/segmented_control.dart';
+import 'step2_players.dart' show PlayedAtPicker;
 
 /// Scoring UI for [CountType.ranks] games (Président & co.): instead of
 /// entering points, you order the players from 1st to last and the app
@@ -999,6 +1000,18 @@ class Step3Scores extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
+    // In "Mon espace solo" the players step (and its date) is skipped when
+    // there's nothing to pick there — the date is asked here instead.
+    if (app.isPersonalContext && !app.stepSequence.contains(WizardStepKind.players) && !app.isEditingMatch) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [const PlayedAtPicker(), _body(context, app)],
+      );
+    }
+    return _body(context, app);
+  }
+
+  Widget _body(BuildContext context, AppState app) {
     final d = app.draft;
     final rule = app.draftRule;
     if (rule?.isRanks == true) {

@@ -6,7 +6,6 @@ import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/avatar.dart';
 import '../../widgets/common.dart';
-import '../../widgets/personal_records.dart';
 import '../../widgets/podium.dart';
 import '../../widgets/rank_row.dart';
 import '../../widgets/segmented_control.dart';
@@ -27,18 +26,6 @@ class RankingScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
-    if (app.isPersonalContext) {
-      return SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 6, 20, 116),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ScreenHeading(eyebrow: app.currentGroup?.name ?? '', title: 'Mes records'),
-            PersonalRecordsList(records: app.personalRecords),
-          ],
-        ),
-      );
-    }
     final rows = app.standings(
       app.rankMode,
       gameFilterId: app.gameFilter,

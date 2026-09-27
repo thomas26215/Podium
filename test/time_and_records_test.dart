@@ -91,6 +91,26 @@ void main() {
       expect(gp.lastImprovement, isNull, reason: 'the last result wasn\'t the record');
     });
 
+    test('flags each attempt that beat the record at the time, and its gap to today\'s best', () {
+      final matches = [
+        run('a', 'clm', 115000, 1),
+        run('b', 'clm', 118000, 2),
+        run('c', 'clm', 112340, 3),
+        run('d', 'gp', 40, 1, unit: 'points'),
+        run('e', 'gp', 52, 2, unit: 'points'),
+      ];
+      final attempts = computeSoloAttempts(matches, (_) => mk, 'me');
+      expect(attempts['a']!.wasRecord, isTrue, reason: 'a first attempt is a record');
+      expect(attempts['a']!.gapToBest, 2660);
+      expect(attempts['b']!.wasRecord, isFalse);
+      expect(attempts['b']!.gapToBest, 5660);
+      expect(attempts['c']!.wasRecord, isTrue);
+      expect(attempts['c']!.gapToBest, 0);
+      expect(attempts['e']!.wasRecord, isTrue, reason: 'highest wins for points');
+      expect(attempts['d']!.gapToBest, 12);
+      expect(recordsBeaten(attempts.values), 2, reason: 'c and e — first attempts don\'t beat anything');
+    });
+
     test('ignores other players and unknown games', () {
       final other = GameMatch(
         id: 'x',

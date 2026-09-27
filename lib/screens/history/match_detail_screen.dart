@@ -317,7 +317,8 @@ class MatchDetailScreen extends StatelessWidget {
                 _memberAvatar(e.playerId),
                 const SizedBox(width: 10),
                 Expanded(child: _nameWithCharacter(e, p?.displayName)),
-                if (win)
+                // Alone, there's nobody to finish first against.
+                if (win && match.entries.length > 1)
                   Container(
                     margin: const EdgeInsets.only(right: 8),
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),

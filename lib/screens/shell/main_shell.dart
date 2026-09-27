@@ -9,11 +9,18 @@ import '../history/history_screen.dart';
 import '../home/home_screen.dart';
 import '../new_game/new_game_sheet.dart';
 import '../ranking/ranking_screen.dart';
+import '../solo/solo_games_screen.dart';
+import '../solo/solo_home_screen.dart';
+import '../solo/solo_records_screen.dart';
 
 class MainShell extends StatelessWidget {
   const MainShell({super.key});
 
   static const _tabs = [AppTab.home, AppTab.ranking, AppTab.history, AppTab.games];
+
+  /// "Mon espace solo" has its own screens (see `AppState.isPersonalContext`),
+  /// "Mes jeux" standing in for the groups' Discussion.
+  static const _soloTabs = [AppTab.home, AppTab.ranking, AppTab.history, AppTab.soloGames];
 
   Future<void> _openNewGameSheet(BuildContext context, AppState app) async {
     if (app.activeContextClosed) {
@@ -27,7 +34,8 @@ class MainShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
-    final index = _tabs.indexOf(app.tab);
+    final solo = app.isPersonalContext;
+    final index = (solo ? _soloTabs : _tabs).indexOf(app.tab).clamp(0, 3);
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -36,13 +44,11 @@ class MainShell extends StatelessWidget {
         child: Stack(
           children: [
             IndexedStack(
+              key: ValueKey(solo),
               index: index,
-              children: const [
-                HomeScreen(),
-                RankingScreen(),
-                HistoryScreen(),
-                GroupChatScreen(),
-              ],
+              children: solo
+                  ? const [SoloHomeScreen(), SoloRecordsScreen(), HistoryScreen(), SoloGamesScreen()]
+                  : const [HomeScreen(), RankingScreen(), HistoryScreen(), GroupChatScreen()],
             ),
             Positioned(
               left: 20,
@@ -80,7 +86,7 @@ class MainShell extends StatelessWidget {
           child: Row(
             children: [
               _NavItem(icon: Icons.home_rounded, label: 'Accueil', selected: app.tab == AppTab.home, onTap: () => app.setTab(AppTab.home)),
-              _NavItem(icon: Icons.emoji_events_rounded, label: app.isPersonalContext ? 'Records' : 'Classement', selected: app.tab == AppTab.ranking, onTap: () => app.setTab(AppTab.ranking)),
+              _NavItem(icon: Icons.emoji_events_rounded, label: solo ? 'Records' : 'Classement', selected: app.tab == AppTab.ranking, onTap: () => app.setTab(AppTab.ranking)),
               SizedBox(
                 width: 64,
                 child: Center(
@@ -105,10 +111,8 @@ class MainShell extends StatelessWidget {
                 ),
               ),
               _NavItem(icon: Icons.schedule_rounded, label: 'Parties', selected: app.tab == AppTab.history, onTap: () => app.setTab(AppTab.history)),
-              // Nobody to talk to in "Mon espace solo" — the slot stays so
-              // the "+" keeps its place in the middle.
-              if (app.isPersonalContext)
-                const Expanded(child: SizedBox.shrink())
+              if (solo)
+                _NavItem(icon: Icons.sports_esports_rounded, label: 'Mes jeux', selected: app.tab == AppTab.soloGames, onTap: () => app.setTab(AppTab.soloGames))
               else
                 _NavItem(
                   icon: Icons.forum_rounded,

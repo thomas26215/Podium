@@ -42,6 +42,60 @@ class _PlayerCountHint extends StatelessWidget {
   }
 }
 
+/// "Quand ?" — today, yesterday, the day before or any picked date (see
+/// `AppState.setPlayedAt`). On the players step, or on the scores step in
+/// "Mon espace solo" when there's no players step at all.
+class PlayedAtPicker extends StatelessWidget {
+  const PlayedAtPicker({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final dayBefore = today.subtract(const Duration(days: 2));
+    final chosen = app.effectivePlayedAt;
+    final isCustom = chosen != today && chosen != yesterday && chosen != dayBefore;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Quand ?', style: bodyFont(size: 13.5, weight: FontWeight.w800, color: AppColors.ink2)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _DateChip(label: "Aujourd'hui", selected: chosen == today, onTap: () => app.setPlayedAt(null)),
+              _DateChip(label: 'Hier', selected: chosen == yesterday, onTap: () => app.setPlayedAt(yesterday)),
+              _DateChip(label: 'Avant-hier', selected: chosen == dayBefore, onTap: () => app.setPlayedAt(dayBefore)),
+              _DateChip(
+                icon: Icons.calendar_month_rounded,
+                label: isCustom ? relativeDateLabel(chosen) : null,
+                selected: isCustom,
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: chosen,
+                    firstDate: today.subtract(const Duration(days: 365 * 3)),
+                    lastDate: today,
+                    helpText: 'Quand a eu lieu la partie ?',
+                    cancelText: 'Annuler',
+                    confirmText: 'Choisir',
+                  );
+                  if (picked != null) app.setPlayedAt(picked);
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class Step2Players extends StatelessWidget {
   const Step2Players({super.key});
 
@@ -57,12 +111,6 @@ class Step2Players extends StatelessWidget {
     // sets draft.mode accordingly up front). Every other rule keeps that
     // choice exactly as before.
     final modeFixed = app.isPersonalContext || (rule != null && (rule.isRanks || rule.isWinLoss || rule.isTime || rule.coop));
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final yesterday = today.subtract(const Duration(days: 1));
-    final dayBefore = today.subtract(const Duration(days: 2));
-    final chosen = app.effectivePlayedAt;
-    final isCustom = chosen != today && chosen != yesterday && chosen != dayBefore;
 
     // A tournament's entrants are a fixed roster for the whole bracket, not
     // one dated event with a best-of-N format — those two sections only
@@ -76,42 +124,7 @@ class Step2Players extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (!isTournamentFlow) ...[
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Quand ?', style: bodyFont(size: 13.5, weight: FontWeight.w800, color: AppColors.ink2)),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _DateChip(label: "Aujourd'hui", selected: chosen == today, onTap: () => app.setPlayedAt(null)),
-                    _DateChip(label: 'Hier', selected: chosen == yesterday, onTap: () => app.setPlayedAt(yesterday)),
-                    _DateChip(label: 'Avant-hier', selected: chosen == dayBefore, onTap: () => app.setPlayedAt(dayBefore)),
-                    _DateChip(
-                      icon: Icons.calendar_month_rounded,
-                      label: isCustom ? relativeDateLabel(chosen) : null,
-                      selected: isCustom,
-                      onTap: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: chosen,
-                          firstDate: today.subtract(const Duration(days: 365 * 3)),
-                          lastDate: today,
-                          helpText: 'Quand a eu lieu la partie ?',
-                          cancelText: 'Annuler',
-                          confirmText: 'Choisir',
-                        );
-                        if (picked != null) app.setPlayedAt(picked);
-                      },
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+          const PlayedAtPicker(),
           Padding(
             padding: const EdgeInsets.only(bottom: 16),
             child: Row(

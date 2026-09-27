@@ -39,6 +39,7 @@ import 'package:podium/widgets/common.dart';
 import 'package:podium/widgets/game_filter_bar.dart';
 import 'package:podium/widgets/result_share_card.dart';
 import 'package:podium/widgets/tournament_share_card.dart';
+import 'package:podium/widgets/progression_chart.dart';
 import 'package:podium/state/app_state.dart';
 import 'package:podium/state/new_game_draft.dart';
 
@@ -917,8 +918,7 @@ void main() {
     expect(rule.coop, isFalse);
 
     state.pickGame(game.id);
-    state.step = state.stepSequence.indexOf(WizardStepKind.players) + 1;
-    expect(state.canProceed, isTrue, reason: 'one player is enough here');
+    expect(state.stepSequence, [WizardStepKind.game, WizardStepKind.scores], reason: 'nothing to pick, so no players step');
     state.step = state.stepSequence.length;
     expect(state.canProceed, isFalse, reason: 'a time must be entered');
     state.setPoints('lea', 115000);
@@ -984,6 +984,72 @@ void main() {
     await tester.pumpAndSettle();
     expect(state.games.single.isSoloOnly, isTrue);
     state.closeSheet();
+
+    await tester.pump(const Duration(milliseconds: 2700));
+  });
+
+  testWidgets('the solo space has its own tabs: replay, records with progression, solo history and "Mes jeux"', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    final state = seeded.state;
+    // A phone-sized screen, where a crowded row would overflow.
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await state.openPersonalSpace();
+    await tester.pumpAndSettle();
+    expect(find.text('Bienvenue dans votre espace solo'), findsOneWidget);
+    expect(find.text('Mes jeux'), findsOneWidget, reason: 'in place of Discussion');
+    expect(find.text('Discussion'), findsNothing);
+
+    state.openSheet();
+    state.startNewGame();
+    state.setGameForm((f) => f
+      ..name = 'Mario Kart'
+      ..rules = [GameRuleFormDraft(name: 'Contre-la-montre', countType: CountType.time)]);
+    await state.createGame();
+    await tester.pumpAndSettle();
+    final game = state.games.single;
+    state.closeSheet();
+    for (final (i, ms) in [115000, 118000, 112340].indexed) {
+      state.startSoloMatch(game);
+      expect(state.currentStepKind, WizardStepKind.scores, reason: '"Jouer" lands straight on the time');
+      state.setPlayedAt(DateTime.now().subtract(Duration(days: 3 - i)));
+      state.setPoints('lea', ms);
+      await state.saveGame();
+      await tester.pumpAndSettle();
+      state.closeSheet();
+    }
+    state.setTab(AppTab.home);
+    await tester.pumpAndSettle();
+    expect(find.text('DERNIER JEU'), findsOneWidget);
+    expect(find.text('Rejouer'), findsOneWidget);
+    expect(find.text('🏆 Record'), findsOneWidget);
+
+    state.setTab(AppTab.history);
+    await tester.pumpAndSettle();
+    expect(find.text('+0:05.660 du record'), findsOneWidget, reason: 'the 1:58.000 attempt');
+    expect(find.text('Ancien record'), findsOneWidget, reason: 'the first 1:55.000');
+
+    state.setTab(AppTab.soloGames);
+    await tester.pumpAndSettle();
+    expect(find.text('Record 1:52.340'), findsOneWidget);
+    await tester.tap(find.text('Mario Kart').last);
+    await tester.pumpAndSettle();
+    expect(find.text('RECORD'), findsOneWidget);
+    expect(find.text('1:52.340'), findsWidgets);
+    expect(find.byType(ProgressionChart), findsOneWidget);
+    expect(find.text('Rejouer'), findsOneWidget);
+    expect(tester.takeException(), isNull);
 
     await tester.pump(const Duration(milliseconds: 2700));
   });

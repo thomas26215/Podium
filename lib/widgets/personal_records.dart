@@ -9,11 +9,12 @@ import 'match_card.dart' show relativeDateLabel;
 /// "Mon espace solo"'s answer to a ranking (see `AppState.personalRecords`):
 /// one card per game and rule played, its best score or time up front,
 /// how many attempts and when the last one was — [limit] keeps just the
-/// most recent few (the home screen).
+/// most recent few (the home screen). [onTap] opens a record's details.
 class PersonalRecordsList extends StatelessWidget {
   final List<PersonalRecord> records;
   final int? limit;
-  const PersonalRecordsList({super.key, required this.records, this.limit});
+  final void Function(PersonalRecord record)? onTap;
+  const PersonalRecordsList({super.key, required this.records, this.limit, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +24,11 @@ class PersonalRecordsList extends StatelessWidget {
     final shown = limit == null ? records : records.take(limit!).toList();
     return Column(
       children: [
-        for (final (i, r) in shown.indexed) FadeSlideIn(delay: Duration(milliseconds: i * 40), child: _RecordCard(record: r)),
+        for (final (i, r) in shown.indexed)
+          FadeSlideIn(
+            delay: Duration(milliseconds: i * 40),
+            child: Pressable(onTap: onTap == null ? null : () => onTap!(r), child: _RecordCard(record: r)),
+          ),
       ],
     );
   }

@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../../state/app_state.dart';
 import '../../state/player_row.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/personal_records.dart';
 import '../../widgets/avatar.dart';
 import '../../widgets/common.dart';
 import '../../widgets/live_match_card.dart';
@@ -71,11 +70,7 @@ class HomeScreen extends StatelessWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(headerName, overflow: TextOverflow.ellipsis, style: bodyFont(size: 18, weight: FontWeight.w800, color: AppColors.ink, letterSpacing: -0.2)),
-                              Text(
-                                app.isPersonalContext ? 'Rien que pour vous · ${stats['parties']} parties' : '${stats['joueurs']} joueurs · saison en cours',
-                                overflow: TextOverflow.ellipsis,
-                                style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
-                              ),
+                              Text('${stats['joueurs']} joueurs · saison en cours', overflow: TextOverflow.ellipsis, style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
                             ],
                           ),
                         ),
@@ -234,9 +229,7 @@ class HomeScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: app.isPersonalContext
-                    ? _personalSections(app)
-                    : (app.dashboardStyle == DashboardStyle.simple ? _simpleSections(app, winRows) : _completeSections(context, app, stats, winRows)),
+                children: app.dashboardStyle == DashboardStyle.simple ? _simpleSections(app, winRows) : _completeSections(context, app, stats, winRows),
               ),
             ),
             if (app.viewTournaments.any((t) => !t.isCompleted))
@@ -344,26 +337,6 @@ List<Widget> _eventsSection(BuildContext context, AppState app) {
         },
       ),
     ),
-  ];
-}
-
-/// "Mon espace solo" (see `AppState.isPersonalContext`): nobody to rank
-/// against — the latest records, then the last few attempts.
-List<Widget> _personalSections(AppState app) {
-  return [
-    SectionHeader(title: 'Mes records', actionLabel: 'Tout voir', onAction: () => app.setTab(AppTab.ranking)),
-    PersonalRecordsList(records: app.personalRecords, limit: 3),
-    const SizedBox(height: 12),
-    SectionHeader(title: 'Dernières parties', actionLabel: 'Historique', onAction: () => app.setTab(AppTab.history)),
-    if (app.viewMatches.isEmpty)
-      const EmptyState(emoji: '⏱️', message: "Pas encore de partie solo. Lancez-vous avec le bouton +.")
-    else
-      for (final (i, m) in app.viewMatches.take(3).toList().indexed)
-        Builder(builder: (_) {
-          final g = app.gameById(m.gameId);
-          if (g == null) return const SizedBox.shrink();
-          return FadeSlideIn(delay: Duration(milliseconds: 60 + i * 40), child: HomeMatchTile(game: g, match: m, winner: null));
-        }),
   ];
 }
 

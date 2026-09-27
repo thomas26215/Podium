@@ -10,6 +10,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/avatar.dart';
 import '../../widgets/common.dart';
 import '../../widgets/match_card.dart';
+import '../../widgets/solo_match_card.dart';
 import '../tournaments/tournament_detail_screen.dart';
 import 'match_detail_screen.dart';
 import 'result_share_dialog.dart';
@@ -96,6 +97,26 @@ class HistoryScreen extends StatelessWidget {
           }),
           if (items.isEmpty)
             const EmptyState(emoji: '🗂️', message: 'Aucune partie enregistrée pour l\'instant.')
+          else if (app.isPersonalContext)
+            // One card per attempt, however many the same day — each has its
+            // own result against the record (see SoloMatchCard).
+            ...() {
+              final attempts = app.soloAttempts;
+              final sorted = [...matches]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+              return [
+                for (final (i, m) in sorted.indexed)
+                  if (app.gameById(m.gameId) case final g?)
+                    FadeSlideIn(
+                      delay: Duration(milliseconds: (i * 30).clamp(0, 300)),
+                      child: SoloMatchCard(
+                        game: g,
+                        match: m,
+                        attempt: attempts[m.id],
+                        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => MatchDetailScreen(game: g, match: m, appState: app))),
+                      ),
+                    ),
+              ];
+            }()
           else
             for (final (i, item) in items.indexed)
               Builder(builder: (context) {

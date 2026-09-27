@@ -89,3 +89,60 @@ List<PersonalRecord> computePersonalRecords(List<GameMatch> matches, Game? Funct
   out.sort((a, b) => b.lastPlayedAt.compareTo(a.lastPlayedAt));
   return out;
 }
+
+/// One of a player's results on a game and rule, in the order played —
+/// whether it beat every earlier one at the time ([wasRecord], always true
+/// for the very first) and how far it sits from today's best ([gapToBest],
+/// 0 for the best itself).
+class SoloAttempt {
+  final GameMatch match;
+  final GameRule rule;
+  final int value;
+  final bool wasRecord;
+  final int gapToBest;
+  const SoloAttempt({required this.match, required this.rule, required this.value, required this.wasRecord, required this.gapToBest});
+
+  String get unit => rule.isTime ? 'time' : 'points';
+}
+
+/// Every one of `uid`'s results in [matches], keyed by match id — see
+/// [SoloAttempt]. Results under a rule with no comparable score (see
+/// [PersonalRecord.best]) are left out.
+Map<String, SoloAttempt> computeSoloAttempts(List<GameMatch> matches, Game? Function(String id) gameById, String uid) {
+  final byKey = <String, List<(GameMatch, int, Game, GameRule)>>{};
+  for (final m in matches) {
+    final game = gameById(m.gameId);
+    final entry = m.entries.where((e) => e.playerId == uid).firstOrNull;
+    if (game == null || entry == null) continue;
+    final rule = game.resolveRule(m.ruleId);
+    if (rule.isRanks || rule.isWinLoss || m.unit == 'wins') continue;
+    (byKey['${game.id}/${rule.id}'] ??= []).add((m, entry.points, game, rule));
+  }
+  final out = <String, SoloAttempt>{};
+  for (final played in byKey.values) {
+    played.sort((a, b) => a.$1.createdAt.compareTo(b.$1.createdAt));
+    final rule = played.first.$4;
+    bool better(int a, int b) => rule.lowWins ? a < b : a > b;
+    final best = played.map((p) => p.$2).reduce((a, b) => better(a, b) ? a : b);
+    int? running;
+    for (final (m, value, _, r) in played) {
+      final wasRecord = running == null || better(value, running);
+      if (wasRecord) running = value;
+      out[m.id] = SoloAttempt(match: m, rule: r, value: value, wasRecord: wasRecord, gapToBest: (value - best).abs());
+    }
+  }
+  return out;
+}
+
+/// How many times a record was beaten across [attempts] — a first attempt
+/// sets a record but doesn't beat one, so it isn't counted.
+int recordsBeaten(Iterable<SoloAttempt> attempts) {
+  final firsts = <String>{};
+  var n = 0;
+  final sorted = [...attempts]..sort((a, b) => a.match.createdAt.compareTo(b.match.createdAt));
+  for (final a in sorted) {
+    final key = '${a.match.gameId}/${a.rule.id}';
+    if (!firsts.add(key) && a.wasRecord) n++;
+  }
+  return n;
+}
