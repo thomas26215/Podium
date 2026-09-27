@@ -13,8 +13,8 @@ import '../../widgets/theme_picker.dart';
 /// The "create/edit a game" form shown inside the new-game sheet, in airy
 /// sections: who the game is (emoji, name, category), its fixed parameters
 /// (player count, theme tags), what each player picks (heroes, wonders…,
-/// optional), what a match is set up with (Dominion's kingdom cards,
-/// expansions…, optional), and how it is scored (one or
+/// optional), the game's expansions and what a match is set up with
+/// (Dominion's kingdom cards…, both optional), and how it is scored (one or
 /// several [GameRule]s). Detail only takes space where it is being edited —
 /// extra rules are collapsible cards.
 class CreateGameForm extends StatelessWidget {
@@ -30,6 +30,8 @@ class CreateGameForm extends StatelessWidget {
         _ParametersSection(),
         SizedBox(height: 28),
         _CharacterChoiceSection(),
+        SizedBox(height: 28),
+        _ExpansionsSection(),
         SizedBox(height: 28),
         _SetupChoiceSection(),
         SizedBox(height: 28),
@@ -462,6 +464,87 @@ class _CharacterChoiceSectionState extends State<_CharacterChoiceSection> {
   }
 }
 
+// ── Expansions ─────────────────────────────────────────────────────────────
+
+/// The "Extensions" section (see [Game.expansions]): the game's expansions,
+/// kept apart from the "Sélection pour la partie" below. Left empty, the
+/// match wizard never asks about them.
+class _ExpansionsSection extends StatefulWidget {
+  const _ExpansionsSection();
+
+  @override
+  State<_ExpansionsSection> createState() => _ExpansionsSectionState();
+}
+
+class _ExpansionsSectionState extends State<_ExpansionsSection> {
+  final _input = TextEditingController();
+  final _inputFocus = FocusNode();
+
+  @override
+  void dispose() {
+    _input.dispose();
+    _inputFocus.dispose();
+    super.dispose();
+  }
+
+  void _add(AppState app) {
+    final name = _input.text.trim();
+    if (name.isEmpty) return;
+    if (!app.gameForm.expansions.contains(name)) app.setGameForm((f) => f..expansions = [...f.expansions, name]);
+    _input.clear();
+    _inputFocus.requestFocus();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final f = app.gameForm;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionTitle('Extensions', hint: 'Optionnel — on coche celles utilisées au lancement de chaque partie.'),
+        if (f.expansions.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final e in f.expansions) _SelectedTag(label: e, onRemove: () => app.setGameForm((f) => f..expansions = f.expansions.where((x) => x != e).toList())),
+              ],
+            ),
+          ),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _input,
+                focusNode: _inputFocus,
+                textCapitalization: TextCapitalization.sentences,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _add(app),
+                style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink),
+                decoration: appFieldDecoration(hintText: f.expansions.isEmpty ? 'Ex. Intrigue, Prospérité, Rivages…' : 'Ajouter une extension'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Pressable(
+              onTap: () => _add(app),
+              child: Container(
+                width: 48,
+                height: 48,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: AppColors.accentSoft, border: Border.all(color: AppColors.accent, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.md)),
+                child: Icon(Icons.add_rounded, color: AppColors.accent),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 // ── Match setup ────────────────────────────────────────────────────────────
 
 /// The "Sélection pour la partie" section (see [Game.setupChoice]): what a
@@ -513,7 +596,7 @@ class _SetupChoiceSectionState extends State<_SetupChoiceSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionTitle('Sélection pour la partie', hint: 'Optionnel — cartes Royaume de Dominion, extensions, modules… cochés au lancement de chaque partie.'),
+        const _SectionTitle('Sélection pour la partie', hint: 'Optionnel — cartes Royaume de Dominion, modules… cochés au lancement de chaque partie.'),
         Row(
           children: [
             Expanded(

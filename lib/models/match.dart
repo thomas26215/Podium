@@ -237,6 +237,9 @@ class GameMatch {
   /// game has no such choice.
   final List<String> setupPicks;
 
+  /// Which of the game's [Game.expansions] this match was played with.
+  final List<String> expansions;
+
   const GameMatch({
     required this.id,
     required this.gameId,
@@ -261,6 +264,7 @@ class GameMatch {
     this.confirmedBy,
     this.rejectedBy,
     this.setupPicks = const [],
+    this.expansions = const [],
   });
 
   bool get isTeam => mode == 'team';
@@ -331,6 +335,7 @@ class GameMatch {
         confirmedBy: confirmedBy,
         rejectedBy: rejectedBy,
         setupPicks: setupPicks,
+        expansions: expansions,
       );
 
   /// Used to flag already-saved legs when a "best of N" series is cut short
@@ -370,6 +375,7 @@ class GameMatch {
         confirmedBy: resetConfirmation ? const [] : (confirmedBy ?? this.confirmedBy),
         rejectedBy: resetConfirmation ? null : (rejectedBy ?? this.rejectedBy),
         setupPicks: setupPicks,
+        expansions: expansions,
       );
 
   Map<String, dynamic> toMap() => {
@@ -399,6 +405,7 @@ class GameMatch {
         if (confirmedBy != null) 'confirmedBy': confirmedBy,
         if (rejectedBy != null) 'rejectedBy': rejectedBy,
         if (setupPicks.isNotEmpty) 'setupPicks': setupPicks,
+        if (expansions.isNotEmpty) 'expansions': expansions,
       };
 
   factory GameMatch.fromDoc(String id, Map<String, dynamic> data) {
@@ -432,6 +439,7 @@ class GameMatch {
       confirmedBy: (data['confirmedBy'] as List?)?.map((e) => e as String).toList(),
       rejectedBy: data['rejectedBy'] as String?,
       setupPicks: ((data['setupPicks'] as List?) ?? const []).map((e) => e as String).toList(),
+      expansions: ((data['expansions'] as List?) ?? const []).map((e) => e as String).toList(),
     );
   }
 

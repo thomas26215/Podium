@@ -190,6 +190,10 @@ class MatchDetailScreen extends StatelessWidget {
               if (resultLine.isNotEmpty) Text(resultLine, style: bodyFont(size: 15, weight: FontWeight.w700, color: Colors.white)),
               const SizedBox(height: 4),
               Text(relativeDateLabel(match.createdAt), style: bodyFont(size: 12.5, weight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.6))),
+              if (match.expansions.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text('Extensions : ${match.expansions.join(', ')}', style: bodyFont(size: 12.5, weight: FontWeight.w700, color: Colors.white.withValues(alpha: 0.8))),
+              ],
               if (match.setupPicks.isNotEmpty) ...[
                 const SizedBox(height: 4),
                 Text('${game.setupChoice?.label ?? SetupChoice.defaultLabel} : ${match.setupPicks.join(', ')}', style: bodyFont(size: 12.5, weight: FontWeight.w700, color: Colors.white.withValues(alpha: 0.8))),

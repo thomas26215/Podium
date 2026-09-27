@@ -142,6 +142,30 @@ class Step2Players extends StatelessWidget {
             ),
           ),
         ],
+        if (!isTournamentFlow && game != null && game.hasExpansions)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Extensions', style: bodyFont(size: 13.5, weight: FontWeight.w800, color: AppColors.ink2)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final e in game.expansions)
+                      OptionChip(
+                        label: e,
+                        icon: d.expansions.contains(e) ? Icons.check_rounded : null,
+                        selected: d.expansions.contains(e),
+                        onTap: () => app.toggleExpansion(e),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         if (!isTournamentFlow && game != null && game.hasSetupChoice) _SetupPicker(choice: game.setupChoice!),
         if (isTournamentFlow)
           Padding(

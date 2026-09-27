@@ -1666,6 +1666,22 @@
   "name": "Dominion",
   "emoji": "🃏",
   "category": "Société",
+  "expansions": [
+   "Intrigue",
+   "Rivages",
+   "Alchimie",
+   "Prospérité",
+   "Abondance",
+   "L'Arrière-pays",
+   "L'Âge des Ténèbres",
+   "Guildes",
+   "Aventures",
+   "Empires",
+   "Nocturne",
+   "Renaissance",
+   "Ménagerie",
+   "Alliés"
+  ],
   "setupChoice": {
    "label": "Cartes Royaume",
    "options": [

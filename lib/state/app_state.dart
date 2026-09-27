@@ -2756,6 +2756,7 @@ class AppState extends ChangeNotifier {
       points: points,
       characters: characters,
       setupPicks: List.of(match.setupPicks),
+      expansions: List.of(match.expansions),
       inputMode: inputMode,
       timeline: List.of(match.timeline),
       rankOrder: rankOrder,
@@ -2935,6 +2936,7 @@ class AppState extends ChangeNotifier {
       setupLabel: game.setupChoice?.label ?? SetupChoice.defaultLabel,
       setupCount: game.setupChoice?.count?.toString() ?? '',
       setupOptions: List.of(game.setupChoice?.options ?? const []),
+      expansions: List.of(game.expansions),
       rules: game.rules.map(GameRuleFormDraft.fromRule).toList(),
     );
     notifyListeners();
@@ -3007,6 +3009,7 @@ class AppState extends ChangeNotifier {
           themes: libraryGame.themes,
           characterChoice: libraryGame.characterChoice,
           setupChoice: libraryGame.setupChoice,
+          expansions: libraryGame.expansions,
           salonId: target.salonId,
           libraryId: libraryGame.id,
         ),
@@ -3093,6 +3096,7 @@ class AppState extends ChangeNotifier {
       draft.gameId = game.id;
       draft.ruleId = null;
       draft.setupPicks = [];
+      draft.expansions = [];
       if (!game.hasMultipleRules) _applyRule(game.defaultRule);
       browsingLibrary = false;
       showToast('« ${game.name} » ajouté à votre catalogue.');
@@ -3169,6 +3173,7 @@ class AppState extends ChangeNotifier {
       draft.gameId = game.id;
       draft.ruleId = null;
       draft.setupPicks = [];
+      draft.expansions = [];
       if (!game.hasMultipleRules) _applyRule(game.defaultRule);
       browsingOtherGroups = false;
       showToast('« ${game.name} » ajouté à votre catalogue.');
@@ -3236,6 +3241,7 @@ class AppState extends ChangeNotifier {
           themes: gameForm.cleanThemes,
           characterChoice: gameForm.cleanCharacterChoice,
           setupChoice: gameForm.cleanSetupChoice,
+          expansions: gameForm.cleanExpansions,
           // Carried over from the existing doc, not re-derived from
           // whichever Salon happens to be active right now — editing a
           // game must not silently move it to another Salon's catalog or
@@ -3261,6 +3267,7 @@ class AppState extends ChangeNotifier {
           themes: gameForm.cleanThemes,
           characterChoice: gameForm.cleanCharacterChoice,
           setupChoice: gameForm.cleanSetupChoice,
+          expansions: gameForm.cleanExpansions,
           salonId: activeContext == ActiveContextKind.salon ? currentSalonId : null,
         );
       }
@@ -3270,6 +3277,7 @@ class AppState extends ChangeNotifier {
       draft.gameId = game.id;
       draft.ruleId = null;
       draft.setupPicks = draft.setupPicks.where((p) => game.setupChoice?.options.contains(p) ?? false).toList();
+      draft.expansions = draft.expansions.where(game.expansions.contains).toList();
       if (!game.hasMultipleRules) {
         _applyRule(game.defaultRule);
       } else {
@@ -3319,7 +3327,9 @@ class AppState extends ChangeNotifier {
     final g = gameById(id);
     if (draft.gameId != id) {
       draft.characters.clear(); // another game's roster
-      draft.setupPicks = _lastSetupPlayed(g);
+      final last = g == null ? null : _lastMatchOf(g);
+      draft.setupPicks = (last?.setupPicks ?? const []).where((p) => g!.setupChoice?.options.contains(p) ?? false).toList();
+      draft.expansions = (last?.expansions ?? const []).where((e) => g!.expansions.contains(e)).toList();
     }
     draft.gameId = id;
     draft.ruleId = null;
@@ -3329,17 +3339,26 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// The setup ticked on the most recent match of [game] in this
-  /// group/salon (see [Game.setupChoice]), still offered by the game — the
-  /// usual table rarely changes from one evening to the next, so it's the
-  /// best starting point.
-  List<String> _lastSetupPlayed(Game? game) {
-    if (game == null || !game.hasSetupChoice) return [];
+  /// The most recent match of [game] in this group/salon — its setup and
+  /// expansions are what [pickGame] pre-ticks, since the usual table rarely
+  /// changes from one evening to the next.
+  GameMatch? _lastMatchOf(Game game) {
     GameMatch? last;
     for (final m in viewMatches) {
       if (m.gameId == game.id && (last == null || m.createdAt.isAfter(last.createdAt))) last = m;
     }
-    return (last?.setupPicks ?? const []).where(game.setupChoice!.options.contains).toList();
+    return last;
+  }
+
+  /// Ticks/unticks one of the game's [Game.expansions] for this match.
+  void toggleExpansion(String name) {
+    if (draft.expansions.contains(name)) {
+      draft.expansions.remove(name);
+    } else {
+      draft.expansions.add(name);
+    }
+    _pushLiveUpdate();
+    notifyListeners();
   }
 
   /// Ticks/unticks one of the game's [Game.setupChoice] options for this match.
@@ -4326,6 +4345,7 @@ class AppState extends ChangeNotifier {
       salonId: salonId,
       confirmedBy: inSalon ? initialConfirmedBy : null,
       setupPicks: List.of(draft.setupPicks),
+      expansions: List.of(draft.expansions),
     );
     GameMatch? newlySaved;
     try {
@@ -4637,6 +4657,7 @@ class AppState extends ChangeNotifier {
     // The players step (where the setup is ticked) is skipped here, so
     // don't carry over a guess the player never got to see.
     draft.setupPicks = [];
+    draft.expansions = [];
     final isTeam = entrantA.playerIds.length > 1 || entrantB.playerIds.length > 1;
     draft.mode = isTeam ? 'team' : 'ffa';
     draft.teamCount = 2;
