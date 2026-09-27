@@ -35442,42 +35442,6 @@
    "sessionCourte"
   ]
  },
- "mario_kart_tour_solo": {
-  "name": "Mario Kart Tour (solo)",
-  "emoji": "📱",
-  "category": "Jeu vidéo",
-  "rules": [
-   {
-    "id": "contre_la_montre_secondes",
-    "name": "Contre-la-montre",
-    "countType": "time"
-   }
-  ],
-  "ruleSections": [
-   {
-    "title": "Principe",
-    "rules": [
-     "Mario Kart sur mobile."
-    ]
-   },
-   {
-    "title": "Comptage",
-    "rules": [
-     "Grand Prix : chaque course rapporte des points selon la place, cumulés sur plusieurs courses.",
-     "Course unique : on note simplement le classement.",
-     "Contre-la-montre : le meilleur temps (le plus bas) gagne."
-    ]
-   }
-  ],
-  "minPlayers": 1,
-  "maxPlayers": 1,
-  "themes": [
-   "solo",
-   "course",
-   "accessible",
-   "sessionCourte"
-  ]
- },
  "hot_wheels_unleashed": {
   "name": "Hot Wheels Unleashed",
   "emoji": "🔥",
@@ -60312,5 +60276,328 @@
   ],
   "minPlayers": 2,
   "maxPlayers": 20
+ },
+ "mario_kart_7": {
+  "name": "Mario Kart 7",
+  "emoji": "🏁",
+  "category": "Jeu vidéo",
+  "rules": [
+   {
+    "id": "grand_prix_points",
+    "name": "Grand Prix (points)",
+    "countType": "points",
+    "multiRound": true
+   },
+   {
+    "id": "course_classement",
+    "name": "Course (classement)",
+    "countType": "ranks"
+   },
+   {
+    "id": "contre_la_montre",
+    "name": "Contre-la-montre",
+    "countType": "time"
+   }
+  ],
+  "ruleSections": [
+   {
+    "title": "Principe",
+    "rules": [
+     "Karts volants et sous-marins, deltaplane ; jusqu’à 8 joueurs en local ou en ligne sur 3DS."
+    ]
+   },
+   {
+    "title": "Comptage",
+    "rules": [
+     "Grand Prix : chaque course rapporte des points selon la place, cumulés sur plusieurs courses.",
+     "Course unique : on note simplement le classement.",
+     "Contre-la-montre : le meilleur temps (le plus bas) gagne."
+    ]
+   }
+  ],
+  "minPlayers": 2,
+  "maxPlayers": 8,
+  "themes": [
+   "course",
+   "multiLocal",
+   "enLigne",
+   "familial",
+   "accessible",
+   "sessionCourte"
+  ],
+  "characterChoice": {
+   "label": "Personnage",
+   "options": [
+    "Mario",
+    "Luigi",
+    "Peach",
+    "Daisy",
+    "Harmonie",
+    "Yoshi",
+    "Toad",
+    "Koopa",
+    "Maskass",
+    "Lakitu",
+    "Wiggler",
+    "Reine des abeilles",
+    "Métal Mario",
+    "Donkey Kong",
+    "Wario",
+    "Bowser",
+    "Mii"
+   ]
+  }
+ },
+ "mario_kart_7_solo": {
+  "name": "Mario Kart 7 (solo)",
+  "emoji": "🏁",
+  "category": "Jeu vidéo",
+  "rules": [
+   {
+    "id": "contre_la_montre",
+    "name": "Contre-la-montre",
+    "countType": "time"
+   }
+  ],
+  "ruleSections": [
+   {
+    "title": "Principe",
+    "rules": [
+     "Karts volants et sous-marins, deltaplane ; jusqu’à 8 joueurs en local ou en ligne sur 3DS."
+    ]
+   },
+   {
+    "title": "Comptage",
+    "rules": [
+     "Contre-la-montre : votre temps sur le circuit choisi — le record se bat circuit par circuit."
+    ]
+   }
+  ],
+  "minPlayers": 1,
+  "maxPlayers": 1,
+  "themes": [
+   "solo",
+   "course",
+   "familial",
+   "accessible",
+   "sessionCourte"
+  ],
+  "characterChoice": {
+   "label": "Personnage",
+   "options": [
+    "Mario",
+    "Luigi",
+    "Peach",
+    "Daisy",
+    "Harmonie",
+    "Yoshi",
+    "Toad",
+    "Koopa",
+    "Maskass",
+    "Lakitu",
+    "Wiggler",
+    "Reine des abeilles",
+    "Métal Mario",
+    "Donkey Kong",
+    "Wario",
+    "Bowser",
+    "Mii"
+   ]
+  },
+  "setupChoice": {
+   "label": "Circuit",
+   "options": [
+    "Circuit Toad",
+    "Vallée Daisy",
+    "Lagon Cheep Cheep",
+    "Souk Maskass",
+    "Littoral Wuhu",
+    "Circuit Mario",
+    "Piste musicale",
+    "Mont Éboulis",
+    "Égout Piranha",
+    "Galion de Wario",
+    "Koopapolis",
+    "Pic Wuhu",
+    "Forêt tropicale DK",
+    "Monde glacé d'Harmonie",
+    "Château de Bowser",
+    "Route Arc-en-ciel",
+    "N64 Autodrome Luigi",
+    "GBA Château de Bowser 1",
+    "Wii Gorge Champignon",
+    "DS Manoir de Luigi",
+    "N64 Plage Koopa",
+    "SNES Circuit Mario 2",
+    "Wii Supermarché Coco",
+    "DS Flipper Waluigi",
+    "N64 Désert Kalimari",
+    "DS Alpes DK",
+    "GCN Paquebot Daisy",
+    "Wii Bois Vermeil",
+    "Wii Cap Koopa",
+    "GCN Jungle Dino Dino",
+    "DS Bateau volant",
+    "SNES Route Arc-en-ciel"
+   ],
+   "count": 1
+  }
+ },
+ "mario_kart_super_circuit": {
+  "name": "Mario Kart: Super Circuit",
+  "emoji": "🏁",
+  "category": "Jeu vidéo",
+  "rules": [
+   {
+    "id": "grand_prix_points",
+    "name": "Grand Prix (points)",
+    "countType": "points",
+    "multiRound": true
+   },
+   {
+    "id": "course_classement",
+    "name": "Course (classement)",
+    "countType": "ranks"
+   },
+   {
+    "id": "contre_la_montre",
+    "name": "Contre-la-montre",
+    "countType": "time"
+   }
+  ],
+  "ruleSections": [
+   {
+    "title": "Principe",
+    "rules": [
+     "Le Mario Kart de la Game Boy Advance, avec en bonus les 20 circuits de Super Mario Kart ; jusqu’à 4 joueurs en câble link."
+    ]
+   },
+   {
+    "title": "Comptage",
+    "rules": [
+     "Grand Prix : chaque course rapporte des points selon la place, cumulés sur plusieurs courses.",
+     "Course unique : on note simplement le classement.",
+     "Contre-la-montre : le meilleur temps (le plus bas) gagne."
+    ]
+   }
+  ],
+  "minPlayers": 2,
+  "maxPlayers": 4,
+  "themes": [
+   "course",
+   "multiLocal",
+   "retro",
+   "familial",
+   "accessible",
+   "sessionCourte"
+  ],
+  "characterChoice": {
+   "label": "Personnage",
+   "options": [
+    "Mario",
+    "Luigi",
+    "Peach",
+    "Toad",
+    "Yoshi",
+    "Donkey Kong",
+    "Wario",
+    "Bowser"
+   ]
+  }
+ },
+ "mario_kart_super_circuit_solo": {
+  "name": "Mario Kart: Super Circuit (solo)",
+  "emoji": "🏁",
+  "category": "Jeu vidéo",
+  "rules": [
+   {
+    "id": "contre_la_montre",
+    "name": "Contre-la-montre",
+    "countType": "time"
+   }
+  ],
+  "ruleSections": [
+   {
+    "title": "Principe",
+    "rules": [
+     "Le Mario Kart de la Game Boy Advance, avec en bonus les 20 circuits de Super Mario Kart ; jusqu’à 4 joueurs en câble link."
+    ]
+   },
+   {
+    "title": "Comptage",
+    "rules": [
+     "Contre-la-montre : votre temps sur le circuit choisi — le record se bat circuit par circuit."
+    ]
+   }
+  ],
+  "minPlayers": 1,
+  "maxPlayers": 1,
+  "themes": [
+   "solo",
+   "course",
+   "retro",
+   "familial",
+   "accessible",
+   "sessionCourte"
+  ],
+  "characterChoice": {
+   "label": "Personnage",
+   "options": [
+    "Mario",
+    "Luigi",
+    "Peach",
+    "Toad",
+    "Yoshi",
+    "Donkey Kong",
+    "Wario",
+    "Bowser"
+   ]
+  },
+  "setupChoice": {
+   "label": "Circuit",
+   "options": [
+    "Circuit Peach",
+    "Plage Maskass",
+    "Riverside Parc",
+    "Château de Bowser 1",
+    "Circuit Mario",
+    "Lac Boo",
+    "Pays Fromage",
+    "Château de Bowser 2",
+    "Circuit Luigi",
+    "Jardin volant",
+    "Île Cheep Cheep",
+    "Pays Crépuscule",
+    "Pays neigeux",
+    "Route Ruban",
+    "Désert Yoshi",
+    "Château de Bowser 3",
+    "Lakeside Parc",
+    "Jetée cassée",
+    "Château de Bowser 4",
+    "Route Arc-en-ciel",
+    "SNES Circuit Mario 1",
+    "SNES Plaine Donut 1",
+    "SNES Vallée fantôme 1",
+    "SNES Château de Bowser 1",
+    "SNES Circuit Mario 2",
+    "SNES Île Choco 1",
+    "SNES Vallée fantôme 2",
+    "SNES Plaine Donut 2",
+    "SNES Château de Bowser 2",
+    "SNES Circuit Mario 3",
+    "SNES Plage Koopa 1",
+    "SNES Île Choco 2",
+    "SNES Lac Vanille 1",
+    "SNES Château de Bowser 3",
+    "SNES Circuit Mario 4",
+    "SNES Plaine Donut 3",
+    "SNES Plage Koopa 2",
+    "SNES Vallée fantôme 3",
+    "SNES Lac Vanille 2",
+    "SNES Route Arc-en-ciel"
+   ],
+   "count": 1
+  }
  }
 }
