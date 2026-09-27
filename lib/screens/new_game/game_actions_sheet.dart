@@ -74,72 +74,81 @@ Future<void> showGameActionsSheet(BuildContext context, AppState app, Game game)
   await showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,
+    // Up to 90% of the screen and scrollable: the default sheet stops at
+    // ~56%, which hid the last options (Supprimer) on a phone.
+    isScrollControlled: true,
     builder: (sheetContext) => Container(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+      constraints: BoxConstraints(maxHeight: MediaQuery.of(sheetContext).size.height * 0.9),
       decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(game.name, style: dispFont(size: 18, weight: FontWeight.w700, color: AppColors.ink)),
-          const SizedBox(height: 16),
-          ChooserOption(
-            icon: Icons.info_outline_rounded,
-            title: 'Voir les détails',
-            subtitle: 'Règles de score, aide-mémoire, export PDF.',
-            onTap: () {
-              Navigator.of(sheetContext).pop();
-              Navigator.of(context).push(MaterialPageRoute(builder: (_) => GameDetailScreen(game: game)));
-            },
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(game.name, style: dispFont(size: 18, weight: FontWeight.w700, color: AppColors.ink)),
+              const SizedBox(height: 16),
+              ChooserOption(
+                icon: Icons.info_outline_rounded,
+                title: 'Voir les détails',
+                subtitle: 'Règles de score, aide-mémoire, export PDF.',
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => GameDetailScreen(game: game)));
+                },
+              ),
+              const SizedBox(height: 10),
+              if (!closed) ...[
+                ChooserOption(
+                  icon: Icons.tune_rounded,
+                  title: 'Modifier les paramètres',
+                  subtitle: 'Comptage, limite de points, rôles, manches multiples — et plusieurs règles possibles.',
+                  onTap: () async {
+                    Navigator.of(sheetContext).pop();
+                    if (!await confirmDetachFromLibrary(context, game) || !context.mounted) return;
+                    _openGameForm(context, app, () => app.startEditingGame(game));
+                  },
+                ),
+                const SizedBox(height: 10),
+              ],
+              if (!closed) ...[
+                ChooserOption(
+                  icon: Icons.swap_horiz_rounded,
+                  title: game.followsLibrary ? 'Remplacer par un autre jeu de la bibliothèque' : 'Remplacer par un jeu de la bibliothèque',
+                  subtitle: 'Reprend les règles de la bibliothèque et ses mises à jour — les parties déjà jouées sont conservées.',
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => ReplaceWithLibraryScreen(target: game)));
+                  },
+                ),
+                const SizedBox(height: 10),
+              ],
+              ChooserOption(
+                icon: Icons.menu_book_rounded,
+                title: 'Aide-mémoire',
+                subtitle: 'Ajoutez des rappels de règles, classés par catégorie — sans effet sur les scores.',
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => GameRulesScreen(game: game)));
+                },
+              ),
+              if (app.canManageGameCatalog && !closed) ...[
+                const SizedBox(height: 10),
+                ChooserOption(
+                  icon: Icons.delete_outline_rounded,
+                  title: 'Supprimer',
+                  subtitle: 'Supprime ce jeu et toutes les parties enregistrées pour lui.',
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    confirmDeleteGame(context, app, game);
+                  },
+                ),
+              ],
+            ],
           ),
-          const SizedBox(height: 10),
-          if (!closed) ...[
-            ChooserOption(
-              icon: Icons.tune_rounded,
-              title: 'Modifier les paramètres',
-              subtitle: 'Comptage, limite de points, rôles, manches multiples — et plusieurs règles possibles.',
-              onTap: () async {
-                Navigator.of(sheetContext).pop();
-                if (!await confirmDetachFromLibrary(context, game) || !context.mounted) return;
-                _openGameForm(context, app, () => app.startEditingGame(game));
-              },
-            ),
-            const SizedBox(height: 10),
-          ],
-          if (!closed) ...[
-            ChooserOption(
-              icon: Icons.swap_horiz_rounded,
-              title: game.followsLibrary ? 'Remplacer par un autre jeu de la bibliothèque' : 'Remplacer par un jeu de la bibliothèque',
-              subtitle: 'Reprend les règles de la bibliothèque et ses mises à jour — les parties déjà jouées sont conservées.',
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                Navigator.of(context).push(MaterialPageRoute(builder: (_) => ReplaceWithLibraryScreen(target: game)));
-              },
-            ),
-            const SizedBox(height: 10),
-          ],
-          ChooserOption(
-            icon: Icons.menu_book_rounded,
-            title: 'Aide-mémoire',
-            subtitle: 'Ajoutez des rappels de règles, classés par catégorie — sans effet sur les scores.',
-            onTap: () {
-              Navigator.of(sheetContext).pop();
-              Navigator.of(context).push(MaterialPageRoute(builder: (_) => GameRulesScreen(game: game)));
-            },
-          ),
-          if (app.canManageGameCatalog && !closed) ...[
-            const SizedBox(height: 10),
-            ChooserOption(
-              icon: Icons.delete_outline_rounded,
-              title: 'Supprimer',
-              subtitle: 'Supprime ce jeu et toutes les parties enregistrées pour lui.',
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                confirmDeleteGame(context, app, game);
-              },
-            ),
-          ],
-        ],
+        ),
       ),
     ),
   );

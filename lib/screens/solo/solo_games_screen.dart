@@ -6,6 +6,7 @@ import '../../models/game.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
+import '../new_game/game_actions_sheet.dart';
 import '../new_game/new_game_sheet.dart';
 import 'solo_game_screen.dart';
 
@@ -109,6 +110,9 @@ class _GameTile extends StatelessWidget {
             : '${latest.played} partie${latest.played > 1 ? 's' : ''}';
     return Pressable(
       onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => SoloGameScreen(gameId: game.id, initialRuleId: latest?.rule.id))),
+      // Same menu as a long press in the new-match picker: edit, rules
+      // reminders, delete…
+      onLongPress: () => showGameActionsSheet(context, app, game),
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
