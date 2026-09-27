@@ -943,15 +943,13 @@ void main() {
       ..name = 'Dominion'
       ..setupLabel = 'Cartes Royaume'
       ..setupCount = '2'
-      ..setupOptions = ['Chapelle', 'Village', 'Sorcière', ' ', 'Chapelle']
-      ..expansions = ['Intrigue', 'Rivages', ' ']);
+      ..setupOptions = ['Chapelle', 'Village', 'Sorcière', ' ', 'Chapelle']);
     await state.createGame();
     await tester.pumpAndSettle();
     final game = state.games.firstWhere((g) => g.name == 'Dominion');
     expect(game.setupChoice!.label, 'Cartes Royaume');
     expect(game.setupChoice!.count, 2);
     expect(game.setupChoice!.options, ['Chapelle', 'Village', 'Sorcière']);
-    expect(game.expansions, ['Intrigue', 'Rivages']);
 
     state.pickGame(game.id);
     expect(state.draft.setupPicks, isEmpty, reason: 'never played yet');
@@ -965,7 +963,6 @@ void main() {
     state.toggleSetupPick('Chapelle');
     state.toggleSetupPick('Village');
     state.toggleSetupPick('Village');
-    state.toggleExpansion('Rivages');
     state.draft.points['lea'] = 30;
     state.draft.points['tom'] = 25;
     await state.saveGame();
@@ -973,17 +970,14 @@ void main() {
 
     final saved = state.matches.firstWhere((m) => m.gameId == game.id);
     expect(saved.setupPicks, ['Chapelle']);
-    expect(saved.expansions, ['Rivages']);
 
     state.openSheet();
     state.pickGame(game.id);
     expect(state.draft.setupPicks, ['Chapelle'], reason: 'pre-ticked from the last match of this game');
-    expect(state.draft.expansions, ['Rivages']);
     state.closeSheet();
 
     state.resumeMatch(saved, game);
     expect(state.draft.setupPicks, ['Chapelle']);
-    expect(state.draft.expansions, ['Rivages']);
     state.closeSheet();
 
     await tester.pump(const Duration(milliseconds: 2700));

@@ -318,11 +318,6 @@ class Game {
   /// multi-select of what this match uses (see `GameMatch.setupPicks`).
   final SetupChoice? setupChoice;
 
-  /// The game's expansions (Intrigue, Rivages…) — kept apart from
-  /// [setupChoice]: empty for most games; when set, the players step asks
-  /// which ones this match uses (see `GameMatch.expansions`).
-  final List<String> expansions;
-
   /// Only meaningful for a Server's catalog (see
   /// `FirebaseGamesRepository.rootCollection` — a Group's own catalog never
   /// sets this): which Salon this game belongs to, so each Salon gets its
@@ -352,7 +347,6 @@ class Game {
     this.themes = const [],
     this.characterChoice,
     this.setupChoice,
-    this.expansions = const [],
     this.salonId,
     this.libraryId,
   });
@@ -433,8 +427,6 @@ class Game {
 
   bool get hasSetupChoice => setupChoice != null && setupChoice!.options.isNotEmpty;
 
-  bool get hasExpansions => expansions.isNotEmpty;
-
   GameRule get defaultRule => rules.first;
   bool get hasMultipleRules => rules.length > 1;
 
@@ -457,7 +449,6 @@ class Game {
         themes: themes,
         characterChoice: characterChoice,
         setupChoice: setupChoice,
-        expansions: expansions,
         salonId: salonId,
         libraryId: detachFromLibrary ? null : libraryId,
       );
@@ -473,7 +464,6 @@ class Game {
         if (themes.isNotEmpty) 'themes': themes,
         if (characterChoice != null) 'characterChoice': characterChoice!.toMap(),
         if (setupChoice != null) 'setupChoice': setupChoice!.toMap(),
-        if (expansions.isNotEmpty) 'expansions': expansions,
         if (salonId != null) 'salonId': salonId,
         if (libraryId != null) 'libraryId': libraryId,
       };
@@ -497,7 +487,6 @@ class Game {
       themes: ((data['themes'] as List?) ?? const []).map((e) => e as String).toList(),
       characterChoice: data['characterChoice'] is Map ? CharacterChoice.fromMap(Map<String, dynamic>.from(data['characterChoice'] as Map)) : null,
       setupChoice: data['setupChoice'] is Map ? SetupChoice.fromMap(Map<String, dynamic>.from(data['setupChoice'] as Map)) : null,
-      expansions: ((data['expansions'] as List?) ?? const []).map((e) => e as String).toList(),
       salonId: data['salonId'] as String?,
       libraryId: data['libraryId'] as String?,
     );

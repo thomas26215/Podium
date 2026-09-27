@@ -22,7 +22,6 @@ class NewGameDraft {
   Map<String, Map<String, int>> scoreBreakdown; // uid -> fieldId -> score
   Map<String, String> characters; // uid -> picked Game.characters entry
   List<String> setupPicks; // picked Game.setupChoice options, for the whole match
-  List<String> expansions; // picked Game.expansions entries, for the whole match
   String inputMode; // 'quick' | 'rounds'
   List<TimelinePoint> timeline;
   List<String> rankOrder; // CountType.ranks games: best-to-worst finishing order
@@ -88,7 +87,6 @@ class NewGameDraft {
     Map<String, Map<String, int>>? scoreBreakdown,
     Map<String, String>? characters,
     List<String>? setupPicks,
-    List<String>? expansions,
     this.inputMode = 'quick',
     List<TimelinePoint>? timeline,
     List<String>? rankOrder,
@@ -109,7 +107,6 @@ class NewGameDraft {
         scoreBreakdown = scoreBreakdown ?? {},
         characters = characters ?? {},
         setupPicks = setupPicks ?? [],
-        expansions = expansions ?? [],
         timeline = timeline ?? [],
         rankOrder = rankOrder ?? [],
         teamPoints = teamPoints ?? {};
@@ -131,7 +128,6 @@ class NewGameDraft {
         'scoreBreakdown': scoreBreakdown,
         'characters': characters,
         'setupPicks': setupPicks,
-        'expansions': expansions,
         'inputMode': inputMode,
         'timeline': timeline.map((t) => t.toJson()).toList(),
         'rankOrder': rankOrder,
@@ -161,7 +157,6 @@ class NewGameDraft {
         ),
         characters: (m['characters'] as Map?)?.map((k, v) => MapEntry(k as String, v as String)),
         setupPicks: (m['setupPicks'] as List?)?.map((e) => e as String).toList(),
-        expansions: (m['expansions'] as List?)?.map((e) => e as String).toList(),
         inputMode: m['inputMode'] as String? ?? 'quick',
         timeline: (m['timeline'] as List?)?.map((e) => TimelinePoint.fromJson(Map<String, dynamic>.from(e as Map))).toList(),
         rankOrder: (m['rankOrder'] as List?)?.map((e) => e as String).toList(),
@@ -320,9 +315,6 @@ class GameFormDraft {
   String setupCount;
   List<String> setupOptions;
 
-  /// The game's expansions (see [Game.expansions]) — none by default.
-  List<String> expansions;
-
   /// One form block per [GameRule] the game will have — always at least
   /// one. See `CreateGameForm`'s repeatable rule cards.
   List<GameRuleFormDraft> rules;
@@ -341,12 +333,10 @@ class GameFormDraft {
     this.setupLabel = SetupChoice.defaultLabel,
     this.setupCount = '',
     List<String>? setupOptions,
-    List<String>? expansions,
     List<GameRuleFormDraft>? rules,
   })  : themes = themes ?? [],
         characters = characters ?? [],
         setupOptions = setupOptions ?? [],
-        expansions = expansions ?? [],
         rules = rules ?? [GameRuleFormDraft()];
 
   factory GameFormDraft.initial() => GameFormDraft();
@@ -372,8 +362,6 @@ class GameFormDraft {
   }
 
   List<String> get cleanSetupOptions => {for (final e in setupOptions) if (e.trim().isNotEmpty) e.trim()}.toList();
-
-  List<String> get cleanExpansions => {for (final e in expansions) if (e.trim().isNotEmpty) e.trim()}.toList();
 
   int? get parsedSetupCount => int.tryParse(setupCount.trim());
 
