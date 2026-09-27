@@ -8,6 +8,7 @@ import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/avatar.dart';
 import '../../widgets/common.dart';
+import '../../widgets/duration_wheel_picker.dart';
 import '../../widgets/match_card.dart';
 import '../../widgets/score_evolution_chart.dart';
 import '../../widgets/segmented_control.dart';
@@ -311,9 +312,10 @@ class _WinLossScoreList extends StatelessWidget {
   }
 }
 
-/// Scoring UI for [CountType.time] rules: one time per player, typed in
-/// (see [parseDuration]), with that player's current record for this rule
-/// alongside — and a "Nouveau record" badge the moment it's beaten.
+/// Scoring UI for [CountType.time] rules: one time per player, dialed in
+/// on wheels (see [showDurationPickerSheet]), with that player's current
+/// record for this rule alongside — and a "Nouveau record" badge the
+/// moment it's beaten.
 class _TimeScoreList extends StatelessWidget {
   const _TimeScoreList();
 
@@ -365,7 +367,10 @@ class _TimeScoreList extends StatelessWidget {
                     ),
                   ),
                   Pressable(
-                    onTap: () => _showEditTimeDialog(context, p.displayName, ms, onSubmit: (v) => app.setPoints(uid, v)),
+                    onTap: () async {
+                      final picked = await showDurationPickerSheet(context, playerName: p.displayName, currentMs: ms, startFromMs: best);
+                      if (picked != null) app.setPoints(uid, picked);
+                    },
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
@@ -393,65 +398,6 @@ class _TimeScoreList extends StatelessWidget {
       ],
     );
   }
-}
-
-/// Asks for a time as text ("1:52.340", "1'52\"340"…, see [parseDuration])
-/// — invalid input keeps the dialog open with a hint instead of guessing.
-Future<void> _showEditTimeDialog(BuildContext context, String playerName, int currentMs, {required void Function(int ms) onSubmit}) async {
-  final ctrl = TextEditingController(text: currentMs > 0 ? formatDuration(currentMs) : '');
-  String? error;
-  await showDialog(
-    context: context,
-    builder: (dialogContext) => StatefulBuilder(
-      builder: (dialogContext, setState) {
-        void submit() {
-          final ms = parseDuration(ctrl.text);
-          if (ms == null) {
-            setState(() => error = 'Format attendu : 1:52.340');
-            return;
-          }
-          onSubmit(ms);
-          Navigator.of(dialogContext).pop();
-        }
-
-        return Dialog(
-          backgroundColor: AppColors.bg,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Temps de $playerName', style: dispFont(size: 18, weight: FontWeight.w700, color: AppColors.ink)),
-                const SizedBox(height: 4),
-                Text('Minutes:secondes.millièmes — ex. 1:52.340', style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: ctrl,
-                  autofocus: true,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  textAlign: TextAlign.center,
-                  style: dispFont(size: 28, weight: FontWeight.w700, color: AppColors.ink),
-                  decoration: appFieldDecoration(hintText: '1:52.340'),
-                  onChanged: (_) {
-                    if (error != null) setState(() => error = null);
-                  },
-                  onSubmitted: (_) => submit(),
-                ),
-                if (error != null) ...[
-                  const SizedBox(height: 6),
-                  Text(error!, style: bodyFont(size: 12, weight: FontWeight.w700, color: AppColors.accent)),
-                ],
-                const SizedBox(height: 18),
-                PrimaryButton(label: 'Valider', onPressed: submit),
-              ],
-            ),
-          ),
-        );
-      },
-    ),
-  );
 }
 
 /// Multi-round variant of [_WinLossScoreList]: mark winners/losers for the

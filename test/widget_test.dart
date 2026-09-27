@@ -5,6 +5,7 @@
 import 'dart:async';
 
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -1168,6 +1169,10 @@ void main() {
     await tester.pumpAndSettle();
     state.pickGame(state.games.single.id);
     state.step = state.stepSequence.length;
+    // A phone-sized screen: six wheels (with hours) must still fit.
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
 
     await tester.pumpWidget(
       ChangeNotifierProvider.value(
@@ -1180,10 +1185,27 @@ void main() {
 
     await tester.tap(find.text('Saisir'));
     await tester.pumpAndSettle();
+    expect(find.byType(CupertinoPicker), findsNWidgets(5), reason: 'minutes, seconds and three millisecond digits');
+    expect(find.text('Valider'), findsOneWidget);
+    // Three notches down on the seconds wheel: 0:03.000.
+    await tester.drag(find.byKey(const ValueKey('wheel-s')), const Offset(0, -44 * 3));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('+ Heures'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CupertinoPicker), findsNWidgets(6), reason: 'an hours wheel on demand');
+    await tester.tap(find.text('Valider'));
+    await tester.pumpAndSettle();
+    expect(state.draft.points['lea'], 3000);
+
+    // The keyboard is still one tap away, and checks what's typed.
+    await tester.tap(find.text('0:03.000'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Saisir au clavier'));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '1:75');
     await tester.tap(find.text('Valider'));
     await tester.pumpAndSettle();
-    expect(find.text('Format attendu : 1:52.340'), findsOneWidget, reason: 'invalid input keeps the dialog open');
+    expect(find.text('Format attendu : 1:52.340'), findsOneWidget, reason: 'invalid input keeps the sheet open');
 
     await tester.enterText(find.byType(TextField), "1'52\"340");
     await tester.tap(find.text('Valider'));
