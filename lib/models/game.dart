@@ -258,6 +258,30 @@ class CharacterChoice {
       );
 }
 
+/// Something picked once for the whole match, as configured on a [Game]
+/// (see [Game.setupChoice]): Dominion's kingdom cards, Catan's expansions,
+/// Carcassonne's modules… [label] names what's picked ("Cartes Royaume",
+/// "Extensions"…) and [count], when set, how many a match normally uses —
+/// only a guide (and what "Tirer au hasard" draws): the wizard never
+/// blocks on it.
+class SetupChoice {
+  static const defaultLabel = 'Extensions';
+
+  final String label;
+  final List<String> options;
+  final int? count;
+
+  const SetupChoice({this.label = defaultLabel, this.options = const [], this.count});
+
+  Map<String, dynamic> toMap() => {'label': label, 'options': options, if (count != null) 'count': count};
+
+  factory SetupChoice.fromMap(Map<String, dynamic> m) => SetupChoice(
+        label: (m['label'] as String?)?.trim().isNotEmpty == true ? (m['label'] as String).trim() : defaultLabel,
+        options: ((m['options'] as List?) ?? const []).map((e) => e as String).toList(),
+        count: (m['count'] as num?)?.toInt(),
+      );
+}
+
 class Game {
   final String id;
   final String name;
@@ -289,11 +313,10 @@ class Game {
   /// picker (see `MatchEntry.character`).
   final CharacterChoice? characterChoice;
 
-  /// Optional content a match can be played with — Dominion's or Catan's
-  /// expansions, Carcassonne's modules, a deck-builder's card sets… Empty
-  /// for most games; when set, the players step offers a multi-select of
-  /// which ones this match uses (see `GameMatch.expansions`).
-  final List<String> expansions;
+  /// What a match is set up with — Dominion's kingdom cards, Catan's
+  /// expansions… Null for most games; when set, the players step offers a
+  /// multi-select of what this match uses (see `GameMatch.setupPicks`).
+  final SetupChoice? setupChoice;
 
   /// Only meaningful for a Server's catalog (see
   /// `FirebaseGamesRepository.rootCollection` — a Group's own catalog never
@@ -323,7 +346,7 @@ class Game {
     this.maxPlayers,
     this.themes = const [],
     this.characterChoice,
-    this.expansions = const [],
+    this.setupChoice,
     this.salonId,
     this.libraryId,
   });
@@ -402,7 +425,7 @@ class Game {
 
   bool get hasCharacters => characterChoice != null && characterChoice!.options.isNotEmpty;
 
-  bool get hasExpansions => expansions.isNotEmpty;
+  bool get hasSetupChoice => setupChoice != null && setupChoice!.options.isNotEmpty;
 
   GameRule get defaultRule => rules.first;
   bool get hasMultipleRules => rules.length > 1;
@@ -425,7 +448,7 @@ class Game {
         maxPlayers: maxPlayers,
         themes: themes,
         characterChoice: characterChoice,
-        expansions: expansions,
+        setupChoice: setupChoice,
         salonId: salonId,
         libraryId: detachFromLibrary ? null : libraryId,
       );
@@ -440,7 +463,7 @@ class Game {
         if (maxPlayers != null) 'maxPlayers': maxPlayers,
         if (themes.isNotEmpty) 'themes': themes,
         if (characterChoice != null) 'characterChoice': characterChoice!.toMap(),
-        if (expansions.isNotEmpty) 'expansions': expansions,
+        if (setupChoice != null) 'setupChoice': setupChoice!.toMap(),
         if (salonId != null) 'salonId': salonId,
         if (libraryId != null) 'libraryId': libraryId,
       };
@@ -463,7 +486,7 @@ class Game {
       maxPlayers: (data['maxPlayers'] as num?)?.toInt(),
       themes: ((data['themes'] as List?) ?? const []).map((e) => e as String).toList(),
       characterChoice: data['characterChoice'] is Map ? CharacterChoice.fromMap(Map<String, dynamic>.from(data['characterChoice'] as Map)) : null,
-      expansions: ((data['expansions'] as List?) ?? const []).map((e) => e as String).toList(),
+      setupChoice: data['setupChoice'] is Map ? SetupChoice.fromMap(Map<String, dynamic>.from(data['setupChoice'] as Map)) : null,
       salonId: data['salonId'] as String?,
       libraryId: data['libraryId'] as String?,
     );

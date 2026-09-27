@@ -52,7 +52,7 @@ abstract class GamesRepository {
     int? maxPlayers,
     List<String> themes = const [],
     CharacterChoice? characterChoice,
-    List<String> expansions = const [],
+    SetupChoice? setupChoice,
     String? salonId,
   });
 
@@ -110,7 +110,7 @@ class FirebaseGamesRepository implements GamesRepository {
     int? maxPlayers,
     List<String> themes = const [],
     CharacterChoice? characterChoice,
-    List<String> expansions = const [],
+    SetupChoice? setupChoice,
     String? salonId,
   }) async {
     final ref = _col(rootGroupId).doc();
@@ -124,7 +124,7 @@ class FirebaseGamesRepository implements GamesRepository {
       maxPlayers: maxPlayers,
       themes: themes,
       characterChoice: characterChoice,
-      expansions: expansions,
+      setupChoice: setupChoice,
       salonId: salonId,
     );
     await ref.set(game.toMap());
@@ -145,7 +145,7 @@ class FirebaseGamesRepository implements GamesRepository {
       maxPlayers: source.maxPlayers,
       themes: source.themes,
       characterChoice: source.characterChoice,
-      expansions: source.expansions,
+      setupChoice: source.setupChoice,
       salonId: salonId,
       libraryId: libraryId,
     );

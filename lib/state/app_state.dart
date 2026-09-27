@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -2754,7 +2755,7 @@ class AppState extends ChangeNotifier {
       team: team,
       points: points,
       characters: characters,
-      expansions: List.of(match.expansions),
+      setupPicks: List.of(match.setupPicks),
       inputMode: inputMode,
       timeline: List.of(match.timeline),
       rankOrder: rankOrder,
@@ -2931,7 +2932,9 @@ class AppState extends ChangeNotifier {
       characterLabel: game.characterChoice?.label ?? CharacterChoice.defaultLabel,
       characterFeminine: game.characterChoice?.feminine ?? false,
       characters: List.of(game.characterChoice?.options ?? const []),
-      expansions: List.of(game.expansions),
+      setupLabel: game.setupChoice?.label ?? SetupChoice.defaultLabel,
+      setupCount: game.setupChoice?.count?.toString() ?? '',
+      setupOptions: List.of(game.setupChoice?.options ?? const []),
       rules: game.rules.map(GameRuleFormDraft.fromRule).toList(),
     );
     notifyListeners();
@@ -3003,7 +3006,7 @@ class AppState extends ChangeNotifier {
           maxPlayers: libraryGame.maxPlayers,
           themes: libraryGame.themes,
           characterChoice: libraryGame.characterChoice,
-          expansions: libraryGame.expansions,
+          setupChoice: libraryGame.setupChoice,
           salonId: target.salonId,
           libraryId: libraryGame.id,
         ),
@@ -3089,7 +3092,7 @@ class AppState extends ChangeNotifier {
       // it — apply its (already known) default rule directly instead.
       draft.gameId = game.id;
       draft.ruleId = null;
-      draft.expansions = [];
+      draft.setupPicks = [];
       if (!game.hasMultipleRules) _applyRule(game.defaultRule);
       browsingLibrary = false;
       showToast('« ${game.name} » ajouté à votre catalogue.');
@@ -3165,7 +3168,7 @@ class AppState extends ChangeNotifier {
       // See importLibraryGame for why this doesn't just call pickGame.
       draft.gameId = game.id;
       draft.ruleId = null;
-      draft.expansions = [];
+      draft.setupPicks = [];
       if (!game.hasMultipleRules) _applyRule(game.defaultRule);
       browsingOtherGroups = false;
       showToast('« ${game.name} » ajouté à votre catalogue.');
@@ -3232,7 +3235,7 @@ class AppState extends ChangeNotifier {
           maxPlayers: gameForm.parsedMaxPlayers,
           themes: gameForm.cleanThemes,
           characterChoice: gameForm.cleanCharacterChoice,
-          expansions: gameForm.cleanExpansions,
+          setupChoice: gameForm.cleanSetupChoice,
           // Carried over from the existing doc, not re-derived from
           // whichever Salon happens to be active right now — editing a
           // game must not silently move it to another Salon's catalog or
@@ -3257,7 +3260,7 @@ class AppState extends ChangeNotifier {
           maxPlayers: gameForm.parsedMaxPlayers,
           themes: gameForm.cleanThemes,
           characterChoice: gameForm.cleanCharacterChoice,
-          expansions: gameForm.cleanExpansions,
+          setupChoice: gameForm.cleanSetupChoice,
           salonId: activeContext == ActiveContextKind.salon ? currentSalonId : null,
         );
       }
@@ -3266,7 +3269,7 @@ class AppState extends ChangeNotifier {
       // miss it — apply its (already known) default rule directly instead.
       draft.gameId = game.id;
       draft.ruleId = null;
-      draft.expansions = draft.expansions.where(game.expansions.contains).toList();
+      draft.setupPicks = draft.setupPicks.where((p) => game.setupChoice?.options.contains(p) ?? false).toList();
       if (!game.hasMultipleRules) {
         _applyRule(game.defaultRule);
       } else {
@@ -3316,7 +3319,7 @@ class AppState extends ChangeNotifier {
     final g = gameById(id);
     if (draft.gameId != id) {
       draft.characters.clear(); // another game's roster
-      draft.expansions = _lastExpansionsPlayed(g);
+      draft.setupPicks = _lastSetupPlayed(g);
     }
     draft.gameId = id;
     draft.ruleId = null;
@@ -3326,25 +3329,41 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// The expansions ticked on the most recent match of [game] in this
-  /// group/salon, still offered by the game — the usual table rarely
-  /// changes from one evening to the next, so it's the best starting point.
-  List<String> _lastExpansionsPlayed(Game? game) {
-    if (game == null || !game.hasExpansions) return [];
+  /// The setup ticked on the most recent match of [game] in this
+  /// group/salon (see [Game.setupChoice]), still offered by the game — the
+  /// usual table rarely changes from one evening to the next, so it's the
+  /// best starting point.
+  List<String> _lastSetupPlayed(Game? game) {
+    if (game == null || !game.hasSetupChoice) return [];
     GameMatch? last;
     for (final m in viewMatches) {
       if (m.gameId == game.id && (last == null || m.createdAt.isAfter(last.createdAt))) last = m;
     }
-    return (last?.expansions ?? const []).where(game.expansions.contains).toList();
+    return (last?.setupPicks ?? const []).where(game.setupChoice!.options.contains).toList();
   }
 
-  /// Ticks/unticks one of the game's [Game.expansions] for this match.
-  void toggleExpansion(String name) {
-    if (draft.expansions.contains(name)) {
-      draft.expansions.remove(name);
+  /// Ticks/unticks one of the game's [Game.setupChoice] options for this match.
+  void toggleSetupPick(String option) {
+    if (draft.setupPicks.contains(option)) {
+      draft.setupPicks.remove(option);
     } else {
-      draft.expansions.add(name);
+      draft.setupPicks.add(option);
     }
+    _pushLiveUpdate();
+    notifyListeners();
+  }
+
+  /// Replaces the ticked setup with [SetupChoice.count] options drawn at
+  /// random — the classic "tirer les 10 cartes Royaume" of Dominion. A
+  /// no-op when the game doesn't say how many a match uses.
+  void randomizeSetupPicks({Random? random}) {
+    final choice = gameById(draft.gameId ?? '')?.setupChoice;
+    final count = choice?.count;
+    if (choice == null || count == null) return;
+    final pool = [...choice.options]..shuffle(random ?? Random());
+    final drawn = pool.take(count).toSet();
+    // Kept in the game's own order, so the list reads the same as the form.
+    draft.setupPicks = choice.options.where(drawn.contains).toList();
     _pushLiveUpdate();
     notifyListeners();
   }
@@ -4306,7 +4325,7 @@ class AppState extends ChangeNotifier {
       tournamentMatchId: _activeTournamentMatchId,
       salonId: salonId,
       confirmedBy: inSalon ? initialConfirmedBy : null,
-      expansions: List.of(draft.expansions),
+      setupPicks: List.of(draft.setupPicks),
     );
     GameMatch? newlySaved;
     try {
@@ -4615,9 +4634,9 @@ class AppState extends ChangeNotifier {
     _activeTournamentMatchId = match.id;
     pickGame(tournament.gameId);
     if (tournament.ruleId != null) pickRule(tournament.ruleId!);
-    // The players step (where expansions are ticked) is skipped here, so
+    // The players step (where the setup is ticked) is skipped here, so
     // don't carry over a guess the player never got to see.
-    draft.expansions = [];
+    draft.setupPicks = [];
     final isTeam = entrantA.playerIds.length > 1 || entrantB.playerIds.length > 1;
     draft.mode = isTeam ? 'team' : 'ffa';
     draft.teamCount = 2;

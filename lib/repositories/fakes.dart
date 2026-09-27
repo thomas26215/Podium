@@ -433,7 +433,7 @@ class FakeGamesRepository implements GamesRepository {
     int? maxPlayers,
     List<String> themes = const [],
     CharacterChoice? characterChoice,
-    List<String> expansions = const [],
+    SetupChoice? setupChoice,
     String? salonId,
   }) async {
     final list = byGroup.putIfAbsent(rootGroupId, () => []);
@@ -447,7 +447,7 @@ class FakeGamesRepository implements GamesRepository {
       maxPlayers: maxPlayers,
       themes: themes,
       characterChoice: characterChoice,
-      expansions: expansions,
+      setupChoice: setupChoice,
       salonId: salonId,
     );
     list.add(game);
@@ -469,7 +469,7 @@ class FakeGamesRepository implements GamesRepository {
       maxPlayers: source.maxPlayers,
       themes: source.themes,
       characterChoice: source.characterChoice,
-      expansions: source.expansions,
+      setupChoice: source.setupChoice,
       salonId: salonId,
       libraryId: libraryId,
     );

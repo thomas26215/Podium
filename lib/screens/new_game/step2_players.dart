@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../logic/text_search.dart';
 import '../../models/game.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
@@ -141,30 +142,7 @@ class Step2Players extends StatelessWidget {
             ),
           ),
         ],
-        if (!isTournamentFlow && game != null && game.hasExpansions)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Extensions utilisées', style: bodyFont(size: 13.5, weight: FontWeight.w800, color: AppColors.ink2)),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final e in game.expansions)
-                      OptionChip(
-                        label: e,
-                        icon: d.expansions.contains(e) ? Icons.check_rounded : null,
-                        selected: d.expansions.contains(e),
-                        onTap: () => app.toggleExpansion(e),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+        if (!isTournamentFlow && game != null && game.hasSetupChoice) _SetupPicker(choice: game.setupChoice!),
         if (isTournamentFlow)
           Padding(
             padding: const EdgeInsets.only(bottom: 16),
@@ -321,6 +299,92 @@ class Step2Players extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// The "Cartes Royaume"/"Extensions"… block (see [Game.setupChoice]): one
+/// chip per option, a live "n/count" tally and, when the game says how many
+/// a match uses, a random draw. A search field shows up once the list gets
+/// long (a Dominion player may type in every card they own).
+class _SetupPicker extends StatefulWidget {
+  final SetupChoice choice;
+  const _SetupPicker({required this.choice});
+
+  @override
+  State<_SetupPicker> createState() => _SetupPickerState();
+}
+
+class _SetupPickerState extends State<_SetupPicker> {
+  static const _searchThreshold = 30;
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final picks = app.draft.setupPicks;
+    final choice = widget.choice;
+    final count = choice.count;
+    final q = foldText(_query.trim());
+    final visible = q.isEmpty ? choice.options : choice.options.where((o) => foldText(o).contains(q) || picks.contains(o)).toList();
+    final off = count != null && picks.length != count;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text.rich(
+                  TextSpan(children: [
+                    TextSpan(text: choice.label, style: bodyFont(size: 13.5, weight: FontWeight.w800, color: AppColors.ink2)),
+                    TextSpan(
+                      text: count != null ? '  ${picks.length}/$count' : (picks.isEmpty ? '' : '  ${picks.length}'),
+                      style: bodyFont(size: 13, weight: FontWeight.w800, color: off ? AppColors.accent : AppColors.mut),
+                    ),
+                  ]),
+                ),
+              ),
+              if (count != null && count <= choice.options.length)
+                Pressable(
+                  onTap: app.randomizeSetupPicks,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.casino_rounded, size: 17, color: AppColors.accent),
+                      const SizedBox(width: 4),
+                      Text('Tirer au hasard', style: bodyFont(size: 12.5, weight: FontWeight.w800, color: AppColors.accent)),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (choice.options.length > _searchThreshold)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: TextField(
+                onChanged: (v) => setState(() => _query = v),
+                style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink),
+                decoration: appFieldDecoration(hintText: 'Rechercher', prefixIcon: Icon(Icons.search_rounded, color: AppColors.mut)),
+              ),
+            ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final o in visible)
+                OptionChip(
+                  label: o,
+                  icon: picks.contains(o) ? Icons.check_rounded : null,
+                  selected: picks.contains(o),
+                  onTap: () => app.toggleSetupPick(o),
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

@@ -13,8 +13,8 @@ import '../../widgets/theme_picker.dart';
 /// The "create/edit a game" form shown inside the new-game sheet, in airy
 /// sections: who the game is (emoji, name, category), its fixed parameters
 /// (player count, theme tags), what each player picks (heroes, wonders…,
-/// optional), which expansions a match can use (optional), and how it is
-/// scored (one or
+/// optional), what a match is set up with (Dominion's kingdom cards,
+/// expansions…, optional), and how it is scored (one or
 /// several [GameRule]s). Detail only takes space where it is being edited —
 /// extra rules are collapsible cards.
 class CreateGameForm extends StatelessWidget {
@@ -31,7 +31,7 @@ class CreateGameForm extends StatelessWidget {
         SizedBox(height: 28),
         _CharacterChoiceSection(),
         SizedBox(height: 28),
-        _ExpansionsSection(),
+        _SetupChoiceSection(),
         SizedBox(height: 28),
         _RulesSection(),
       ],
@@ -462,35 +462,48 @@ class _CharacterChoiceSectionState extends State<_CharacterChoiceSection> {
   }
 }
 
-// ── Expansions ─────────────────────────────────────────────────────────────
+// ── Match setup ────────────────────────────────────────────────────────────
 
-/// The "Extensions" section (see [Game.expansions]): the optional content a
-/// match can be played with — Dominion's card sets, Catan's expansions,
-/// Carcassonne's modules… Left empty, the match wizard never asks about it.
-class _ExpansionsSection extends StatefulWidget {
-  const _ExpansionsSection();
+/// The "Sélection pour la partie" section (see [Game.setupChoice]): what a
+/// match is set up with — Dominion's kingdom cards, Catan's expansions,
+/// Carcassonne's modules… Left without options, the match wizard never
+/// asks about it.
+class _SetupChoiceSection extends StatefulWidget {
+  const _SetupChoiceSection();
 
   @override
-  State<_ExpansionsSection> createState() => _ExpansionsSectionState();
+  State<_SetupChoiceSection> createState() => _SetupChoiceSectionState();
 }
 
-class _ExpansionsSectionState extends State<_ExpansionsSection> {
-  final _input = TextEditingController();
-  final _inputFocus = FocusNode();
+class _SetupChoiceSectionState extends State<_SetupChoiceSection> {
+  late final TextEditingController _label;
+  late final TextEditingController _count;
+  final _option = TextEditingController();
+  final _optionFocus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    final f = context.read<AppState>().gameForm;
+    _label = TextEditingController(text: f.setupLabel);
+    _count = TextEditingController(text: f.setupCount);
+  }
 
   @override
   void dispose() {
-    _input.dispose();
-    _inputFocus.dispose();
+    _label.dispose();
+    _count.dispose();
+    _option.dispose();
+    _optionFocus.dispose();
     super.dispose();
   }
 
-  void _add(AppState app) {
-    final name = _input.text.trim();
+  void _addOption(AppState app) {
+    final name = _option.text.trim();
     if (name.isEmpty) return;
-    if (!app.gameForm.expansions.contains(name)) app.setGameForm((f) => f..expansions = [...f.expansions, name]);
-    _input.clear();
-    _inputFocus.requestFocus();
+    if (!app.gameForm.setupOptions.contains(name)) app.setGameForm((f) => f..setupOptions = [...f.setupOptions, name]);
+    _option.clear();
+    _optionFocus.requestFocus();
   }
 
   @override
@@ -500,15 +513,61 @@ class _ExpansionsSectionState extends State<_ExpansionsSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionTitle('Extensions', hint: 'Optionnel — extensions, modules ou paquets de cartes : on coche ceux utilisés au lancement de chaque partie.'),
-        if (f.expansions.isNotEmpty)
+        const _SectionTitle('Sélection pour la partie', hint: 'Optionnel — cartes Royaume de Dominion, extensions, modules… cochés au lancement de chaque partie.'),
+        Row(
+          children: [
+            Expanded(
+              flex: 3,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _fieldLabel('Nom'),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _label,
+                    textCapitalization: TextCapitalization.sentences,
+                    onChanged: (v) => app.setGameForm((f) => f..setupLabel = v),
+                    style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink),
+                    decoration: appFieldDecoration(hintText: 'Ex. Cartes Royaume'),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              flex: 2,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _fieldLabel('Par partie'),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _count,
+                    keyboardType: TextInputType.number,
+                    onChanged: (v) => app.setGameForm((f) => f..setupCount = v),
+                    style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink),
+                    decoration: appFieldDecoration(hintText: 'Ex. 10'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        f.setupCountValid
+            ? _helper('Le nombre est facultatif : il permet de tirer la sélection au hasard.')
+            : Text('Le nombre par partie doit être un entier positif.', style: bodyFont(size: 12, weight: FontWeight.w700, color: AppColors.accent)),
+        const SizedBox(height: 18),
+        _fieldLabel('Éléments proposés'),
+        const SizedBox(height: 8),
+        if (f.setupOptions.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
-                for (final e in f.expansions) _SelectedTag(label: e, onRemove: () => app.setGameForm((f) => f..expansions = f.expansions.where((x) => x != e).toList())),
+                for (final o in f.setupOptions) _SelectedTag(label: o, onRemove: () => app.setGameForm((f) => f..setupOptions = f.setupOptions.where((x) => x != o).toList())),
               ],
             ),
           ),
@@ -516,18 +575,18 @@ class _ExpansionsSectionState extends State<_ExpansionsSection> {
           children: [
             Expanded(
               child: TextField(
-                controller: _input,
-                focusNode: _inputFocus,
+                controller: _option,
+                focusNode: _optionFocus,
                 textCapitalization: TextCapitalization.sentences,
                 textInputAction: TextInputAction.done,
-                onSubmitted: (_) => _add(app),
+                onSubmitted: (_) => _addOption(app),
                 style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink),
-                decoration: appFieldDecoration(hintText: f.expansions.isEmpty ? 'Ex. Intrigue, Prospérité, Rivages…' : 'Ajouter une extension'),
+                decoration: appFieldDecoration(hintText: f.setupOptions.isEmpty ? 'Ex. Chapelle, Village, Sorcière…' : 'Ajouter un élément'),
               ),
             ),
             const SizedBox(width: 8),
             Pressable(
-              onTap: () => _add(app),
+              onTap: () => _addOption(app),
               child: Container(
                 width: 48,
                 height: 48,
