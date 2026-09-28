@@ -201,6 +201,14 @@ class FakeGroupsRepository implements GroupsRepository {
   }
 
   @override
+  Future<void> updateGroupSettings({required String groupId, String? name, String? emoji, int? emojiBg, bool? temporary}) async {
+    final g = groups[groupId];
+    if (g == null) return;
+    groups[groupId] = g.copyWith(name: name, emoji: emoji, emojiBg: emojiBg, temporary: temporary);
+    _emit();
+  }
+
+  @override
   Future<void> refreshInviteWindow(String groupId, {required DateTime until}) async {
     final g = groups[groupId];
     if (g == null) return;

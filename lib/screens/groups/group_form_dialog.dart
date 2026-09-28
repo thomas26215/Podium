@@ -9,6 +9,18 @@ import '../../widgets/match_card.dart' show frenchDayMonth;
 
 const _emojiChoices = ['🃏', '🎯', '🎲', '🏆', '🌙', '💼', '🔥', '⭐'];
 
+/// The emojis a group can pick from — plus `current` up front when it isn't
+/// one of them (an older group's), so editing it doesn't silently swap it.
+List<String> groupEmojiChoices([String? current]) => [
+      if (current != null && !_emojiChoices.contains(current)) current,
+      ..._emojiChoices,
+    ];
+
+/// The tinted background behind `emoji`, derived from its position among
+/// the standard choices so each emoji keeps a consistent color.
+int groupEmojiBg(String emoji) =>
+    Color(kAvatarPalette[_emojiChoices.indexOf(emoji).clamp(0, _emojiChoices.length) % kAvatarPalette.length]).withValues(alpha: 0.16).toARGB32();
+
 /// Create-group form.
 class GroupFormDialog extends StatefulWidget {
   const GroupFormDialog({super.key});
@@ -38,9 +50,7 @@ class _GroupFormDialogState extends State<GroupFormDialog> {
 
   Future<void> _submit(AppState app) async {
     if (!_nameless && _nameCtrl.text.trim().isEmpty) return;
-    final bg =
-        kAvatarPalette[_emojiChoices.indexOf(_emoji) % kAvatarPalette.length];
-    final bgColor = Color(bg).withValues(alpha: 0.16).toARGB32();
+    final bgColor = groupEmojiBg(_emoji);
     final name = _nameless ? _autoName : _nameCtrl.text;
     await app.createGroup(
       name: name,
@@ -83,27 +93,7 @@ class _GroupFormDialogState extends State<GroupFormDialog> {
               ),
             ),
             const SizedBox(height: 9),
-            Row(
-              children: [
-                Expanded(
-                  child: _LifespanCard(
-                    label: 'Permanent',
-                    sub: 'Reste actif indéfiniment',
-                    selected: !_temporary,
-                    onTap: () => setState(() => _temporary = false),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _LifespanCard(
-                    label: 'Temporaire',
-                    sub: 'Ex. un week-end entre amis',
-                    selected: _temporary,
-                    onTap: () => setState(() => _temporary = true),
-                  ),
-                ),
-              ],
-            ),
+            LifespanPicker(temporary: _temporary, onChanged: (v) => setState(() => _temporary = v)),
             AnimatedSize(
               duration: const Duration(milliseconds: 200),
               alignment: Alignment.topCenter,
@@ -172,35 +162,7 @@ class _GroupFormDialogState extends State<GroupFormDialog> {
               ),
             ),
             const SizedBox(height: 9),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final e in _emojiChoices)
-                  Pressable(
-                    onTap: () => setState(() => _emoji = e),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      width: 44,
-                      height: 44,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: _emoji == e
-                            ? AppColors.accentSoft
-                            : AppColors.card,
-                        border: Border.all(
-                          color: _emoji == e
-                              ? AppColors.accent
-                              : AppColors.line,
-                          width: 1.5,
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(e, style: const TextStyle(fontSize: 22)),
-                    ),
-                  ),
-              ],
-            ),
+            GroupEmojiPicker(choices: _emojiChoices, selected: _emoji, onChanged: (e) => setState(() => _emoji = e)),
             if (app.flowError != null) ...[
               const SizedBox(height: 12),
               Text(
@@ -221,6 +183,71 @@ class _GroupFormDialogState extends State<GroupFormDialog> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Permanent / Temporaire — see [Group.temporary].
+class LifespanPicker extends StatelessWidget {
+  final bool temporary;
+  final ValueChanged<bool> onChanged;
+  const LifespanPicker({super.key, required this.temporary, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _LifespanCard(
+            label: 'Permanent',
+            sub: 'Reste actif indéfiniment',
+            selected: !temporary,
+            onTap: () => onChanged(false),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _LifespanCard(
+            label: 'Temporaire',
+            sub: 'Ex. un week-end entre amis',
+            selected: temporary,
+            onTap: () => onChanged(true),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class GroupEmojiPicker extends StatelessWidget {
+  final List<String> choices;
+  final String selected;
+  final ValueChanged<String> onChanged;
+  const GroupEmojiPicker({super.key, required this.choices, required this.selected, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final e in choices)
+          Pressable(
+            onTap: () => onChanged(e),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: selected == e ? AppColors.accentSoft : AppColors.card,
+                border: Border.all(color: selected == e ? AppColors.accent : AppColors.line, width: 1.5),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(e, style: const TextStyle(fontSize: 22)),
+            ),
+          ),
+      ],
     );
   }
 }

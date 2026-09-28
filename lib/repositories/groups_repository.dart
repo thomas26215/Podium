@@ -45,6 +45,10 @@ abstract class GroupsRepository {
   /// [Group.closed].
   Future<void> setGroupClosed({required String groupId, required bool closed});
 
+  /// Owner-only: changes `groupId`'s name, emoji and/or lifespan hint (see
+  /// [Group.temporary]). Null fields are left untouched.
+  Future<void> updateGroupSettings({required String groupId, String? name, String? emoji, int? emojiBg, bool? temporary});
+
   /// Sets when `groupId`'s self-join window (QR code or shared link) closes —
   /// see [Group.inviteExpiresAt] and AppState.refreshInviteWindow.
   Future<void> refreshInviteWindow(String groupId, {required DateTime until});
@@ -191,6 +195,16 @@ class FirebaseGroupsRepository implements GroupsRepository {
     await _groups.doc(groupId).update({
       'closed': closed,
       'closedAt': closed ? FieldValue.serverTimestamp() : FieldValue.delete(),
+    });
+  }
+
+  @override
+  Future<void> updateGroupSettings({required String groupId, String? name, String? emoji, int? emojiBg, bool? temporary}) async {
+    await _groups.doc(groupId).update({
+      'name': ?name,
+      'emoji': ?emoji,
+      'emojiBg': ?emojiBg,
+      'temporary': ?temporary,
     });
   }
 

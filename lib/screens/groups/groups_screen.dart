@@ -11,6 +11,7 @@ import '../servers/server_form_dialog.dart';
 import 'group_form_dialog.dart';
 import 'invite_dialog.dart';
 import 'group_members_dialog.dart';
+import 'group_settings_screen.dart';
 import 'join_by_link_dialog.dart';
 import 'reassign_member_dialog.dart';
 
@@ -457,7 +458,10 @@ class _RootGroupCard extends StatelessWidget {
             PopupMenuButton<String>(
               icon: Icon(Icons.more_horiz, color: AppColors.mut),
               onSelected: (v) {
-                if (v == 'invite') {
+                if (v == 'settings') {
+                  app.flowError = null;
+                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => GroupSettingsScreen(groupId: group.id)));
+                } else if (v == 'invite') {
                   showDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: InviteDialog(groupId: group.id, groupName: group.name)));
                 } else if (v == 'members') {
                   app.flowError = null;
@@ -475,6 +479,7 @@ class _RootGroupCard extends StatelessWidget {
                 }
               },
               itemBuilder: (_) => [
+                const PopupMenuItem(value: 'settings', child: Text('Paramètres du groupe')),
                 if (!closed) const PopupMenuItem(value: 'invite', child: Text('Inviter un ami')),
                 const PopupMenuItem(value: 'members', child: Text('Membres')),
                 if (app.canDeleteGroup(group) && !closed) const PopupMenuItem(value: 'reassign', child: Text('Réassigner un membre')),

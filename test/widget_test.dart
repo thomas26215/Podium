@@ -2603,6 +2603,63 @@ void main() {
     await tester.pump(const Duration(milliseconds: 2700));
   });
 
+  group('group settings page', () {
+    Future<AppState> openSettings(WidgetTester tester, AppUser user) async {
+      final seeded = _buildSeededState();
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(value: seeded.state, child: const MaterialApp(home: GroupsPage())),
+      );
+      seeded.auth.debugSignIn(user);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.more_horiz).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Paramètres du groupe'));
+      await tester.pumpAndSettle();
+      return seeded.state;
+    }
+
+    testWidgets('the owner renames the group through the unsaved-changes bar', (tester) async {
+      final app = await openSettings(tester, _lea);
+      expect(find.text('Modifications non enregistrées'), findsNothing);
+
+      await tester.enterText(find.byType(TextField), 'Les Brigands');
+      await tester.tap(find.text('🎯'));
+      await tester.pumpAndSettle();
+      expect(find.text('Modifications non enregistrées'), findsOneWidget);
+
+      await tester.tap(find.text('Enregistrer'));
+      await tester.pumpAndSettle();
+      final group = app.groupById('bandits')!;
+      expect(group.name, 'Les Brigands');
+      expect(group.emoji, '🎯');
+      expect(find.text('Modifications non enregistrées'), findsNothing);
+      await tester.pump(const Duration(milliseconds: 2700));
+    });
+
+    testWidgets('a member only sees members, invite and leave', (tester) async {
+      await openSettings(tester, _tom);
+      expect(find.byType(TextField), findsNothing);
+      expect(find.text('Inviter un ami'), findsOneWidget);
+      expect(find.text('Quitter le groupe'), findsOneWidget);
+      expect(find.text('Supprimer le groupe'), findsNothing);
+    });
+
+    testWidgets('deleting the group leaves the settings page', (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final app = await openSettings(tester, _lea);
+      await tester.tap(find.text('Supprimer le groupe'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'Supprimer'));
+      await tester.pumpAndSettle();
+      expect(app.groupById('bandits'), isNull);
+      expect(find.text('Modifications non enregistrées'), findsNothing);
+      expect(find.text('ZONE DANGEREUSE'), findsNothing);
+      await tester.pump(const Duration(milliseconds: 2700));
+    });
+  });
+
   testWidgets('"Rejoindre" joins from a pasted invite link, and rejects anything else', (tester) async {
     final seeded = _buildSeededState();
     final other = await seeded.state.groupsRepo.createGroup(name: 'Soirée jeux', emoji: '🎲', emojiBg: 0xFFFFE9E1, ownerId: 'tom');

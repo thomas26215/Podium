@@ -17,8 +17,8 @@ class Group {
   final bool closed;
   final DateTime? closedAt;
 
-  /// Set at creation, never changed afterwards: just the owner's stated
-  /// intent for the group ("a one-off weekend with friends" vs. "our regular
+  /// Set at creation (the owner can still switch it later from the group's
+  /// settings): just the owner's stated intent for the group ("a one-off weekend with friends" vs. "our regular
   /// game night"), shown as a hint in the UI. Doesn't do anything on its
   /// own — [closed] is the field that actually freezes a group; a temporary
   /// group still has to be closed explicitly once it's over.
@@ -83,6 +83,10 @@ class Group {
   }
 
   Group copyWith({
+    String? name,
+    String? emoji,
+    int? emojiBg,
+    bool? temporary,
     List<String>? memberIds,
     String? ownerId,
     bool? closed,
@@ -91,14 +95,14 @@ class Group {
   }) =>
       Group(
         id: id,
-        name: name,
-        emoji: emoji,
-        emojiBg: emojiBg,
+        name: name ?? this.name,
+        emoji: emoji ?? this.emoji,
+        emojiBg: emojiBg ?? this.emojiBg,
         memberIds: memberIds ?? this.memberIds,
         ownerId: ownerId ?? this.ownerId,
         closed: closed ?? this.closed,
         closedAt: closed == false ? null : (closedAt ?? this.closedAt),
-        temporary: temporary,
+        temporary: temporary ?? this.temporary,
         inviteExpiresAt: inviteExpiresAt ?? this.inviteExpiresAt,
         personal: personal,
       );

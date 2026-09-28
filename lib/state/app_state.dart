@@ -1972,6 +1972,28 @@ class AppState extends ChangeNotifier {
     return ok;
   }
 
+  /// Saves `group`'s settings (name, emoji, lifespan) — owner-only, same
+  /// scope as [canCloseGroup]. Returns whether it succeeded; the failure
+  /// reason is left in [flowError] for the settings dialog to show.
+  Future<bool> updateGroupSettings(Group group, {required String name, required String emoji, required int emojiBg, required bool temporary}) async {
+    if (!canCloseGroup(group) || name.trim().isEmpty) return false;
+    busy = true;
+    flowError = null;
+    notifyListeners();
+    var ok = false;
+    try {
+      await groupsRepo.updateGroupSettings(groupId: group.id, name: name.trim(), emoji: emoji, emojiBg: emojiBg, temporary: temporary);
+      showToast('Groupe mis à jour.');
+      ok = true;
+    } catch (e) {
+      flowError = e.toString();
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+    return ok;
+  }
+
   /// Opens (or extends) `groupId`'s self-join window for `validFor` — call
   /// whenever the invite dialog's QR tab is shown (30 minutes, the default)
   /// or a link is shared (see [shareGroupInviteLink]). Never shortens a
