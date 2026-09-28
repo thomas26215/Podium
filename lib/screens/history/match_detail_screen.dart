@@ -317,6 +317,7 @@ class MatchDetailScreen extends StatelessWidget {
                 _memberAvatar(e.playerId),
                 const SizedBox(width: 10),
                 Expanded(child: _nameWithCharacter(e, p?.displayName)),
+                ?_eloChip(e.playerId),
                 // Alone, there's nobody to finish first against.
                 if (win && match.entries.length > 1)
                   Container(
@@ -366,6 +367,7 @@ class MatchDetailScreen extends StatelessWidget {
                       _memberAvatar(entry.playerId),
                       const SizedBox(width: 10),
                       Expanded(child: _nameWithCharacter(entry, appState.playerById(entry.playerId)?.displayName)),
+                      ?_eloChip(entry.playerId),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(999)),
@@ -479,6 +481,7 @@ class MatchDetailScreen extends StatelessWidget {
                 children: [
                   Text('ÉQUIPE $t', style: bodyFont(size: 13, weight: FontWeight.w800, color: AppColors.ink, letterSpacing: 0.3)),
                   Row(children: [
+                    if (es.isNotEmpty) ?_eloChip(es.first.playerId),
                     if (win)
                       Container(
                         margin: const EdgeInsets.only(right: 8),
@@ -497,6 +500,21 @@ class MatchDetailScreen extends StatelessWidget {
           ),
         );
       }).toList(),
+    );
+  }
+
+  /// "+14" / "−9": how much this match moved [uid]'s group Elo — null
+  /// outside a group, or for a match Elo skips (coop, solo).
+  Widget? _eloChip(String uid) {
+    final delta = appState.groupElo.deltas[match.id]?[uid];
+    if (delta == null) return null;
+    final d = delta.round();
+    final color = d > 0 ? AppColors.green : (d < 0 ? Colors.red : AppColors.mut);
+    return Container(
+      margin: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
+      child: Text('${d > 0 ? '+' : (d < 0 ? '−' : '±')}${d.abs()} Elo', style: bodyFont(size: 10.5, weight: FontWeight.w800, color: color)),
     );
   }
 

@@ -14,6 +14,7 @@ import '../models/group.dart';
 import '../models/group_invite_code.dart';
 import '../logic/game_filter.dart';
 import '../logic/game_sort.dart';
+import '../logic/elo.dart';
 import '../logic/personal_records.dart';
 import '../logic/text_search.dart';
 import '../logic/tournament_bracket.dart';
@@ -337,7 +338,7 @@ class AppState extends ChangeNotifier {
 
   // ---- nav / view state ----
   AppTab tab = AppTab.home;
-  String rankMode = 'wins'; // wins | points | ratio | avg
+  String rankMode = 'elo'; // elo | wins | points | ratio | avg — read through [effectiveRankMode]
   String? gameFilter;
 
   /// Theme tags the ranking is restricted to (see [rankingThemeGameIds]).
@@ -2462,6 +2463,7 @@ class AppState extends ChangeNotifier {
       }).toList();
     }
     final pids = playerIdsOverride ?? viewPlayerIds;
+    final elo = groupElo;
     return pids.map((pid) {
       final p = playerById(pid);
       if (p == null) return null;
@@ -2487,9 +2489,42 @@ class AppState extends ChangeNotifier {
         ratio: played > 0 ? wins / played : 0,
         avg: played > 0 ? points / played : null,
         gamesPlayedOfFilter: played,
+        elo: elo.ratings[pid],
+        eloPlayed: elo.played[pid] ?? 0,
       );
     }).whereType<PlayerRow>().toList();
   }
+
+  List<GameMatch>? _eloMatches;
+  List<Group>? _eloGroups;
+  String? _eloGroupId;
+  EloResult _eloCache = EloResult.empty;
+
+  /// Whether the Elo ranking applies to what's on screen — Groups only for
+  /// now, Salons keep their win-count rankings.
+  bool get eloAvailable => activeContext == ActiveContextKind.group && currentGroupId != null;
+
+  /// The currently-viewed group's Elo ratings, replayed from [viewMatches]
+  /// (subgroups included). Cached until [matches], [groups] or the group
+  /// change — those lists are always reassigned, never mutated in place.
+  EloResult get groupElo {
+    if (!eloAvailable) return EloResult.empty;
+    if (!identical(_eloMatches, matches) || !identical(_eloGroups, groups) || _eloGroupId != currentGroupId) {
+      _eloMatches = matches;
+      _eloGroups = groups;
+      _eloGroupId = currentGroupId;
+      _eloCache = computeElo(viewMatches);
+    }
+    return _eloCache;
+  }
+
+  /// [rankMode], except that the Elo mode falls back to wins where Elo isn't
+  /// offered (a Salon).
+  String get effectiveRankMode => rankMode == 'elo' && !eloAvailable ? 'wins' : rankMode;
+
+  /// The ranking shown on the home screen and the profile's "Xe du
+  /// classement": by Elo in a group, by wins in a Salon.
+  List<PlayerRow> get headlineStandings => standings(eloAvailable ? 'elo' : 'wins');
 
   List<PlayerRow> standings(
     String mode, {
@@ -2500,6 +2535,13 @@ class AppState extends ChangeNotifier {
     List<String>? participantFilter,
     bool participantFilterExact = false,
   }) {
+    if (mode == 'elo') {
+      // Elo is one rating across every game, so the ranking filters don't
+      // apply — only players with at least one rated match are listed.
+      final rows = computeRows(null, playerIdsOverride: playerIdsOverride).where((r) => r.elo != null).toList();
+      rows.sort((a, b) => b.elo!.compareTo(a.elo!));
+      return rows;
+    }
     final rows = computeRows(
       gameFilterId,
       gameIdsFilter: gameIdsFilter,
@@ -2532,6 +2574,8 @@ class AppState extends ChangeNotifier {
 
   RankMetric metricFor(PlayerRow r, String mode) {
     switch (mode) {
+      case 'elo':
+        return RankMetric(r.elo != null ? '${r.elo!.round()}' : '—', 'Elo', '${r.eloPlayed} partie${r.eloPlayed > 1 ? 's' : ''}');
       case 'wins':
         return RankMetric('${r.wins}', 'victoires', '${r.played} parties · ${(r.ratio * 100).round()}%');
       case 'points':

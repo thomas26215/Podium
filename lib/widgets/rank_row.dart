@@ -10,9 +10,10 @@ import 'common.dart';
 class MiniRankRow extends StatelessWidget {
   final int rank;
   final AppUser player;
-  final int wins;
+  final int value;
+  final String unit; // 'victoires', 'Elo'…
   final VoidCallback onTap;
-  const MiniRankRow({super.key, required this.rank, required this.player, required this.wins, required this.onTap});
+  const MiniRankRow({super.key, required this.rank, required this.player, required this.value, required this.unit, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -34,8 +35,8 @@ class MiniRankRow extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                AnimatedCounter(value: wins, style: dispFont(size: 16, weight: FontWeight.w700, color: AppColors.ink)),
-                Text('victoires', style: bodyFont(size: 11, weight: FontWeight.w600, color: AppColors.mut)),
+                AnimatedCounter(value: value, style: dispFont(size: 16, weight: FontWeight.w700, color: AppColors.ink)),
+                Text(unit, style: bodyFont(size: 11, weight: FontWeight.w600, color: AppColors.mut)),
               ],
             ),
           ],

@@ -11,8 +11,12 @@ class PlayerRow {
   final double ratio;
   final double? avg; // average score in the currently filtered game, or null if never played it
   final int gamesPlayedOfFilter;
+  final double? elo; // group Elo rating, or null outside a group / before any rated match
+  final int eloPlayed;
 
   const PlayerRow({
+    this.elo,
+    this.eloPlayed = 0,
     required this.player,
     required this.wins,
     required this.played,

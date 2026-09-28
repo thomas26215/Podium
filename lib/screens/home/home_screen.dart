@@ -38,7 +38,7 @@ class HomeScreen extends StatelessWidget {
     final matchesToReview = inSalon ? _matchesToReview(app) : const <GameMatch>[];
     final players = app.viewPlayers;
     final stats = app.groupStats;
-    final winRows = app.standings('wins');
+    final winRows = app.headlineStandings;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 6, 20, 116),
@@ -348,7 +348,7 @@ List<Widget> _simpleSections(AppState app, List<PlayerRow> winRows) {
   final lastMatchGame = lastMatch != null ? app.gameById(lastMatch.gameId) : null;
 
   return [
-    FadeSlideIn(child: winRows.isEmpty ? const _SimpleNoDataCard() : _SimpleLeaderCard(row: winRows.first)),
+    FadeSlideIn(child: winRows.isEmpty ? const _SimpleNoDataCard() : _SimpleLeaderCard(row: winRows.first, elo: app.eloAvailable)),
     const SizedBox(height: 22),
     SectionHeader(title: 'Dernière partie', actionLabel: 'Historique', onAction: () => app.setTab(AppTab.history)),
     if (lastMatch == null || lastMatchGame == null)
@@ -369,7 +369,7 @@ List<Widget> _simpleSections(AppState app, List<PlayerRow> winRows) {
 /// dashboard.
 List<Widget> _completeSections(BuildContext context, AppState app, Map<String, int> stats, List<PlayerRow> winRows) {
   return [
-    FadeSlideIn(child: winRows.isEmpty ? const _NoDataHero() : _LeaderHero(row: winRows.first)),
+    FadeSlideIn(child: winRows.isEmpty ? const _NoDataHero() : _LeaderHero(row: winRows.first, elo: app.eloAvailable)),
     const SizedBox(height: 14),
     FadeSlideIn(
       delay: const Duration(milliseconds: 60),
@@ -397,7 +397,8 @@ List<Widget> _completeSections(BuildContext context, AppState app, Map<String, i
                     MiniRankRow(
                       rank: i + 1,
                       player: winRows[i].player,
-                      wins: winRows[i].wins,
+                      value: app.eloAvailable ? winRows[i].elo!.round() : winRows[i].wins,
+                      unit: app.eloAvailable ? 'Elo' : 'victoires',
                       onTap: () {
                         app.openProfile(winRows[i].player.uid);
                         Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileScreen()));
@@ -481,7 +482,8 @@ class _PendingDraftBanner extends StatelessWidget {
 
 class _LeaderHero extends StatelessWidget {
   final PlayerRow row;
-  const _LeaderHero({required this.row});
+  final bool elo; // leads by Elo (a group) rather than by wins (a Salon)
+  const _LeaderHero({required this.row, required this.elo});
 
   @override
   Widget build(BuildContext context) {
@@ -530,9 +532,9 @@ class _LeaderHero extends StatelessWidget {
                       Text(row.player.displayName, style: dispFont(size: 24, weight: FontWeight.w800, color: Colors.white, letterSpacing: -0.4)),
                       const SizedBox(height: 6),
                       Row(children: [
-                        AnimatedCounter(value: row.wins, style: bodyFont(size: 15, weight: FontWeight.w700, color: Colors.white)),
+                        AnimatedCounter(value: elo ? row.elo!.round() : row.wins, style: bodyFont(size: 15, weight: FontWeight.w700, color: Colors.white)),
                         const SizedBox(width: 4),
-                        Text('victoires', style: bodyFont(size: 13, weight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.6))),
+                        Text(elo ? 'Elo' : 'victoires', style: bodyFont(size: 13, weight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.6))),
                         const SizedBox(width: 18),
                         Row(children: [
                           AnimatedCounter(value: (row.ratio * 100).round(), style: bodyFont(size: 15, weight: FontWeight.w700, color: Colors.white)),
@@ -572,12 +574,13 @@ class _NoDataHero extends StatelessWidget {
   }
 }
 
-/// Épuré version of [_LeaderHero]: same info (who's leading, wins, winrate)
+/// Épuré version of [_LeaderHero]: same info (who's leading, Elo or wins, winrate)
 /// on a plain card instead of the dark gradient hero — quieter, less
 /// "look at me" for users who found the full dashboard too busy.
 class _SimpleLeaderCard extends StatelessWidget {
   final PlayerRow row;
-  const _SimpleLeaderCard({required this.row});
+  final bool elo; // see _LeaderHero.elo
+  const _SimpleLeaderCard({required this.row, required this.elo});
 
   @override
   Widget build(BuildContext context) {
@@ -595,8 +598,8 @@ class _SimpleLeaderCard extends StatelessWidget {
                 Text('En tête · ${row.player.displayName}', style: bodyFont(size: 15, weight: FontWeight.w800, color: AppColors.ink)),
                 const SizedBox(height: 2),
                 Row(children: [
-                  AnimatedCounter(value: row.wins, style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)),
-                  Text(' victoires · ', style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)),
+                  AnimatedCounter(value: elo ? row.elo!.round() : row.wins, style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)),
+                  Text(elo ? ' Elo · ' : ' victoires · ', style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)),
                   AnimatedCounter(value: (row.ratio * 100).round(), style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)),
                   Text('% de winrate', style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)),
                 ]),

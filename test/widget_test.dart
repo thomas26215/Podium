@@ -1863,6 +1863,10 @@ void main() {
     seeded.state.setTab(AppTab.ranking);
     await tester.pumpAndSettle();
     expect(find.text('Tom'), findsWidgets);
+    // Elo (the default) is global — the game/theme filters only exist for the other modes.
+    expect(find.text('Filtrer par thème'), findsNothing);
+    await tester.tap(find.text('Victoires'));
+    await tester.pumpAndSettle();
 
     // The only recorded match is Catan — "Course" is Mario Kart's theme, so
     // restricting to it leaves every player at zero victories.
@@ -1894,6 +1898,61 @@ void main() {
     rows = seeded.state.standings('wins', gameIdsFilter: seeded.state.rankingThemeGameIds);
     expect(rows.first.player.uid, 'lea');
     expect(rows.first.wins, 1);
+  });
+
+  testWidgets('a group ranks by Elo on the home screen and in the ranking tab', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    // Léa beat Tom in the seeded Catan match: +16 / −16 from the 1000 start.
+    final rows = seeded.state.headlineStandings;
+    expect(rows.map((r) => r.player.uid), ['lea', 'tom']);
+    expect(rows.map((r) => r.elo!.round()), [1016, 984]);
+    expect(find.text('1016'), findsWidgets, reason: 'the home leader shows her Elo');
+    expect(find.text('victoires'), findsNothing);
+
+    seeded.state.setTab(AppTab.ranking);
+    await tester.pumpAndSettle();
+    expect(seeded.state.effectiveRankMode, 'elo');
+    expect(find.text('Elo'), findsWidgets);
+    expect(find.text('984 Elo'), findsOneWidget);
+  });
+
+  testWidgets('a salon has no Elo mode and ranks by wins', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_tom);
+    await tester.pumpAndSettle();
+
+    final state = seeded.state;
+    await state.createServer(name: 'Café Test', emoji: '☕', emojiBg: 0);
+    await tester.pumpAndSettle();
+    final server = state.servers.single;
+    await state.createSalon(serverId: server.id, name: 'Tournoi', emoji: '🎮', emojiBg: 0);
+    await tester.pumpAndSettle();
+    state.selectSalon(server.id, state.salons.single.id);
+    state.setTab(AppTab.ranking);
+    await tester.pumpAndSettle();
+
+    expect(state.eloAvailable, isFalse);
+    expect(state.groupElo.ratings, isEmpty);
+    expect(state.effectiveRankMode, 'wins', reason: 'the Elo default falls back to wins in a salon');
+    expect(find.text('Elo'), findsNothing);
+    expect(find.text('Victoires'), findsOneWidget);
   });
 
   testWidgets('a profile breaks results down by theme', (tester) async {

@@ -42,7 +42,7 @@ class ProfileScreen extends StatelessWidget {
       );
     }
 
-    final winRows = app.standings('wins');
+    final winRows = app.headlineStandings;
     final rank = winRows.indexWhere((r) => r.player.uid == profileId) + 1;
     final rows = app.computeRows(null);
     final mine = rows.where((r) => r.player.uid == profileId).toList();
@@ -50,6 +50,7 @@ class ProfileScreen extends StatelessWidget {
     final wins = mine.isNotEmpty ? mine.first.wins : 0;
     final ratio = mine.isNotEmpty ? mine.first.ratio : 0.0;
     final points = mine.isNotEmpty ? mine.first.points : 0;
+    final elo = mine.isNotEmpty ? mine.first.elo : null;
     final breakdown = app.profileGameBreakdown(profileId!);
     final themes = themeStats(breakdown);
 
@@ -109,7 +110,7 @@ class ProfileScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(profile.displayName, style: dispFont(size: 26, weight: FontWeight.w800, color: AppColors.ink, letterSpacing: -0.4)),
-                        Text('${rank}e du classement · $points pts cumulés', style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.mut)),
+                        Text('${rank > 0 ? '${rank}e du classement' : 'Pas encore classé'} · $points pts cumulés', style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.mut)),
                       ],
                     ),
                   ],
@@ -124,6 +125,10 @@ class ProfileScreen extends StatelessWidget {
                   _stat('$played', 'Parties', AppColors.ink),
                   const SizedBox(width: 10),
                   _stat('${(ratio * 100).round()}%', 'Winrate', AppColors.accent),
+                  if (app.eloAvailable) ...[
+                    const SizedBox(width: 10),
+                    _stat(elo != null ? '${elo.round()}' : '—', 'Elo', AppColors.gold),
+                  ],
                 ]),
               ),
               const SizedBox(height: 22),
@@ -327,7 +332,7 @@ class ProfileScreen extends StatelessWidget {
         decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.lg)),
         child: Column(
           children: [
-            Text(value, style: dispFont(size: 26, weight: FontWeight.w700, color: color)),
+            FittedBox(fit: BoxFit.scaleDown, child: Text(value, style: dispFont(size: 26, weight: FontWeight.w700, color: color))),
             const SizedBox(height: 1),
             Text(label, style: bodyFont(size: 11, weight: FontWeight.w700, color: AppColors.mut)),
           ],

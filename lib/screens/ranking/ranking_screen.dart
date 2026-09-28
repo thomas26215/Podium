@@ -12,8 +12,8 @@ import '../../widgets/segmented_control.dart';
 import '../../widgets/theme_picker.dart';
 import '../profile/profile_screen.dart';
 
-const _modes = ['wins', 'points', 'ratio', 'avg'];
-const _modeLabels = ['Victoires', 'Points', 'Ratio', 'Par jeu'];
+const _modes = ['elo', 'wins', 'points', 'ratio', 'avg'];
+const _modeLabels = ['Elo', 'Victoires', 'Points', 'Ratio', 'Par jeu'];
 
 void _openProfile(BuildContext context, AppState app, String uid) {
   app.openProfile(uid);
@@ -26,8 +26,12 @@ class RankingScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
+    final mode = app.effectiveRankMode;
+    // Elo is Group-only for now — a Salon doesn't offer that mode at all.
+    final modes = app.eloAvailable ? _modes : _modes.sublist(1);
+    final labels = app.eloAvailable ? _modeLabels : _modeLabels.sublist(1);
     final rows = app.standings(
-      app.rankMode,
+      mode,
       gameFilterId: app.gameFilter,
       gameIdsFilter: app.rankingThemeGameIds,
       participantFilter: app.rankingPlayerFilter,
@@ -35,7 +39,8 @@ class RankingScreen extends StatelessWidget {
     );
     final podiumRows = rows.take(3).toList();
     final rest = rows.skip(3).toList();
-    final isAvg = app.rankMode == 'avg';
+    final isAvg = mode == 'avg';
+    final isElo = mode == 'elo';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 6, 20, 116),
@@ -44,76 +49,83 @@ class RankingScreen extends StatelessWidget {
         children: [
           ScreenHeading(eyebrow: (app.activeContext == ActiveContextKind.salon ? app.currentSalon?.name : app.currentGroup?.name) ?? '', title: 'Classement'),
           SegmentedControl(
-            labels: _modeLabels,
-            selectedIndex: _modes.indexOf(app.rankMode),
-            onChanged: (i) => app.setRankMode(_modes[i]),
+            labels: labels,
+            selectedIndex: modes.indexOf(mode),
+            onChanged: (i) => app.setRankMode(modes[i]),
           ),
           const SizedBox(height: 14),
-          SizedBox(
-            height: 40,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
+          if (isElo)
+            Text(
+              'Une cote tous jeux confondus : battre un joueur mieux classé rapporte plus que battre un joueur moins bien classé.',
+              style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut),
+            )
+          else ...[
+            SizedBox(
+              height: 40,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [
+                  if (!isAvg)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _FilterChip(
+                        label: 'Tous les jeux',
+                        selected: app.gameFilter == null,
+                        onTap: () => app.setGameFilter(null),
+                      ),
+                    ),
+                  for (final g in app.games)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _FilterChip(
+                        label: g.name,
+                        emoji: g.emoji,
+                        selected: app.gameFilter == g.id,
+                        onTap: () => app.setGameFilter(g.id),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                if (!isAvg)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: _FilterChip(
-                      label: 'Tous les jeux',
-                      selected: app.gameFilter == null,
-                      onTap: () => app.setGameFilter(null),
-                    ),
+                _FilterPill(
+                  icon: Icons.people_alt_rounded,
+                  label: app.rankingPlayerFilter.isEmpty
+                      ? 'Filtrer par joueurs'
+                      : '${app.rankingPlayerFilter.length} joueur${app.rankingPlayerFilter.length > 1 ? 's' : ''} · ${app.rankingPlayerFilterExact ? 'exactement' : 'au moins'}',
+                  active: app.rankingPlayerFilter.isNotEmpty,
+                  onClear: app.clearRankingPlayerFilter,
+                  onTap: () => showModalBottomSheet(
+                    context: context,
+                    backgroundColor: Colors.transparent,
+                    isScrollControlled: true,
+                    builder: (_) => ChangeNotifierProvider.value(value: app, child: const _PlayerFilterSheet()),
                   ),
-                for (final g in app.games)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: _FilterChip(
-                      label: g.name,
-                      emoji: g.emoji,
-                      selected: app.gameFilter == g.id,
-                      onTap: () => app.setGameFilter(g.id),
-                    ),
+                ),
+                // Only offered once some game carries a theme — otherwise the picker would be empty.
+                if (hasFilterableData(app.games))
+                  _FilterPill(
+                    icon: Icons.sell_outlined,
+                    label: app.rankingThemes.isEmpty ? 'Filtrer par thème' : '${app.rankingThemes.length} thème${app.rankingThemes.length > 1 ? 's' : ''}',
+                    active: app.rankingThemes.isNotEmpty,
+                    onClear: () => app.setRankingThemes({}),
+                    onTap: () async {
+                      final picked = await showThemePicker(
+                        context,
+                        groups: themesInUse(app.games),
+                        selected: app.rankingThemes.toList(),
+                        title: 'Classement par thème',
+                      );
+                      if (picked != null) app.setRankingThemes(picked.toSet());
+                    },
                   ),
               ],
             ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _FilterPill(
-                icon: Icons.people_alt_rounded,
-                label: app.rankingPlayerFilter.isEmpty
-                    ? 'Filtrer par joueurs'
-                    : '${app.rankingPlayerFilter.length} joueur${app.rankingPlayerFilter.length > 1 ? 's' : ''} · ${app.rankingPlayerFilterExact ? 'exactement' : 'au moins'}',
-                active: app.rankingPlayerFilter.isNotEmpty,
-                onClear: app.clearRankingPlayerFilter,
-                onTap: () => showModalBottomSheet(
-                  context: context,
-                  backgroundColor: Colors.transparent,
-                  isScrollControlled: true,
-                  builder: (_) => ChangeNotifierProvider.value(value: app, child: const _PlayerFilterSheet()),
-                ),
-              ),
-              // Only offered once some game carries a theme — otherwise the picker would be empty.
-              if (hasFilterableData(app.games))
-                _FilterPill(
-                  icon: Icons.sell_outlined,
-                  label: app.rankingThemes.isEmpty ? 'Filtrer par thème' : '${app.rankingThemes.length} thème${app.rankingThemes.length > 1 ? 's' : ''}',
-                  active: app.rankingThemes.isNotEmpty,
-                  onClear: () => app.setRankingThemes({}),
-                  onTap: () async {
-                    final picked = await showThemePicker(
-                      context,
-                      groups: themesInUse(app.games),
-                      selected: app.rankingThemes.toList(),
-                      title: 'Classement par thème',
-                    );
-                    if (picked != null) app.setRankingThemes(picked.toSet());
-                  },
-                ),
-            ],
-          ),
+          ],
           const SizedBox(height: 16),
           if (rows.isEmpty)
             EmptyState(
@@ -125,10 +137,10 @@ class RankingScreen extends StatelessWidget {
               key: ValueKey(podiumRows.map((r) => r.player.uid).join(',')),
               child: PodiumWidget(columns: [
                 if (podiumRows.length > 1)
-                  PodiumColumn(row: podiumRows[1], metric: app.metricFor(podiumRows[1], app.rankMode), place: 2, onTap: () => _openProfile(context, app, podiumRows[1].player.uid)),
-                PodiumColumn(row: podiumRows[0], metric: app.metricFor(podiumRows[0], app.rankMode), place: 1, onTap: () => _openProfile(context, app, podiumRows[0].player.uid)),
+                  PodiumColumn(row: podiumRows[1], metric: app.metricFor(podiumRows[1], mode), place: 2, onTap: () => _openProfile(context, app, podiumRows[1].player.uid)),
+                PodiumColumn(row: podiumRows[0], metric: app.metricFor(podiumRows[0], mode), place: 1, onTap: () => _openProfile(context, app, podiumRows[0].player.uid)),
                 if (podiumRows.length > 2)
-                  PodiumColumn(row: podiumRows[2], metric: app.metricFor(podiumRows[2], app.rankMode), place: 3, onTap: () => _openProfile(context, app, podiumRows[2].player.uid)),
+                  PodiumColumn(row: podiumRows[2], metric: app.metricFor(podiumRows[2], mode), place: 3, onTap: () => _openProfile(context, app, podiumRows[2].player.uid)),
               ]),
             ),
             if (rest.isNotEmpty)
@@ -145,9 +157,9 @@ class RankingScreen extends StatelessWidget {
                           child: RankRow(
                             rank: i + 4,
                             player: rest[i].player,
-                            sub: app.metricFor(rest[i], app.rankMode).sub,
-                            metric: app.metricFor(rest[i], app.rankMode).metric,
-                            unit: app.metricFor(rest[i], app.rankMode).unit,
+                            sub: app.metricFor(rest[i], mode).sub,
+                            metric: app.metricFor(rest[i], mode).metric,
+                            unit: app.metricFor(rest[i], mode).unit,
                             onTap: () => _openProfile(context, app, rest[i].player.uid),
                           ),
                         ),
