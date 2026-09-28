@@ -348,7 +348,7 @@ List<Widget> _simpleSections(AppState app, List<PlayerRow> winRows) {
   final lastMatchGame = lastMatch != null ? app.gameById(lastMatch.gameId) : null;
 
   return [
-    FadeSlideIn(child: winRows.isEmpty ? const _SimpleNoDataCard() : _SimpleLeaderCard(row: winRows.first, elo: app.eloAvailable)),
+    FadeSlideIn(child: winRows.isEmpty ? const _SimpleNoDataCard() : _SimpleLeaderCard(row: winRows.first, elo: app.headlineByElo)),
     const SizedBox(height: 22),
     SectionHeader(title: 'Dernière partie', actionLabel: 'Historique', onAction: () => app.setTab(AppTab.history)),
     if (lastMatch == null || lastMatchGame == null)
@@ -369,7 +369,7 @@ List<Widget> _simpleSections(AppState app, List<PlayerRow> winRows) {
 /// dashboard.
 List<Widget> _completeSections(BuildContext context, AppState app, Map<String, int> stats, List<PlayerRow> winRows) {
   return [
-    FadeSlideIn(child: winRows.isEmpty ? const _NoDataHero() : _LeaderHero(row: winRows.first, elo: app.eloAvailable)),
+    FadeSlideIn(child: winRows.isEmpty ? const _NoDataHero() : _LeaderHero(row: winRows.first, elo: app.headlineByElo)),
     const SizedBox(height: 14),
     FadeSlideIn(
       delay: const Duration(milliseconds: 60),
@@ -397,8 +397,8 @@ List<Widget> _completeSections(BuildContext context, AppState app, Map<String, i
                     MiniRankRow(
                       rank: i + 1,
                       player: winRows[i].player,
-                      value: app.eloAvailable ? winRows[i].elo!.round() : winRows[i].wins,
-                      unit: app.eloAvailable ? 'Elo' : 'victoires',
+                      value: app.headlineByElo ? winRows[i].elo!.round() : winRows[i].wins,
+                      unit: app.headlineByElo ? 'Elo' : 'victoires',
                       onTap: () {
                         app.openProfile(winRows[i].player.uid);
                         Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileScreen()));

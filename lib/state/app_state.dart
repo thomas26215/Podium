@@ -2522,9 +2522,14 @@ class AppState extends ChangeNotifier {
   /// offered (a Salon).
   String get effectiveRankMode => rankMode == 'elo' && !eloAvailable ? 'wins' : rankMode;
 
+  /// Whether [headlineStandings] ranks by Elo — in a group with at least
+  /// one rated match. Until then (a new group, or only coop/solo matches)
+  /// and in a Salon, it ranks by wins.
+  bool get headlineByElo => eloAvailable && standings('elo').isNotEmpty;
+
   /// The ranking shown on the home screen and the profile's "Xe du
-  /// classement": by Elo in a group, by wins in a Salon.
-  List<PlayerRow> get headlineStandings => standings(eloAvailable ? 'elo' : 'wins');
+  /// classement" — see [headlineByElo].
+  List<PlayerRow> get headlineStandings => standings(headlineByElo ? 'elo' : 'wins');
 
   List<PlayerRow> standings(
     String mode, {

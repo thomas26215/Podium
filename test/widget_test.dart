@@ -43,6 +43,7 @@ import 'package:podium/widgets/game_filter_bar.dart';
 import 'package:podium/widgets/result_share_card.dart';
 import 'package:podium/widgets/tournament_share_card.dart';
 import 'package:podium/widgets/progression_chart.dart';
+import 'package:podium/logic/elo.dart';
 import 'package:podium/state/app_state.dart';
 import 'package:podium/state/new_game_draft.dart';
 
@@ -1862,11 +1863,11 @@ void main() {
 
     seeded.state.setTab(AppTab.ranking);
     await tester.pumpAndSettle();
-    expect(find.text('Tom'), findsWidgets);
     // Elo (the default) is global — the game/theme filters only exist for the other modes.
     expect(find.text('Filtrer par thème'), findsNothing);
     await tester.tap(find.text('Victoires'));
     await tester.pumpAndSettle();
+    expect(find.text('Tom'), findsWidgets);
 
     // The only recorded match is Catan — "Course" is Mario Kart's theme, so
     // restricting to it leaves every player at zero victories.
@@ -1902,28 +1903,24 @@ void main() {
 
   testWidgets('a group ranks by Elo on the home screen and in the ranking tab', (tester) async {
     final seeded = _buildSeededState();
-    await tester.pumpWidget(
-      ChangeNotifierProvider.value(
-        value: seeded.state,
-        child: const MaterialApp(home: AuthGate()),
-      ),
-    );
+    await tester.pumpWidget(ChangeNotifierProvider.value(value: seeded.state, child: const MaterialApp(home: AuthGate())));
     await tester.pump();
     seeded.auth.debugSignIn(_lea);
     await tester.pumpAndSettle();
 
-    // Léa beat Tom in the seeded Catan match: +16 / −16 from the 1000 start.
+    // Léa beat Tom in the seeded Catan match: she climbs from the start rating, he drops.
+    expect(seeded.state.headlineByElo, isTrue);
     final rows = seeded.state.headlineStandings;
     expect(rows.map((r) => r.player.uid), ['lea', 'tom']);
-    expect(rows.map((r) => r.elo!.round()), [1016, 984]);
-    expect(find.text('1016'), findsWidgets, reason: 'the home leader shows her Elo');
+    expect(rows.first.elo!, greaterThan(kEloStart));
+    expect(rows.last.elo!, lessThan(kEloStart));
+    expect(find.text('${rows.first.elo!.round()}'), findsWidgets, reason: 'the home leader shows her Elo');
     expect(find.text('victoires'), findsNothing);
 
     seeded.state.setTab(AppTab.ranking);
     await tester.pumpAndSettle();
     expect(seeded.state.effectiveRankMode, 'elo');
-    expect(find.text('Elo'), findsWidgets);
-    expect(find.text('984 Elo'), findsOneWidget);
+    expect(find.text('${rows.last.elo!.round()} Elo'), findsOneWidget);
   });
 
   testWidgets('a salon has no Elo mode and ranks by wins', (tester) async {

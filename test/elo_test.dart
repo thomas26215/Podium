@@ -17,17 +17,22 @@ GameMatch _match(String id, List<MatchEntry> entries, {String mode = 'ffa', bool
 MatchEntry _e(String id, int points, [String? team]) => MatchEntry(playerId: id, points: points, teamId: team);
 
 void main() {
-  test('a duel between equal ratings moves both by K/2', () {
-    final r = computeElo([_match('m', [_e('a', 10), _e('b', 5)])]);
-    expect(r.ratings['a'], closeTo(kEloStart + kEloK / 2, 1e-9));
-    expect(r.ratings['b'], closeTo(kEloStart - kEloK / 2, 1e-9));
-    expect(r.played, {'a': 1, 'b': 1});
+  test('a newcomer is shown at the start rating', () {
+    expect(displayRating(25, 25 / 3), closeTo(kEloStart, 1e-9));
   });
 
-  test('a tie between equal ratings changes nothing', () {
+  test('a duel: the winner climbs, the loser drops, never below 0', () {
+    final r = computeElo([_match('m', [_e('a', 10), _e('b', 5)])]);
+    expect(r.ratings['a']!, greaterThan(kEloStart));
+    expect(r.ratings['b']!, lessThan(kEloStart));
+    expect(r.ratings['b']!, greaterThanOrEqualTo(0));
+    expect(r.played, {'a': 1, 'b': 1});
+    expect(r.deltas['m']!['a'], closeTo(r.ratings['a']! - kEloStart, 1e-9));
+  });
+
+  test('a tie between newcomers moves both the same way', () {
     final r = computeElo([_match('m', [_e('a', 7), _e('b', 7)])]);
-    expect(r.ratings['a'], closeTo(kEloStart, 1e-9));
-    expect(r.ratings['b'], closeTo(kEloStart, 1e-9));
+    expect(r.ratings['a'], closeTo(r.ratings['b']!, 1e-9));
   });
 
   test('lowWins: the lowest score wins', () {
@@ -35,24 +40,21 @@ void main() {
     expect(r.ratings['b']! > r.ratings['a']!, isTrue);
   });
 
-  test('free-for-all is zero-sum and ordered by finishing place', () {
+  test('free-for-all: the better the finishing place, the bigger the gain', () {
     final r = computeElo([_match('m', [_e('a', 40), _e('b', 30), _e('c', 20), _e('d', 10)])]);
     final d = r.deltas['m']!;
-    expect(d.values.reduce((x, y) => x + y), closeTo(0, 1e-9));
     expect(d['a']! > d['b']! && d['b']! > d['c']! && d['c']! > d['d']!, isTrue);
-    // Winning a 4-player game weighs the same as winning a duel.
-    expect(d['a'], closeTo(kEloK / 2, 1e-9));
   });
 
-  test('team members all get their team\'s change', () {
+  test('team members of equal standing all get the same change', () {
     final r = computeElo([
       _match('m', [_e('a1', 10, 'A'), _e('a2', 15, 'A'), _e('b1', 30, 'B'), _e('b2', 5, 'B')], mode: 'team'),
     ]);
     final d = r.deltas['m']!;
-    expect(d['b1'], closeTo(kEloK / 2, 1e-9));
-    expect(d['b2'], d['b1']);
-    expect(d['a1'], closeTo(-kEloK / 2, 1e-9));
-    expect(d['a2'], d['a1']);
+    expect(d['b1']!, greaterThan(0));
+    expect(d['b2'], closeTo(d['b1']!, 1e-9));
+    expect(d['a1']!, lessThan(d['b1']!));
+    expect(d['a2'], closeTo(d['a1']!, 1e-9));
   });
 
   test('coop and solo matches are not rated', () {
@@ -68,19 +70,23 @@ void main() {
   test('matches are replayed oldest-first whatever the input order', () {
     final first = _match('m1', [_e('a', 10), _e('b', 0)], at: DateTime(2026, 1, 1));
     final second = _match('m2', [_e('b', 10), _e('c', 0)], at: DateTime(2026, 1, 2));
-    final inOrder = computeElo([first, second]);
-    final shuffled = computeElo([second, first]);
-    expect(shuffled.ratings, inOrder.ratings);
-    // b had already lost to a when facing c, so c (still at the start rating) was favoured.
-    expect(inOrder.deltas['m2']!['b']! > kEloK / 2, isTrue);
+    expect(computeElo([second, first]).ratings, computeElo([first, second]).ratings);
   });
 
-  test('beating a higher-rated player earns more', () {
+  test('beating a stronger player earns more', () {
     final r = computeElo([
-      _match('m1', [_e('strong', 10), _e('x', 0)], at: DateTime(2026, 1, 1)),
-      _match('m2', [_e('upset', 10), _e('strong', 0)], at: DateTime(2026, 1, 2)),
-      _match('m3', [_e('easy', 10), _e('x', 0)], at: DateTime(2026, 1, 3)),
+      for (var i = 0; i < 5; i++) _match('s$i', [_e('strong', 10), _e('x', 0)], at: DateTime(2026, 1, 1, i)),
+      _match('upset', [_e('u1', 10), _e('strong', 0)], at: DateTime(2026, 1, 2)),
+      _match('easy', [_e('u2', 10), _e('x', 0)], at: DateTime(2026, 1, 3)),
     ]);
-    expect(r.deltas['m2']!['upset']! > r.deltas['m3']!['easy']!, isTrue);
+    expect(r.deltas['upset']!['u1']! > r.deltas['easy']!['u2']!, isTrue);
+  });
+
+  test('evenly matched regulars both climb as their level becomes known', () {
+    final r = computeElo([
+      for (var i = 0; i < 60; i++) _match('m$i', [_e('a', i.isEven ? 10 : 0), _e('b', i.isEven ? 0 : 10)], at: DateTime(2026, 1, 1, 0, i)),
+    ]);
+    expect(r.ratings['a']!, greaterThan(1000));
+    expect(r.ratings['b']!, greaterThan(1000));
   });
 }

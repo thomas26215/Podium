@@ -50,7 +50,7 @@ class ProfileScreen extends StatelessWidget {
     final wins = mine.isNotEmpty ? mine.first.wins : 0;
     final ratio = mine.isNotEmpty ? mine.first.ratio : 0.0;
     final points = mine.isNotEmpty ? mine.first.points : 0;
-    final elo = mine.isNotEmpty ? mine.first.elo : null;
+    final eloRow = mine.firstOrNull;
     final breakdown = app.profileGameBreakdown(profileId!);
     final themes = themeStats(breakdown);
 
@@ -127,7 +127,7 @@ class ProfileScreen extends StatelessWidget {
                   _stat('${(ratio * 100).round()}%', 'Winrate', AppColors.accent),
                   if (app.eloAvailable) ...[
                     const SizedBox(width: 10),
-                    _stat(elo != null ? '${elo.round()}' : '—', 'Elo', AppColors.gold),
+                    _stat(eloRow?.elo != null ? '${eloRow!.elo!.round()}' : '—', 'Elo', AppColors.gold),
                   ],
                 ]),
               ),

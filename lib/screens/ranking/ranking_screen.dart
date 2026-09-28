@@ -56,7 +56,7 @@ class RankingScreen extends StatelessWidget {
           const SizedBox(height: 14),
           if (isElo)
             Text(
-              'Une cote tous jeux confondus : battre un joueur mieux classé rapporte plus que battre un joueur moins bien classé.',
+              'Tous jeux confondus, tout le monde démarre à 100. On monte en devançant des joueurs, d\'autant plus qu\'ils sont forts, et à mesure que son niveau se confirme.',
               style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut),
             )
           else ...[
@@ -130,7 +130,9 @@ class RankingScreen extends StatelessWidget {
           if (rows.isEmpty)
             EmptyState(
               emoji: '📊',
-              message: isAvg && app.gameFilter == null ? 'Choisissez un jeu pour voir ce classement.' : 'Pas encore de données pour ce classement.',
+              message: isAvg && app.gameFilter == null
+                  ? 'Choisissez un jeu pour voir ce classement.'
+                  : 'Pas encore de données pour ce classement.',
             )
           else ...[
             FadeSlideIn(
