@@ -103,6 +103,15 @@ const _tom = AppUser(uid: 'tom', email: 'tom@test.fr', displayName: 'Tom', color
   return (state: state, auth: auth);
 }
 
+/// Scrolls the group settings page until `text` is on screen — the owner's
+/// overview section pushes the rows below it out of a test-sized view.
+Future<void> revealInSettings(WidgetTester tester, String text) async {
+  final list = find.descendant(of: find.byType(ListView), matching: find.byType(Scrollable)).first;
+  await tester.scrollUntilVisible(find.text(text), 200, scrollable: list);
+  await tester.ensureVisible(find.text(text));
+  await tester.pumpAndSettle();
+}
+
 /// Picks [n] in the filter bar's "Joueurs" menu.
 Future<void> pickPlayers(WidgetTester tester, int n) async {
   await tester.tap(find.descendant(of: find.byType(GameFilterBar), matching: find.byType(PopupMenuButton<int>)));
@@ -2383,11 +2392,11 @@ void main() {
     }
 
     Future<void> openGroupMenu(WidgetTester tester) async {
-      await tester.tap(find.byIcon(Icons.more_horiz).first);
+      await tester.tap(find.byTooltip('Paramètres du groupe').first);
       await tester.pumpAndSettle();
     }
 
-    testWidgets('a plain member can leave the group from its menu', (tester) async {
+    testWidgets('a plain member can leave the group from its settings', (tester) async {
       final app = await signedIn(tester, _tom);
       expect(find.text('Les Bandits'), findsOneWidget);
 
@@ -2408,6 +2417,7 @@ void main() {
 
       await openGroupMenu(tester);
       expect(find.text('Quitter le groupe'), findsNothing);
+      await revealInSettings(tester, 'Membres');
       await tester.tap(find.text('Membres'));
       await tester.pumpAndSettle();
       expect(find.text('Léa (vous)'), findsOneWidget);
@@ -2429,6 +2439,7 @@ void main() {
       final app = await signedIn(tester, _lea);
 
       await openGroupMenu(tester);
+      await revealInSettings(tester, 'Membres');
       await tester.tap(find.text('Membres'));
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Gérer Tom'));
@@ -2441,7 +2452,7 @@ void main() {
       expect(app.groupById('bandits')!.ownerId, 'tom');
       // No longer the owner: the owner-only actions are gone and leaving is offered.
       expect(find.byTooltip('Gérer Tom'), findsNothing);
-      await tester.tap(find.text('Quitter le groupe'));
+      await tester.tap(find.text('Quitter le groupe').last); // the dialog's, over the settings page's own
       await tester.pumpAndSettle();
       await tester.tap(find.text('Quitter'));
       await tester.pumpAndSettle();
@@ -2585,8 +2596,9 @@ void main() {
     seeded.auth.debugSignIn(_lea);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.more_horiz).first);
+    await tester.tap(find.byTooltip('Paramètres du groupe').first);
     await tester.pumpAndSettle();
+    await revealInSettings(tester, 'Inviter un ami');
     await tester.tap(find.text('Inviter un ami'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Lien / QR'));
@@ -2611,9 +2623,7 @@ void main() {
       );
       seeded.auth.debugSignIn(user);
       await tester.pumpAndSettle();
-      await tester.tap(find.byIcon(Icons.more_horiz).first);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Paramètres du groupe'));
+      await tester.tap(find.byTooltip('Paramètres du groupe').first);
       await tester.pumpAndSettle();
       return seeded.state;
     }
