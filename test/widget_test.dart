@@ -39,6 +39,7 @@ import 'package:podium/screens/new_game/step3_scores.dart';
 import 'package:podium/screens/profile/profile_screen.dart';
 import 'package:podium/screens/solo/solo_game_screen.dart';
 import 'package:podium/widgets/common.dart';
+import 'package:podium/widgets/elo_widgets.dart';
 import 'package:podium/widgets/game_filter_bar.dart';
 import 'package:podium/widgets/result_share_card.dart';
 import 'package:podium/widgets/tournament_share_card.dart';
@@ -1950,6 +1951,74 @@ void main() {
     expect(state.effectiveRankMode, 'wins', reason: 'the Elo default falls back to wins in a salon');
     expect(find.text('Elo'), findsNothing);
     expect(find.text('Victoires'), findsOneWidget);
+  });
+
+  Future<AppState> signInAsLea(WidgetTester tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(ChangeNotifierProvider.value(value: seeded.state, child: const MaterialApp(home: AuthGate())));
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+    return seeded.state;
+  }
+
+  testWidgets('after a save, History shows each player\'s Elo change', (tester) async {
+    final state = await signInAsLea(tester);
+    state.pickGame('catan');
+    state.togglePlayer('lea');
+    state.togglePlayer('tom');
+    state.draft.points['lea'] = 10;
+    state.draft.points['tom'] = 8;
+    await state.saveGame();
+    await tester.pumpAndSettle();
+
+    expect(state.tab, AppTab.history);
+    expect(find.text('Partie de Catan enregistrée !'), findsOneWidget);
+    final summary = state.eloSummaryFor([state.justSavedMatch!])!;
+    expect(summary.deltas.keys, unorderedEquals(['lea', 'tom']));
+    expect(summary.deltas['lea']!, greaterThan(0));
+    expect(find.text('+${summary.deltas['lea']!.round()} Elo'), findsOneWidget, reason: 'in the banner');
+    // Both Catan matches were played today, so History groups them in one
+    // card showing Léa (signed in) her total over the two.
+    final total = state.myEloDelta(state.viewMatches)!;
+    expect(find.text('+${total.round()} Elo'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3)); // let the "Partie enregistrée" toast expire
+  });
+
+  testWidgets('the profile shows the Elo tier, curve and records', (tester) async {
+    final state = await signInAsLea(tester);
+    state.openProfile('lea');
+    tester.state<NavigatorState>(find.byType(Navigator).first).push(MaterialPageRoute(builder: (_) => const ProfileScreen()));
+    await tester.pumpAndSettle();
+
+    final rating = state.groupElo.ratingOf('lea')!;
+    expect(find.text('◆ ${eloTier(rating).name}'), findsOneWidget);
+    expect(find.textContaining('pour ${nextEloTier(rating)!.name}'), findsOneWidget);
+    expect(find.byType(EloHistoryChart), findsOneWidget);
+    expect(find.text('Record  '), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the players step predicts who wins from the Elo', (tester) async {
+    final state = await signInAsLea(tester);
+    state.pickGame('catan');
+    state.togglePlayer('lea');
+    state.togglePlayer('tom');
+    await tester.pumpWidget(ChangeNotifierProvider.value(value: state, child: const MaterialApp(home: Scaffold(body: SingleChildScrollView(child: Step2Players())))));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pronostic'), findsOneWidget);
+    final chances = state.draftWinChances!;
+    final lea = chances.firstWhere((c) => c.members.single == 'lea').chance;
+    expect(lea, greaterThan(0.5), reason: 'Léa beat Tom last time');
+    expect(find.text('${(lea * 100).round()} %'), findsOneWidget);
+
+    state.setMode('team');
+    state.setPlayerTeam('tom', 'B');
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Équipe A · Léa'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    state.closeSheet();
   });
 
   testWidgets('a profile breaks results down by theme', (tester) async {

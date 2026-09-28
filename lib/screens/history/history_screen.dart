@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../logic/elo.dart';
 import '../../models/app_user.dart';
 import '../../models/game.dart';
 import '../../models/match.dart';
 import '../../models/tournament.dart';
 import '../../state/app_state.dart';
+import '../../state/player_row.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/avatar.dart';
 import '../../widgets/common.dart';
+import '../../widgets/elo_widgets.dart';
 import '../../widgets/match_card.dart';
 import '../../widgets/solo_match_card.dart';
 import '../tournaments/tournament_detail_screen.dart';
@@ -198,6 +201,7 @@ class _GroupedMatchCardState extends State<_GroupedMatchCard> {
             Row(
               children: [
                 Expanded(child: Text(resultLine, style: bodyFont(size: 13.5, weight: FontWeight.w700, color: AppColors.ink2))),
+                if (widget.appState.myEloDelta(legs) case final d?) Padding(padding: const EdgeInsets.only(right: 8), child: EloDeltaChip(delta: d)),
                 AvatarCluster(avatars: [for (final p in players.take(4)) (initial: p.initial, color: Color(p.color))]),
               ],
             ),
@@ -304,6 +308,7 @@ class _TournamentMatchCardState extends State<_TournamentMatchCard> {
                     ],
                   ),
                 ),
+                if (widget.appState.myEloDelta(legs) case final d?) Padding(padding: const EdgeInsets.only(left: 8, top: 2), child: EloDeltaChip(delta: d)),
                 if (tournament != null) Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.mut),
               ],
             ),
@@ -370,32 +375,100 @@ class _ShareJustSavedBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final summary = appState.eloSummaryFor(seriesLegsOf(match, appState) ?? [match]);
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.fromLTRB(14, 10, 4, 10),
       decoration: BoxDecoration(color: AppColors.accentSoft, borderRadius: BorderRadius.circular(AppRadius.lg)),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(game.emoji, style: const TextStyle(fontSize: 22)),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text('Partie de ${game.name} enregistrée !', style: bodyFont(size: 13.5, weight: FontWeight.w700, color: AppColors.ink)),
+          Row(
+            children: [
+              Text(game.emoji, style: const TextStyle(fontSize: 22)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text('Partie de ${game.name} enregistrée !', style: bodyFont(size: 13.5, weight: FontWeight.w700, color: AppColors.ink)),
+              ),
+              TextButton.icon(
+                onPressed: () async {
+                  await showResultShareDialog(context, game: game, match: match, appState: appState, legs: seriesLegsOf(match, appState));
+                  appState.dismissJustSavedMatch();
+                },
+                icon: Icon(Icons.share_rounded, size: 18, color: AppColors.accent),
+                label: Text('Partager', style: bodyFont(size: 13.5, weight: FontWeight.w800, color: AppColors.accent)),
+              ),
+              IconButton(
+                tooltip: 'Masquer',
+                onPressed: appState.dismissJustSavedMatch,
+                icon: Icon(Icons.close_rounded, size: 18, color: AppColors.mut),
+              ),
+            ],
           ),
-          TextButton.icon(
-            onPressed: () async {
-              await showResultShareDialog(context, game: game, match: match, appState: appState, legs: seriesLegsOf(match, appState));
-              appState.dismissJustSavedMatch();
-            },
-            icon: Icon(Icons.share_rounded, size: 18, color: AppColors.accent),
-            label: Text('Partager', style: bodyFont(size: 13.5, weight: FontWeight.w800, color: AppColors.accent)),
-          ),
-          IconButton(
-            tooltip: 'Masquer',
-            onPressed: appState.dismissJustSavedMatch,
-            icon: Icon(Icons.close_rounded, size: 18, color: AppColors.mut),
-          ),
+          if (summary != null) Padding(padding: const EdgeInsets.fromLTRB(0, 4, 10, 4), child: _EloSaveSummaryView(summary: summary, appState: appState)),
         ],
       ),
+    );
+  }
+}
+
+/// Under the just-saved banner: every player's rating change, then — for
+/// the signed-in player — a line celebrating a better rank or a new tier.
+class _EloSaveSummaryView extends StatelessWidget {
+  final EloSaveSummary summary;
+  final AppState appState;
+  const _EloSaveSummaryView({required this.summary, required this.appState});
+
+  /// "Tu passes 2ᵉ du classement !" / "Nouveau palier : Or !" — null when
+  /// nothing notable changed for the signed-in player.
+  String? _headline() {
+    final me = appState.currentUser?.uid;
+    if (me == null || !summary.deltas.containsKey(me)) return null;
+    final before = summary.ratingsBefore[me]!, after = summary.ratingsAfter[me]!;
+    final lines = <String>[];
+    final rankBefore = summary.ranksBefore[me], rankAfter = summary.ranksAfter[me];
+    if (rankAfter != null && (rankBefore == null || rankAfter < rankBefore)) {
+      lines.add(rankAfter == 1 ? 'Tu prends la tête du classement !' : 'Tu passes ${rankAfter}e du classement !');
+    }
+    final tierBefore = eloTier(before), tierAfter = eloTier(after);
+    if (tierAfter.min > tierBefore.min) lines.add('Nouveau palier : ${tierAfter.name} !');
+    return lines.isEmpty ? null : '🎉 ${lines.join(' ')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = summary.deltas.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    final headline = _headline();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 10,
+          runSpacing: 6,
+          children: [
+            for (final (i, e) in entries.indexed)
+              FadeSlideIn(
+                delay: Duration(milliseconds: 120 + i * 70),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(appState.playerById(e.key)?.displayName ?? '?', style: bodyFont(size: 12.5, weight: FontWeight.w700, color: AppColors.ink2)),
+                    const SizedBox(width: 5),
+                    EloDeltaChip(delta: e.value),
+                  ],
+                ),
+              ),
+          ],
+        ),
+        if (headline != null)
+          FadeSlideIn(
+            delay: Duration(milliseconds: 160 + entries.length * 70),
+            child: Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(headline, style: bodyFont(size: 13, weight: FontWeight.w800, color: AppColors.accent)),
+            ),
+          ),
+      ],
     );
   }
 }

@@ -7,6 +7,7 @@ import '../models/match.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import 'avatar.dart';
+import 'elo_widgets.dart';
 
 const frMonths = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 
@@ -146,6 +147,7 @@ class _SeriesMatchCardState extends State<SeriesMatchCard> {
           Row(
             children: [
               Expanded(child: Text(resultLine, style: bodyFont(size: 13.5, weight: FontWeight.w700, color: AppColors.ink2))),
+              if (widget.appState.myEloDelta(widget.legs) case final d?) Padding(padding: const EdgeInsets.only(right: 8), child: EloDeltaChip(delta: d)),
               AvatarCluster(avatars: [for (final p in players.take(4)) (initial: p.initial, color: Color(p.color))]),
               const SizedBox(width: 4),
               AnimatedRotation(
@@ -283,6 +285,7 @@ class MatchCard extends StatelessWidget {
               Expanded(
                 child: Text(resultLine, style: bodyFont(size: 13.5, weight: FontWeight.w700, color: AppColors.ink2)),
               ),
+              if (appState.myEloDelta([match]) case final d?) Padding(padding: const EdgeInsets.only(right: 8), child: EloDeltaChip(delta: d)),
               AvatarCluster(avatars: [for (final p in players.take(4)) (initial: p.initial, color: Color(p.color))]),
               const SizedBox(width: 4),
               Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.mut),

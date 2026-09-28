@@ -8,6 +8,7 @@ import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/avatar.dart';
 import '../../widgets/common.dart';
+import '../../widgets/elo_widgets.dart';
 import '../../widgets/match_card.dart';
 import '../../widgets/score_evolution_chart.dart';
 import '../new_game/new_game_sheet.dart';
@@ -508,14 +509,7 @@ class MatchDetailScreen extends StatelessWidget {
   Widget? _eloChip(String uid) {
     final delta = appState.groupElo.deltas[match.id]?[uid];
     if (delta == null) return null;
-    final d = delta.round();
-    final color = d > 0 ? AppColors.green : (d < 0 ? Colors.red : AppColors.mut);
-    return Container(
-      margin: const EdgeInsets.only(right: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
-      child: Text('${d > 0 ? '+' : (d < 0 ? '−' : '±')}${d.abs()} Elo', style: bodyFont(size: 10.5, weight: FontWeight.w800, color: color)),
-    );
+    return Padding(padding: const EdgeInsets.only(right: 8), child: EloDeltaChip(delta: delta));
   }
 
   /// A player's name, with the character they played (see

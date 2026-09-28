@@ -228,6 +228,26 @@ class Step2Players extends StatelessWidget {
               ],
             ),
           ),
+        if (d.mode == 'team' && app.eloAvailable && d.playerIds.length > d.teamCount)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 14),
+            child: Pressable(
+              onTap: app.balanceDraftTeams,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(color: AppColors.accentSoft, borderRadius: BorderRadius.circular(AppRadius.lg)),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.balance_rounded, size: 17, color: AppColors.accent),
+                    const SizedBox(width: 7),
+                    Text("Équilibrer les équipes selon l'Elo", style: bodyFont(size: 13, weight: FontWeight.w800, color: AppColors.accent)),
+                  ],
+                ),
+              ),
+            ),
+          ),
         for (final (i, p) in players.indexed)
           FadeSlideIn(
             delay: Duration(milliseconds: i * 30),
@@ -313,7 +333,69 @@ class Step2Players extends StatelessWidget {
               ),
             ),
           ),
+        if ((isTournamentFlow ? null : app.draftWinChances) case final chances?) _WinChances(chances: chances),
       ],
+    );
+  }
+}
+
+/// "Pronostic": each side's chance of winning from the group's Elo, most
+/// likely first — one line per player, or per team in team mode.
+class _WinChances extends StatelessWidget {
+  final List<({List<String> members, double chance})> chances;
+  const _WinChances({required this.chances});
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.read<AppState>();
+    final isTeam = app.draft.mode == 'team';
+    final sorted = List.of(chances)..sort((a, b) => b.chance.compareTo(a.chance));
+    String label(List<String> members) {
+      final names = members.map((id) => app.playerById(id)?.displayName ?? '?').join(', ');
+      return isTeam ? 'Équipe ${app.draft.team[members.first] ?? 'A'} · $names' : names;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(15)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.insights_rounded, size: 16, color: AppColors.accent),
+              const SizedBox(width: 6),
+              Text('Pronostic', style: bodyFont(size: 13.5, weight: FontWeight.w800, color: AppColors.ink2)),
+              const Spacer(),
+              Text("chances de gagner d'après l'Elo", style: bodyFont(size: 11, weight: FontWeight.w600, color: AppColors.mut)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          for (final c in sorted)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 7),
+              child: Row(
+                children: [
+                  Expanded(flex: 5, child: Text(label(c.members), maxLines: 1, overflow: TextOverflow.ellipsis, style: bodyFont(size: 12.5, weight: FontWeight.w700, color: AppColors.ink))),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 4,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(99),
+                      child: TweenAnimationBuilder<double>(
+                        tween: Tween(end: c.chance),
+                        duration: const Duration(milliseconds: 350),
+                        builder: (_, v, _) => LinearProgressIndicator(value: v, minHeight: 6, backgroundColor: AppColors.line, color: AppColors.accent),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 44, child: Text('${(c.chance * 100).round()} %', textAlign: TextAlign.right, style: bodyFont(size: 12.5, weight: FontWeight.w800, color: AppColors.ink))),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

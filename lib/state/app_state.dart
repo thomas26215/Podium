@@ -2518,6 +2518,58 @@ class AppState extends ChangeNotifier {
     return _eloCache;
   }
 
+  /// The signed-in player's total rating change over [legs] (one match, a
+  /// series or a tournament's matches) — null if none of them rated them.
+  double? myEloDelta(Iterable<GameMatch> legs) {
+    final uid = currentUser?.uid;
+    if (uid == null) return null;
+    double? total;
+    for (final m in legs) {
+      final d = groupElo.deltas[m.id]?[uid];
+      if (d != null) total = (total ?? 0) + d;
+    }
+    return total;
+  }
+
+  /// 1-based Elo rank of every rated group player in [r].
+  Map<String, int> _eloRanks(EloResult r) {
+    final ids = viewPlayerIds.where(r.ratings.containsKey).toList()..sort((a, b) => r.ratings[b]!.compareTo(r.ratings[a]!));
+    return {for (final (i, id) in ids.indexed) id: i + 1};
+  }
+
+  String? _eloSummaryKey;
+  EloSaveSummary? _eloSummaryCache;
+
+  /// What [legs] (a just-saved match, or every leg of a just-finished
+  /// series) did to the ratings — each player's change, plus the ranks and
+  /// tiers before and after, replaying the group without those legs. Null
+  /// outside a group or when none of them was rated.
+  EloSaveSummary? eloSummaryFor(List<GameMatch> legs) {
+    if (!eloAvailable) return null;
+    final key = '${identityHashCode(matches)}|${legs.map((m) => m.id).join(',')}';
+    if (key == _eloSummaryKey) return _eloSummaryCache;
+    final after = groupElo;
+    final deltas = <String, double>{};
+    for (final m in legs) {
+      after.deltas[m.id]?.forEach((uid, d) => deltas[uid] = (deltas[uid] ?? 0) + d);
+    }
+    EloSaveSummary? summary;
+    if (deltas.isNotEmpty) {
+      final ids = legs.map((m) => m.id).toSet();
+      final before = computeElo(viewMatches.where((m) => !ids.contains(m.id)).toList());
+      summary = EloSaveSummary(
+        deltas: deltas,
+        ratingsBefore: {for (final uid in deltas.keys) uid: before.ratings[uid] ?? kEloStart},
+        ratingsAfter: {for (final uid in deltas.keys) uid: after.ratings[uid] ?? kEloStart},
+        ranksBefore: _eloRanks(before),
+        ranksAfter: _eloRanks(after),
+      );
+    }
+    _eloSummaryKey = key;
+    _eloSummaryCache = summary;
+    return summary;
+  }
+
   /// [rankMode], except that the Elo mode falls back to wins where Elo isn't
   /// offered (a Salon).
   String get effectiveRankMode => rankMode == 'elo' && !eloAvailable ? 'wins' : rankMode;
@@ -2580,7 +2632,7 @@ class AppState extends ChangeNotifier {
   RankMetric metricFor(PlayerRow r, String mode) {
     switch (mode) {
       case 'elo':
-        return RankMetric(r.elo != null ? '${r.elo!.round()}' : '—', 'Elo', '${r.eloPlayed} partie${r.eloPlayed > 1 ? 's' : ''}');
+        return RankMetric(r.elo != null ? '${r.elo!.round()}' : '—', 'Elo', '${r.elo != null ? '${eloTier(r.elo!).name} · ' : ''}${r.eloPlayed} partie${r.eloPlayed > 1 ? 's' : ''}');
       case 'wins':
         return RankMetric('${r.wins}', 'victoires', '${r.played} parties · ${(r.ratio * 100).round()}%');
       case 'points':
@@ -3771,6 +3823,29 @@ class AppState extends ChangeNotifier {
 
   void setPlayerTeam(String uid, String team) {
     draft.team[uid] = team;
+    notifyListeners();
+  }
+
+  /// Each side's chance of winning the match being set up, from the group's
+  /// Elo — one side per picked player, or per non-empty team in team mode.
+  /// Null outside a group, for coop, and until two sides are picked.
+  List<({List<String> members, double chance})>? get draftWinChances {
+    if (!eloAvailable || draft.mode == 'coop' || draft.playerIds.length < 2) return null;
+    final sides = draft.mode == 'team'
+        ? [
+            for (var i = 0; i < draft.teamCount; i++) draft.playerIds.where((id) => (draft.team[id] ?? 'A') == String.fromCharCode(65 + i)).toList(),
+          ].where((s) => s.isNotEmpty).toList()
+        : [for (final id in draft.playerIds) [id]];
+    if (sides.length < 2) return null;
+    final chances = eloWinChances(groupElo, sides);
+    return [for (final (i, s) in sides.indexed) (members: s, chance: chances[i])];
+  }
+
+  /// Reassigns the picked players to [NewGameDraft.teamCount] teams as
+  /// evenly matched as the group's Elo allows (see [balanceEloTeams]).
+  void balanceDraftTeams() {
+    if (!eloAvailable) return;
+    draft.team.addAll(balanceEloTeams(groupElo, draft.playerIds, draft.teamCount));
     notifyListeners();
   }
 

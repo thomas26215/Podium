@@ -89,4 +89,58 @@ void main() {
     expect(r.ratings['a']!, greaterThan(1000));
     expect(r.ratings['b']!, greaterThan(1000));
   });
+
+  group('history and records', () {
+    final r = computeElo([
+      _match('m1', [_e('a', 10), _e('b', 0)], at: DateTime(2026, 1, 1)),
+      _match('m2', [_e('a', 10), _e('b', 0)], at: DateTime(2026, 1, 2)),
+      _match('m3', [_e('b', 10), _e('a', 0)], at: DateTime(2026, 1, 3)),
+    ]);
+
+    test('each rated match adds a point to its players\' history', () {
+      expect(r.history['a']!.map((p) => p.matchId), ['m1', 'm2', 'm3']);
+      expect(r.history['a']!.last.rating, closeTo(r.ratings['a']!, 1e-9));
+      expect(r.history['a']![1].delta, closeTo(r.deltas['m2']!['a']!, 1e-9));
+    });
+
+    test('records: peak, best gain, streaks and upsets', () {
+      final a = eloRecordsOf(r, 'a');
+      expect(a.longestStreak, 2);
+      expect(a.currentStreak, 0);
+      expect(a.peak!.matchId, 'm2');
+      expect(a.upset, isNull, reason: 'a was never the lower-rated side when finishing ahead');
+      final b = eloRecordsOf(r, 'b');
+      expect(b.upset!.matchId, 'm3');
+      expect(b.upset!.opponentIds, ['a']);
+      expect(b.upset!.gap, greaterThan(0));
+    });
+  });
+
+  test('tiers follow the rating bands', () {
+    expect(eloTier(0).name, 'Bronze');
+    expect(eloTier(kEloStart).name, 'Bronze');
+    expect(eloTier(1000).name, 'Or');
+    expect(eloTier(2500).name, 'Diamant');
+    expect(nextEloTier(1200)!.name, 'Platine');
+    expect(nextEloTier(2500), isNull);
+  });
+
+  test('win chances favour the stronger side and add up to 1', () {
+    final r = computeElo([for (var i = 0; i < 5; i++) _match('m$i', [_e('strong', 10), _e('weak', 0)], at: DateTime(2026, 1, 1, i))]);
+    final chances = eloWinChances(r, [['strong'], ['weak'], ['new']]);
+    expect(chances.reduce((a, b) => a + b), closeTo(1, 1e-9));
+    expect(chances[0], greaterThan(chances[2]));
+    expect(chances[2], greaterThan(chances[1]));
+  });
+
+  test('balanced teams split the strongest players apart', () {
+    final r = computeElo([
+      for (var i = 0; i < 6; i++) _match('m$i', [_e('s1', 30), _e('s2', 20), _e('w1', 10), _e('w2', 0)], at: DateTime(2026, 1, 1, i)),
+    ]);
+    final teams = balanceEloTeams(r, ['s1', 's2', 'w1', 'w2'], 2);
+    expect(teams.values.where((t) => t == 'A').length, 2);
+    expect(teams['s1'], isNot(teams['s2']));
+    expect(teams['s1'], teams['w2'], reason: 'the best player gets the weakest partner');
+    expect(balanceEloTeams(r, ['s1', 's2', 'w1'], 2).values.toSet(), {'A', 'B'});
+  });
 }

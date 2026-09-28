@@ -27,6 +27,16 @@ class PlayerRow {
   });
 }
 
+/// See AppState.eloSummaryFor.
+class EloSaveSummary {
+  final Map<String, double> deltas; // uid -> total change
+  final Map<String, double> ratingsBefore;
+  final Map<String, double> ratingsAfter;
+  final Map<String, int> ranksBefore; // uid -> 1-based rank, rated players only
+  final Map<String, int> ranksAfter;
+  const EloSaveSummary({required this.deltas, required this.ratingsBefore, required this.ratingsAfter, required this.ranksBefore, required this.ranksAfter});
+}
+
 class RankMetric {
   final String metric;
   final String unit;

@@ -10,6 +10,7 @@ import '../../widgets/avatar.dart';
 import '../../widgets/common.dart';
 import '../settings/settings_screen.dart';
 import 'friends_screen.dart';
+import 'profile_elo_section.dart';
 
 /// Reached by tapping the avatar button in the group/salon header (see
 /// `HomeScreen`) or another player's name in the ranking/history —
@@ -131,6 +132,11 @@ class ProfileScreen extends StatelessWidget {
                   ],
                 ]),
               ),
+              if (app.eloAvailable && eloRow?.elo != null) ...[
+                const SizedBox(height: 22),
+                const SectionHeader(title: 'Elo'),
+                FadeSlideIn(delay: const Duration(milliseconds: 120), child: ProfileEloSection(uid: profileId)),
+              ],
               const SizedBox(height: 22),
               const SectionHeader(title: 'Par jeu'),
               FadeSlideIn(
