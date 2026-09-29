@@ -54,40 +54,42 @@ class RankingScreen extends StatelessWidget {
             onChanged: (i) => app.setRankMode(modes[i]),
           ),
           const SizedBox(height: 14),
+          SizedBox(
+            height: 40,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                if (!isAvg)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: _FilterChip(
+                      label: 'Tous les jeux',
+                      selected: app.gameFilter == null,
+                      onTap: () => app.setGameFilter(null),
+                    ),
+                  ),
+                for (final g in app.games)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: _FilterChip(
+                      label: g.name,
+                      emoji: g.emoji,
+                      selected: app.gameFilter == g.id,
+                      onTap: () => app.setGameFilter(g.id),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
           if (isElo)
             Text(
-              'Tous jeux confondus, tout le monde démarre à 100. On monte en devançant des joueurs, d\'autant plus qu\'ils sont forts, et à mesure que son niveau se confirme.',
+              app.gameFilter == null
+                  ? 'Tous jeux confondus, tout le monde démarre à 100. On monte en devançant des joueurs, d\'autant plus qu\'ils sont forts sur le jeu joué, et à mesure que son niveau se confirme.'
+                  : 'La cote sur ce jeu seul. Elle pèse sur l\'Elo global : battre un joueur plus fort que soi à ce jeu y rapporte davantage.',
               style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut),
             )
           else ...[
-            SizedBox(
-              height: 40,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: [
-                  if (!isAvg)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: _FilterChip(
-                        label: 'Tous les jeux',
-                        selected: app.gameFilter == null,
-                        onTap: () => app.setGameFilter(null),
-                      ),
-                    ),
-                  for (final g in app.games)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: _FilterChip(
-                        label: g.name,
-                        emoji: g.emoji,
-                        selected: app.gameFilter == g.id,
-                        onTap: () => app.setGameFilter(g.id),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
             Wrap(
               spacing: 8,
               runSpacing: 8,

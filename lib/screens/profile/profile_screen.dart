@@ -167,7 +167,13 @@ class ProfileScreen extends StatelessWidget {
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(b.game.name, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
-                                          Text('${b.played} parties · ${b.wins} V', style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
+                                          Text(
+                                            '${b.played} parties · ${b.wins} V${switch (app.groupElo.gameRatings[b.game.id]?[profileId]) {
+                                              final r? => ' · ${r.round()} Elo',
+                                              _ => '',
+                                            }}',
+                                            style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
+                                          ),
                                         ],
                                       ),
                                     ),

@@ -76,6 +76,18 @@ class EloResult {
   /// better-rated side.
   final Map<String, EloUpset> bestUpsets;
 
+  /// game id -> (uid -> displayed rating on that game alone).
+  final Map<String, Map<String, double>> gameRatings;
+
+  /// game id -> (uid -> rated matches of that game).
+  final Map<String, Map<String, int>> gamePlayed;
+
+  /// game id -> (uid -> rating on that game after each of its matches).
+  final Map<String, Map<String, List<EloPoint>>> gameHistory;
+
+  /// game id -> (uid -> current skill estimate on that game alone).
+  final Map<String, Map<String, EloSkill>> gameSkills;
+
   const EloResult({
     required this.ratings,
     required this.played,
@@ -83,6 +95,10 @@ class EloResult {
     this.history = const {},
     this.skills = const {},
     this.bestUpsets = const {},
+    this.gameRatings = const {},
+    this.gamePlayed = const {},
+    this.gameHistory = const {},
+    this.gameSkills = const {},
   });
 
   static const empty = EloResult(ratings: {}, played: {}, deltas: {});
@@ -90,6 +106,18 @@ class EloResult {
   double? ratingOf(String uid) => ratings[uid];
 
   EloSkill skillOf(String uid) => skills[uid] ?? EloSkill.newcomer;
+
+  /// [uid]'s best estimate for a match of [gameId]: their skill on that game
+  /// and their global one, each weighted by how certain it is (1/σ²) — a
+  /// game they've barely played leans on the global rating, one they play a
+  /// lot on its own. Just the global skill without a [gameId].
+  EloSkill skillFor(String uid, String? gameId) {
+    final global = skillOf(uid);
+    final onGame = gameId == null ? null : gameSkills[gameId]?[uid];
+    if (onGame == null) return global;
+    final wGame = 1 / (onGame.sigma * onGame.sigma), wGlobal = 1 / (global.sigma * global.sigma);
+    return EloSkill((onGame.mu * wGame + global.mu * wGlobal) / (wGame + wGlobal), math.sqrt(1 / (wGame + wGlobal)));
+  }
 }
 
 class _Skill {
@@ -107,8 +135,8 @@ class _Side {
   _Side(this.members, this.points);
 }
 
-/// Replays [matches] oldest-first into one rating per player, across every
-/// game at once, with OpenSkill's Plackett-Luce model.
+/// Replays [matches] oldest-first into one rating per player per game, and
+/// one across every game at once, with OpenSkill's Plackett-Luce model.
 ///
 /// A match is split into sides — each player in free-for-all, each team in
 /// team mode (a team's skill is the sum of its members') — ranked by points
@@ -120,6 +148,11 @@ class _Side {
 /// finishing ahead of strong players pays more, and a player whose level is
 /// still uncertain moves more than a regular.
 ///
+/// The global rating's change is then scaled by how surprising the result
+/// was on that game in particular (see [_gameMultipliers]): beating players
+/// much stronger than you at this game counts up to 1.5×, the expected
+/// result down to 0.5×, and the same for losses.
+///
 /// Coop matches (no opponents) and matches with fewer than two sides (solo
 /// runs) aren't rated.
 EloResult computeElo(List<GameMatch> matches) {
@@ -130,7 +163,10 @@ EloResult computeElo(List<GameMatch> matches) {
     });
 
   final skills = <String, _Skill>{};
+  final gameSkills = <String, Map<String, _Skill>>{};
   final played = <String, int>{};
+  final gamePlayed = <String, Map<String, int>>{};
+  final gameHistory = <String, Map<String, List<EloPoint>>>{};
   final deltas = <String, Map<String, double>>{};
   final history = <String, List<EloPoint>>{};
   final bestUpsets = <String, EloUpset>{};
@@ -139,47 +175,40 @@ EloResult computeElo(List<GameMatch> matches) {
     if (m.isCoop) continue;
     final sides = _sides(m);
     if (sides.length < 2) continue;
+    for (final s in sides) {
+      s.rank = sides.where((o) => m.lowWins ? o.points < s.points : o.points > s.points).length;
+    }
 
     final before = <String, double>{};
     for (final s in sides) {
       for (final uid in s.members) {
-        final k = skills.putIfAbsent(uid, _Skill.new);
-        before[uid] = k.display;
-        k.sigma = math.sqrt(k.sigma * k.sigma + _tau * _tau);
+        before[uid] = skills.putIfAbsent(uid, _Skill.new).display;
       }
     }
+
+    // The game's own ratings: how surprising this result was on this game,
+    // then that game's update.
+    final game = gameSkills.putIfAbsent(m.gameId, () => {});
+    final multipliers = _gameMultipliers(sides, game);
+    final gameBefore = {for (final s in sides) for (final uid in s.members) uid: game[uid]?.display ?? kEloStart};
+    _rate(sides, game);
+    final gameHist = gameHistory.putIfAbsent(m.gameId, () => {});
+    for (final uid in gameBefore.keys) {
+      final after = game[uid]!.display;
+      (gameHist[uid] ??= []).add(EloPoint(matchId: m.id, date: m.createdAt, rating: after, delta: after - gameBefore[uid]!));
+    }
+    final counts = gamePlayed.putIfAbsent(m.gameId, () => {});
     for (final s in sides) {
-      s.rank = sides.where((o) => m.lowWins ? o.points < s.points : o.points > s.points).length;
-      s.mu = s.members.fold(0.0, (sum, uid) => sum + skills[uid]!.mu);
-      s.sigmaSq = s.members.fold(0.0, (sum, uid) => sum + math.pow(skills[uid]!.sigma, 2));
-    }
-
-    final c = math.sqrt(sides.fold(0.0, (sum, s) => sum + s.sigmaSq + _beta * _beta));
-    final sumQ = [for (final q in sides) sides.where((i) => i.rank >= q.rank).fold(0.0, (sum, i) => sum + math.exp(i.mu / c))];
-    final ties = [for (final q in sides) sides.where((i) => i.rank == q.rank).length];
-
-    final updates = <(double, double)>[];
-    for (var i = 0; i < sides.length; i++) {
-      final si = sides[i];
-      var omega = 0.0, delta = 0.0;
-      for (var q = 0; q < sides.length; q++) {
-        if (sides[q].rank > si.rank) continue;
-        final quotient = math.exp(si.mu / c) / sumQ[q];
-        omega += (i == q ? 1 - quotient : -quotient) / ties[q];
-        delta += quotient * (1 - quotient) / ties[q];
+      for (final uid in s.members) {
+        counts[uid] = (counts[uid] ?? 0) + 1;
       }
-      final gamma = math.sqrt(si.sigmaSq) / c;
-      updates.add((omega * si.sigmaSq / c, delta * gamma * si.sigmaSq / (c * c)));
     }
 
+    _rate(sides, skills, muScale: multipliers);
     final matchDeltas = <String, double>{};
-    for (var i = 0; i < sides.length; i++) {
-      final (omega, delta) = updates[i];
-      for (final uid in sides[i].members) {
+    for (final s in sides) {
+      for (final uid in s.members) {
         final k = skills[uid]!;
-        final share = k.sigma * k.sigma / sides[i].sigmaSq;
-        k.mu += share * omega;
-        k.sigma *= math.sqrt(math.max(1 - share * delta, _kappa));
         matchDeltas[uid] = k.display - before[uid]!;
         played[uid] = (played[uid] ?? 0) + 1;
         (history[uid] ??= []).add(EloPoint(matchId: m.id, date: m.createdAt, rating: k.display, delta: matchDeltas[uid]!));
@@ -209,7 +238,78 @@ EloResult computeElo(List<GameMatch> matches) {
     history: history,
     skills: skills.map((uid, k) => MapEntry(uid, EloSkill(k.mu, k.sigma))),
     bestUpsets: bestUpsets,
+    gameRatings: gameSkills.map((g, ks) => MapEntry(g, ks.map((uid, k) => MapEntry(uid, k.display)))),
+    gamePlayed: gamePlayed,
+    gameHistory: gameHistory,
+    gameSkills: gameSkills.map((g, ks) => MapEntry(g, ks.map((uid, k) => MapEntry(uid, EloSkill(k.mu, k.sigma))))),
   );
+}
+
+/// One Plackett-Luce update of [sides] (already ranked) against [skills],
+/// creating newcomers as needed. [muScale], per side, scales the change in
+/// skill — the uncertainty still shrinks as usual.
+void _rate(List<_Side> sides, Map<String, _Skill> skills, {List<double>? muScale}) {
+  for (final s in sides) {
+    for (final uid in s.members) {
+      final k = skills.putIfAbsent(uid, _Skill.new);
+      k.sigma = math.sqrt(k.sigma * k.sigma + _tau * _tau);
+    }
+    s.mu = s.members.fold(0.0, (sum, uid) => sum + skills[uid]!.mu);
+    s.sigmaSq = s.members.fold(0.0, (sum, uid) => sum + math.pow(skills[uid]!.sigma, 2));
+  }
+
+  final c = math.sqrt(sides.fold(0.0, (sum, s) => sum + s.sigmaSq + _beta * _beta));
+  final sumQ = [for (final q in sides) sides.where((i) => i.rank >= q.rank).fold(0.0, (sum, i) => sum + math.exp(i.mu / c))];
+  final ties = [for (final q in sides) sides.where((i) => i.rank == q.rank).length];
+
+  final updates = <(double, double)>[];
+  for (var i = 0; i < sides.length; i++) {
+    final si = sides[i];
+    var omega = 0.0, delta = 0.0;
+    for (var q = 0; q < sides.length; q++) {
+      if (sides[q].rank > si.rank) continue;
+      final quotient = math.exp(si.mu / c) / sumQ[q];
+      omega += (i == q ? 1 - quotient : -quotient) / ties[q];
+      delta += quotient * (1 - quotient) / ties[q];
+    }
+    final gamma = math.sqrt(si.sigmaSq) / c;
+    updates.add((omega * si.sigmaSq / c, delta * gamma * si.sigmaSq / (c * c)));
+  }
+
+  for (var i = 0; i < sides.length; i++) {
+    final (omega, delta) = updates[i];
+    for (final uid in sides[i].members) {
+      final k = skills[uid]!;
+      final share = k.sigma * k.sigma / sides[i].sigmaSq;
+      k.mu += share * omega * (muScale?[i] ?? 1);
+      k.sigma *= math.sqrt(math.max(1 - share * delta, _kappa));
+    }
+  }
+}
+
+/// Per side, how much the global rating should move for this result given
+/// the players' levels on this game ([game]): 0.5 + |actual − expected|,
+/// both averaged over the side's opponents (1 per opponent finished ahead
+/// of, ½ per tie). Evenly matched on the game → 1; an upset → up to 1.5;
+/// the expected result → down to 0.5.
+List<double> _gameMultipliers(List<_Side> sides, Map<String, _Skill> game) {
+  double mu(_Side s) => s.members.fold(0.0, (sum, uid) => sum + (game[uid]?.mu ?? _mu));
+  double sigmaSq(_Side s) => s.members.fold(0.0, (sum, uid) => sum + math.pow(game[uid]?.sigma ?? _sigma, 2));
+  final mus = [for (final s in sides) mu(s)];
+  final sigmas = [for (final s in sides) sigmaSq(s)];
+  return [
+    for (var i = 0; i < sides.length; i++)
+      () {
+        var actual = 0.0, expected = 0.0;
+        for (var j = 0; j < sides.length; j++) {
+          if (i == j) continue;
+          final c = math.sqrt(sigmas[i] + sigmas[j] + 2 * _beta * _beta);
+          expected += 1 / (1 + math.exp((mus[j] - mus[i]) / c));
+          actual += sides[i].rank < sides[j].rank ? 1 : (sides[i].rank == sides[j].rank ? 0.5 : 0);
+        }
+        return 0.5 + (actual - expected).abs() / (sides.length - 1);
+      }(),
+  ];
 }
 
 // ============================== TIERS ==============================
@@ -248,8 +348,10 @@ class EloRecords {
   const EloRecords({this.peak, this.bestGain, this.longestStreak = 0, this.currentStreak = 0, this.upset});
 }
 
-EloRecords eloRecordsOf(EloResult r, String uid) {
-  final points = r.history[uid] ?? const <EloPoint>[];
+/// Global records by default, or on one game with [gameId] (upsets are
+/// only tracked globally).
+EloRecords eloRecordsOf(EloResult r, String uid, {String? gameId}) {
+  final points = (gameId == null ? r.history[uid] : r.gameHistory[gameId]?[uid]) ?? const <EloPoint>[];
   EloPoint? peak, bestGain;
   var longest = 0, current = 0;
   for (final p in points) {
@@ -258,18 +360,20 @@ EloRecords eloRecordsOf(EloResult r, String uid) {
     current = p.delta > 0 ? current + 1 : 0;
     if (current > longest) longest = current;
   }
-  return EloRecords(peak: peak, bestGain: bestGain, longestStreak: longest, currentStreak: current, upset: r.bestUpsets[uid]);
+  return EloRecords(peak: peak, bestGain: bestGain, longestStreak: longest, currentStreak: current, upset: gameId == null ? r.bestUpsets[uid] : null);
 }
 
 // ============================== PREDICTIONS ==============================
 
 /// Each side's chance of finishing first, in [sides] order — each side one
 /// player, or a team (its members' skills summed, as in [computeElo]).
-/// Plackett-Luce's first pick: exp(mu/c) over the sum of everyone's.
-List<double> eloWinChances(EloResult r, List<List<String>> sides) {
+/// Plackett-Luce's first pick: exp(mu/c) over the sum of everyone's. With
+/// [gameId], each player's skill leans on that game (see
+/// [EloResult.skillFor]).
+List<double> eloWinChances(EloResult r, List<List<String>> sides, {String? gameId}) {
   if (sides.isEmpty) return const [];
-  final mus = [for (final s in sides) s.fold(0.0, (sum, uid) => sum + r.skillOf(uid).mu)];
-  final c = math.sqrt(sides.fold(0.0, (sum, s) => sum + s.fold(0.0, (acc, uid) => acc + math.pow(r.skillOf(uid).sigma, 2)) + _beta * _beta));
+  final mus = [for (final s in sides) s.fold(0.0, (sum, uid) => sum + r.skillFor(uid, gameId).mu)];
+  final c = math.sqrt(sides.fold(0.0, (sum, s) => sum + s.fold(0.0, (acc, uid) => acc + math.pow(r.skillFor(uid, gameId).sigma, 2)) + _beta * _beta));
   final top = mus.reduce(math.max);
   final weights = [for (final mu in mus) math.exp((mu - top) / c)]; // shifted for numeric safety
   final total = weights.fold(0.0, (a, b) => a + b);
@@ -280,13 +384,14 @@ List<double> eloWinChances(EloResult r, List<List<String>> sides) {
 /// possible — sizes differing by at most one, and the gap between the
 /// strongest and weakest team's summed skill as small as it can be. Tries
 /// every split for up to 12 players, falls back to a greedy draft beyond.
-Map<String, String> balanceEloTeams(EloResult r, List<String> players, int teamCount) {
+/// With [gameId], skills lean on that game (see [EloResult.skillFor]).
+Map<String, String> balanceEloTeams(EloResult r, List<String> players, int teamCount, {String? gameId}) {
   String label(int i) => String.fromCharCode(65 + i);
   if (teamCount < 2 || players.length <= teamCount) {
     return {for (final (i, uid) in players.indexed) uid: label(i % math.max(teamCount, 1))};
   }
-  final sorted = List.of(players)..sort((a, b) => r.skillOf(b).mu.compareTo(r.skillOf(a).mu));
-  final strength = [for (final uid in sorted) r.skillOf(uid).mu];
+  final sorted = List.of(players)..sort((a, b) => r.skillFor(b, gameId).mu.compareTo(r.skillFor(a, gameId).mu));
+  final strength = [for (final uid in sorted) r.skillFor(uid, gameId).mu];
   final n = sorted.length;
   final maxSize = (n / teamCount).ceil();
   final minSize = n ~/ teamCount;

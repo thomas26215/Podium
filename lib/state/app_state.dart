@@ -2451,6 +2451,7 @@ class AppState extends ChangeNotifier {
     List<String>? playerIdsOverride,
     List<String>? participantFilter,
     bool participantFilterExact = false,
+    String? eloGameId,
   }) {
     final all = matchesOverride ?? viewMatches;
     var mm = gameFilterId == null ? all : all.where((m) => m.gameId == gameFilterId).toList();
@@ -2489,8 +2490,9 @@ class AppState extends ChangeNotifier {
         ratio: played > 0 ? wins / played : 0,
         avg: played > 0 ? points / played : null,
         gamesPlayedOfFilter: played,
-        elo: elo.ratings[pid],
-        eloPlayed: elo.played[pid] ?? 0,
+        // A game's own Elo when [eloGameId] is set, else the global one.
+        elo: eloGameId == null ? elo.ratings[pid] : elo.gameRatings[eloGameId]?[pid],
+        eloPlayed: eloGameId == null ? (elo.played[pid] ?? 0) : (elo.gamePlayed[eloGameId]?[pid] ?? 0),
       );
     }).whereType<PlayerRow>().toList();
   }
@@ -2593,9 +2595,10 @@ class AppState extends ChangeNotifier {
     bool participantFilterExact = false,
   }) {
     if (mode == 'elo') {
-      // Elo is one rating across every game, so the ranking filters don't
-      // apply — only players with at least one rated match are listed.
-      final rows = computeRows(null, playerIdsOverride: playerIdsOverride).where((r) => r.elo != null).toList();
+      // The global rating, or one game's own with [gameFilterId] — the
+      // theme/player filters don't apply. Only players with at least one
+      // rated match are listed.
+      final rows = computeRows(null, playerIdsOverride: playerIdsOverride, eloGameId: gameFilterId).where((r) => r.elo != null).toList();
       rows.sort((a, b) => b.elo!.compareTo(a.elo!));
       return rows;
     }
@@ -3827,7 +3830,8 @@ class AppState extends ChangeNotifier {
   }
 
   /// Each side's chance of winning the match being set up, from the group's
-  /// Elo — one side per picked player, or per non-empty team in team mode.
+  /// Elo on the picked game (leaning on the global one where it's thin) —
+  /// one side per picked player, or per non-empty team in team mode.
   /// Null outside a group, for coop, and until two sides are picked.
   List<({List<String> members, double chance})>? get draftWinChances {
     if (!eloAvailable || draft.mode == 'coop' || draft.playerIds.length < 2) return null;
@@ -3837,15 +3841,16 @@ class AppState extends ChangeNotifier {
           ].where((s) => s.isNotEmpty).toList()
         : [for (final id in draft.playerIds) [id]];
     if (sides.length < 2) return null;
-    final chances = eloWinChances(groupElo, sides);
+    final chances = eloWinChances(groupElo, sides, gameId: draft.gameId);
     return [for (final (i, s) in sides.indexed) (members: s, chance: chances[i])];
   }
 
   /// Reassigns the picked players to [NewGameDraft.teamCount] teams as
-  /// evenly matched as the group's Elo allows (see [balanceEloTeams]).
+  /// evenly matched as the group's Elo on the picked game allows (see
+  /// [balanceEloTeams]).
   void balanceDraftTeams() {
     if (!eloAvailable) return;
-    draft.team.addAll(balanceEloTeams(groupElo, draft.playerIds, draft.teamCount));
+    draft.team.addAll(balanceEloTeams(groupElo, draft.playerIds, draft.teamCount, gameId: draft.gameId));
     notifyListeners();
   }
 

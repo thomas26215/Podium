@@ -36,6 +36,7 @@ import 'package:podium/screens/new_game/replace_with_library_screen.dart';
 import 'package:podium/screens/new_game/step1_game.dart';
 import 'package:podium/screens/new_game/step2_players.dart';
 import 'package:podium/screens/new_game/step3_scores.dart';
+import 'package:podium/screens/profile/profile_elo_section.dart';
 import 'package:podium/screens/profile/profile_screen.dart';
 import 'package:podium/screens/solo/solo_game_screen.dart';
 import 'package:podium/widgets/common.dart';
@@ -1922,6 +1923,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(seeded.state.effectiveRankMode, 'elo');
     expect(find.text('${rows.last.elo!.round()} Elo'), findsOneWidget);
+
+    // Picking a game shows that game's own Elo.
+    await tester.tap(find.text('Catan'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('La cote sur ce jeu seul'), findsOneWidget);
+    final catan = seeded.state.standings('elo', gameFilterId: 'catan');
+    expect(catan.map((r) => r.player.uid), ['lea', 'tom']);
+    expect(catan.first.elo, seeded.state.groupElo.gameRatings['catan']!['lea']);
+    expect(seeded.state.standings('elo', gameFilterId: 'mk'), isEmpty, reason: 'nobody has played it');
   });
 
   testWidgets('a salon has no Elo mode and ranks by wins', (tester) async {
@@ -1996,6 +2006,15 @@ void main() {
     expect(find.textContaining('pour ${nextEloTier(rating)!.name}'), findsOneWidget);
     expect(find.byType(EloHistoryChart), findsOneWidget);
     expect(find.text('Record  '), findsOneWidget);
+
+    // Switching to a game shows that game's own rating.
+    final catanChip = find.descendant(of: find.byType(ProfileEloSection), matching: find.textContaining('Catan'));
+    await tester.ensureVisible(catanChip);
+    await tester.tap(catanChip);
+    await tester.pumpAndSettle();
+    final onCatan = state.groupElo.gameRatings['catan']!['lea']!;
+    expect(find.descendant(of: find.byType(ProfileEloSection), matching: find.text('${onCatan.round()}')), findsOneWidget);
+    expect(find.byType(EloHistoryChart), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

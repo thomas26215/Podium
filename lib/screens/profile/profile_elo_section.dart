@@ -4,24 +4,49 @@ import 'package:provider/provider.dart';
 import '../../logic/elo.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/common.dart';
 import '../../widgets/elo_widgets.dart';
 import '../../widgets/match_card.dart' show frenchDayMonth;
 
 /// A player's Elo on their profile: their tier and how far the next one is,
-/// their rating curve, and their highlights (see [eloRecordsOf]).
-class ProfileEloSection extends StatelessWidget {
+/// their rating curve, and their highlights (see [eloRecordsOf]) — globally,
+/// or on one of the games they've played, picked from the chips on top.
+class ProfileEloSection extends StatefulWidget {
   final String uid;
   const ProfileEloSection({super.key, required this.uid});
+
+  @override
+  State<ProfileEloSection> createState() => _ProfileEloSectionState();
+}
+
+class _ProfileEloSectionState extends State<ProfileEloSection> {
+  String? _gameId; // null = global
+
+  @override
+  void didUpdateWidget(ProfileEloSection old) {
+    super.didUpdateWidget(old);
+    if (old.uid != widget.uid) _gameId = null; // another player's profile
+  }
 
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final elo = app.groupElo;
-    final rating = elo.ratingOf(uid);
-    if (rating == null) return const SizedBox.shrink();
+    final uid = widget.uid;
+    if (elo.ratingOf(uid) == null) return const SizedBox.shrink();
+
+    // Games this player has a rating on, most played first.
+    final games = [
+      for (final e in elo.gamePlayed.entries)
+        if (e.value[uid] case final n?) (id: e.key, played: n),
+    ]..sort((a, b) => b.played.compareTo(a.played));
+    final gameId = games.any((g) => g.id == _gameId) ? _gameId : null;
+
+    final rating = gameId == null ? elo.ratingOf(uid)! : elo.gameRatings[gameId]![uid]!;
+    final points = (gameId == null ? elo.history[uid] : elo.gameHistory[gameId]?[uid]) ?? const [];
     final tier = eloTier(rating);
     final next = nextEloTier(rating);
-    final records = eloRecordsOf(elo, uid);
+    final records = eloRecordsOf(elo, uid, gameId: gameId);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -29,6 +54,20 @@ class ProfileEloSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (games.isNotEmpty) ...[
+            SizedBox(
+              height: 34,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [
+                  _chip('Global', null, gameId == null),
+                  for (final g in games)
+                    if (app.gameById(g.id) case final game?) _chip(game.name, game.emoji, gameId == g.id, id: g.id),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+          ],
           Row(
             children: [
               EloTierBadge(tier: tier, fontSize: 13),
@@ -54,7 +93,7 @@ class ProfileEloSection extends StatelessWidget {
             style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
           ),
           const SizedBox(height: 16),
-          EloHistoryChart(points: elo.history[uid] ?? const []),
+          EloHistoryChart(key: ValueKey(gameId), points: points),
           const SizedBox(height: 10),
           if (records.peak != null) _record('🏔️', 'Record', '${records.peak!.rating.round()} · ${frenchDayMonth(records.peak!.date)}'),
           if (records.bestGain != null) _record('🚀', 'Plus gros gain', '+${records.bestGain!.delta.round()} · ${frenchDayMonth(records.bestGain!.date)}'),
@@ -71,6 +110,26 @@ class ProfileEloSection extends StatelessWidget {
       ),
     );
   }
+
+  Widget _chip(String label, String? emoji, bool selected, {String? id}) => Padding(
+        padding: const EdgeInsets.only(right: 7),
+        child: Pressable(
+          onTap: () => setState(() => _gameId = id),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+            decoration: BoxDecoration(
+              color: selected ? AppColors.ink : AppColors.bg,
+              border: Border.all(color: selected ? AppColors.ink : AppColors.line),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              emoji == null ? label : '$emoji $label',
+              style: bodyFont(size: 12, weight: FontWeight.w700, color: selected ? Colors.white : AppColors.ink2),
+            ),
+          ),
+        ),
+      );
 
   Widget _record(String emoji, String label, String value) => Padding(
         padding: const EdgeInsets.only(top: 8),

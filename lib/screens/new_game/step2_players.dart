@@ -349,6 +349,7 @@ class _WinChances extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.read<AppState>();
     final isTeam = app.draft.mode == 'team';
+    final gameName = app.gameById(app.draft.gameId ?? '')?.name;
     final sorted = List.of(chances)..sort((a, b) => b.chance.compareTo(a.chance));
     String label(List<String> members) {
       final names = members.map((id) => app.playerById(id)?.displayName ?? '?').join(', ');
@@ -367,8 +368,16 @@ class _WinChances extends StatelessWidget {
               Icon(Icons.insights_rounded, size: 16, color: AppColors.accent),
               const SizedBox(width: 6),
               Text('Pronostic', style: bodyFont(size: 13.5, weight: FontWeight.w800, color: AppColors.ink2)),
-              const Spacer(),
-              Text("chances de gagner d'après l'Elo", style: bodyFont(size: 11, weight: FontWeight.w600, color: AppColors.mut)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  gameName == null ? "d'après l'Elo" : "d'après l'Elo sur $gameName",
+                  textAlign: TextAlign.right,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: bodyFont(size: 11, weight: FontWeight.w600, color: AppColors.mut),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 10),

@@ -2,9 +2,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:podium/logic/elo.dart';
 import 'package:podium/models/match.dart';
 
-GameMatch _match(String id, List<MatchEntry> entries, {String mode = 'ffa', bool lowWins = false, DateTime? at}) => GameMatch(
+GameMatch _match(String id, List<MatchEntry> entries, {String mode = 'ffa', bool lowWins = false, DateTime? at, String game = 'g'}) => GameMatch(
       id: id,
-      gameId: 'g',
+      gameId: game,
       groupId: 'grp',
       mode: mode,
       unit: 'points',
@@ -142,5 +142,59 @@ void main() {
     expect(teams['s1'], isNot(teams['s2']));
     expect(teams['s1'], teams['w2'], reason: 'the best player gets the weakest partner');
     expect(balanceEloTeams(r, ['s1', 's2', 'w1'], 2).values.toSet(), {'A', 'B'});
+  });
+
+  group('per-game ratings', () {
+    // a has beaten b five times at "g" — clearly the stronger one there.
+    final history = [for (var i = 0; i < 5; i++) _match('p$i', [_e('a', 10), _e('b', 0)], at: DateTime(2026, 1, 1, i))];
+    double gain(String winner, String loser, String game) {
+      final r = computeElo([...history, _match('last', [_e(winner, 10), _e(loser, 0)], at: DateTime(2026, 1, 2), game: game)]);
+      return r.deltas['last']![winner]!;
+    }
+
+    test('each game keeps its own rating', () {
+      final r = computeElo([
+        _match('m1', [_e('a', 10), _e('b', 0)], game: 'chess'),
+        _match('m2', [_e('b', 10), _e('a', 0)], at: DateTime(2026, 1, 2), game: 'darts'),
+      ]);
+      expect(r.gameRatings['chess']!['a']!, greaterThan(r.gameRatings['chess']!['b']!));
+      expect(r.gameRatings['darts']!['b']!, greaterThan(r.gameRatings['darts']!['a']!));
+      expect(r.gamePlayed['chess'], {'a': 1, 'b': 1});
+    });
+
+    test('an expected result on the game moves the global rating less', () {
+      expect(gain('a', 'b', 'g'), lessThan(gain('a', 'b', 'fresh')));
+    });
+
+    test('an upset on the game moves the global rating more', () {
+      expect(gain('b', 'a', 'g'), greaterThan(gain('b', 'a', 'fresh')));
+    });
+  });
+
+  group('game-aware skills', () {
+    // b dominates globally (darts), but a has always beaten b at chess.
+    final r = computeElo([
+      for (var i = 0; i < 20; i++) _match('d$i', [_e('b', 10), _e('a', 0)], at: DateTime(2026, 1, 1, 0, i), game: 'darts'),
+      for (var i = 0; i < 10; i++) _match('c$i', [_e('a', 10), _e('b', 0)], at: DateTime(2026, 1, 2, 0, i), game: 'chess'),
+    ]);
+
+    test('predictions lean on the picked game', () {
+      final global = eloWinChances(r, [['a'], ['b']]);
+      final chess = eloWinChances(r, [['a'], ['b']], gameId: 'chess');
+      expect(chess[0], greaterThan(global[0]));
+      expect(chess[0], greaterThan(0.5), reason: 'a is the chess favourite');
+    });
+
+    test('a game nobody played falls back to the global skill', () {
+      expect(eloWinChances(r, [['a'], ['b']], gameId: 'go'), eloWinChances(r, [['a'], ['b']]));
+    });
+
+    test('each game keeps its own curve and records', () {
+      expect(r.gameHistory['chess']!['a']!.length, 10);
+      expect(r.gameHistory['chess']!['a']!.last.rating, closeTo(r.gameRatings['chess']!['a']!, 1e-9));
+      final chessRecords = eloRecordsOf(r, 'a', gameId: 'chess');
+      expect(chessRecords.longestStreak, 10);
+      expect(chessRecords.upset, isNull, reason: 'upsets are global only');
+    });
   });
 }
