@@ -36,6 +36,21 @@ void main() {
     expect(CharacterChoice.fromMap(const {'label': '  '}).label, CharacterChoice.defaultLabel);
   });
 
+  test('several picks per player: wording, round-trip and joined storage', () {
+    const clans = CharacterChoice(label: 'Clan', options: ['Galmi', 'Justice', 'Phoenix'], count: 3);
+    expect(clans.pickPrompt, 'Choisir 3 clans');
+    expect(const CharacterChoice(label: 'Héros', count: 2).pickPrompt, 'Choisir 2 héros');
+    expect(CharacterChoice.fromMap(clans.toMap()).count, 3);
+    expect(CharacterChoice.fromMap(const {'label': 'Merveille'}).count, 1);
+    expect(const CharacterChoice().toMap().containsKey('count'), isFalse);
+    expect(CharacterChoice.split('Galmi · Justice · Phoenix'), ['Galmi', 'Justice', 'Phoenix']);
+    expect(CharacterChoice.split('Rhodes'), ['Rhodes']);
+    expect(CharacterChoice.split(null), isEmpty);
+
+    final form = GameFormDraft(name: 'Gosu X', characterEnabled: true, characterLabel: 'Clan', characterCount: 3, characters: ['Galmi']);
+    expect(form.cleanCharacterChoice!.count, 3);
+  });
+
   test('a match entry keeps its character through toMap/fromMap and withCharacter', () {
     const entry = MatchEntry(playerId: 'tom', points: 3, teamId: 'A', role: 'Président');
     final withChar = entry.withCharacter('Pyromancien');

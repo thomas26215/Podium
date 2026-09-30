@@ -240,20 +240,30 @@ class GameRule {
 /// What each player picks for a match, as configured on a [Game] (see
 /// [Game.characterChoice]): a user-chosen [label] ("Héros", "Merveille",
 /// "Faction"…) with its grammatical gender, so every UI string can read
-/// naturally ("Choisir une merveille"), and the [options] offered.
+/// naturally ("Choisir une merveille"), and the [options] offered. [count]
+/// is how many each player picks (Gosu X: 3 clans) — several picks are
+/// stored as one [MatchEntry.character], joined with [separator].
 class CharacterChoice {
   static const defaultLabel = 'Personnage';
+  static const separator = ' · ';
 
   final String label;
   final bool feminine;
   final List<String> options;
+  final int count;
 
-  const CharacterChoice({this.label = defaultLabel, this.feminine = false, this.options = const []});
+  const CharacterChoice({this.label = defaultLabel, this.feminine = false, this.options = const [], this.count = 1});
 
   String get _lower => label.isEmpty ? label : label[0].toLowerCase() + label.substring(1);
 
-  /// "Choisir une merveille" / "Choisir un héros".
-  String get pickPrompt => 'Choisir ${feminine ? 'une' : 'un'} $_lower';
+  String get _plural => _lower.endsWith('s') || _lower.endsWith('x') ? _lower : '${_lower}s';
+
+  /// "Choisir une merveille" / "Choisir un héros" / "Choisir 3 clans".
+  String get pickPrompt => count > 1 ? 'Choisir $count $_plural' : 'Choisir ${feminine ? 'une' : 'un'} $_lower';
+
+  /// The picks stored in one [MatchEntry.character] (see [separator]).
+  static List<String> split(String? character) =>
+      character == null || character.isEmpty ? const [] : character.split(separator);
 
   /// "Merveille de Léa".
   String ofPlayer(String name) => '$label de $name';
@@ -261,12 +271,13 @@ class CharacterChoice {
   /// "Déjà prise par Léa" / "Déjà pris par Léa".
   String takenBy(String name) => 'Déjà ${feminine ? 'prise' : 'pris'} par $name';
 
-  Map<String, dynamic> toMap() => {'label': label, if (feminine) 'feminine': feminine, 'options': options};
+  Map<String, dynamic> toMap() => {'label': label, if (feminine) 'feminine': feminine, 'options': options, if (count > 1) 'count': count};
 
   factory CharacterChoice.fromMap(Map<String, dynamic> m) => CharacterChoice(
         label: (m['label'] as String?)?.trim().isNotEmpty == true ? (m['label'] as String).trim() : defaultLabel,
         feminine: (m['feminine'] as bool?) ?? false,
         options: ((m['options'] as List?) ?? const []).map((e) => e as String).toList(),
+        count: ((m['count'] as num?)?.toInt() ?? 1).clamp(1, 99),
       );
 }
 

@@ -413,8 +413,18 @@ class _CharacterChoiceSectionState extends State<_CharacterChoiceSection> {
               OptionChip(label: 'une', selected: f.characterFeminine, onTap: () => app.setGameForm((f) => f..characterFeminine = true)),
             ],
           ),
+          const SizedBox(height: 18),
+          _fieldLabel('Nombre par joueur'),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            children: [
+              for (var n = 1; n <= 4; n++)
+                OptionChip(label: '$n', selected: f.characterCount == n, onTap: () => app.setGameForm((f) => f..characterCount = n)),
+            ],
+          ),
           const SizedBox(height: 6),
-          _helper('Affiché « ${CharacterChoice(label: label, feminine: f.characterFeminine).pickPrompt} » pendant la partie.'),
+          _helper('Affiché « ${CharacterChoice(label: label, feminine: f.characterFeminine, count: f.characterCount).pickPrompt} » pendant la partie.'),
           const SizedBox(height: 18),
           _fieldLabel('Éléments proposés'),
           const SizedBox(height: 8),

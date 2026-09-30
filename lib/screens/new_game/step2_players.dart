@@ -498,33 +498,70 @@ class _SetupPickerState extends State<_SetupPicker> {
 /// Bottom sheet listing the game's [choice] options for `uid` — returns the
 /// picked one, '' for "Aucun" (clears it), or null if dismissed. Characters
 /// already taken by another player stay pickable (some games allow
-/// duplicates) but say who has them.
+/// duplicates) but say who has them. When each player picks several
+/// ([CharacterChoice.count]), options are ticked then confirmed, and come
+/// back joined with [CharacterChoice.separator], in the game's order.
 Future<String?> _pickCharacter(BuildContext context, AppState app, String uid, String playerName, CharacterChoice choice) {
   final current = app.draft.characters[uid];
   final takenBy = <String, String>{
     for (final e in app.draft.characters.entries)
-      if (e.key != uid && app.draft.playerIds.contains(e.key)) e.value: app.playerById(e.key)?.displayName ?? '?',
+      if (e.key != uid && app.draft.playerIds.contains(e.key))
+        for (final c in CharacterChoice.split(e.value)) c: app.playerById(e.key)?.displayName ?? '?',
   };
+  final picked = CharacterChoice.split(current).toSet();
+  final multi = choice.count > 1;
   return showModalBottomSheet<String>(
     context: context,
     backgroundColor: AppColors.bg,
     isScrollControlled: true,
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl))),
-    builder: (sheetContext) => SafeArea(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: MediaQuery.of(sheetContext).size.height * 0.7),
-        child: ListView(
-          shrinkWrap: true,
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Text(choice.ofPlayer(playerName), style: dispFont(size: 18, weight: FontWeight.w700, color: AppColors.ink)),
-            ),
-            for (final c in choice.options)
-              _CharacterOption(label: c, sub: takenBy[c] != null ? choice.takenBy(takenBy[c]!) : null, selected: current == c, onTap: () => Navigator.of(sheetContext).pop(c)),
-            if (current != null) _CharacterOption(label: 'Aucun', selected: false, muted: true, onTap: () => Navigator.of(sheetContext).pop('')),
-          ],
+    builder: (sheetContext) => StatefulBuilder(
+      builder: (sheetContext, setSheetState) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(sheetContext).size.height * 0.7),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        multi ? '${choice.ofPlayer(playerName)}  ${picked.length}/${choice.count}' : choice.ofPlayer(playerName),
+                        style: dispFont(size: 18, weight: FontWeight.w700, color: AppColors.ink),
+                      ),
+                    ),
+                    for (final c in choice.options)
+                      _CharacterOption(
+                        label: c,
+                        sub: takenBy[c] != null ? choice.takenBy(takenBy[c]!) : null,
+                        selected: picked.contains(c),
+                        onTap: () {
+                          if (!multi) return Navigator.of(sheetContext).pop(c);
+                          setSheetState(() {
+                            if (!picked.remove(c) && picked.length < choice.count) picked.add(c);
+                          });
+                        },
+                      ),
+                    if (current != null) _CharacterOption(label: 'Aucun', selected: false, muted: true, onTap: () => Navigator.of(sheetContext).pop('')),
+                  ],
+                ),
+              ),
+              if (multi)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                  child: PrimaryButton(
+                    label: 'Valider',
+                    onPressed: picked.isEmpty
+                        ? null
+                        : () => Navigator.of(sheetContext).pop(choice.options.where(picked.contains).join(CharacterChoice.separator)),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     ),

@@ -3096,6 +3096,7 @@ class AppState extends ChangeNotifier {
       characterEnabled: game.characterChoice != null,
       characterLabel: game.characterChoice?.label ?? CharacterChoice.defaultLabel,
       characterFeminine: game.characterChoice?.feminine ?? false,
+      characterCount: game.characterChoice?.count ?? 1,
       characters: List.of(game.characterChoice?.options ?? const []),
       setupLabel: game.setupChoice?.label ?? SetupChoice.defaultLabel,
       setupCount: game.setupChoice?.count?.toString() ?? '',

@@ -60599,5 +60599,77 @@
    ],
    "count": 1
   }
+ },
+ "gosu_x": {
+  "name": "Gosu X",
+  "emoji": "⚔️",
+  "category": "Cartes",
+  "rules": [
+   {
+    "id": "standard",
+    "name": "Standard",
+    "countType": "winloss"
+   }
+  ],
+  "ruleSections": [
+   {
+    "title": "Draft des clans",
+    "rules": [
+     "On draft 6 des 8 clans en « 1-2-2-1 » : le premier joueur en prend 1, le second 2, le premier 2, puis le second le dernier.",
+     "Chaque joueur forme son deck avec ses 3 clans.",
+     "Les 2 clans restants retournent dans la boîte, mais leurs tuiles, retournées à côté du plateau, modifient les règles pendant toute la partie."
+    ]
+   },
+   {
+    "title": "Armée",
+    "rules": [
+     "Chaque joueur commence avec 2 jetons Activation.",
+     "L'armée compte 3 niveaux : Troupes (niveau 1), Héros (niveau 2) et Immortels (niveau 3).",
+     "La première Troupe est toujours gratuite."
+    ]
+   },
+   {
+    "title": "Tour de jeu",
+    "rules": [
+     "À son tour, on fait une seule action : jouer une carte, faire une Relève, utiliser ses jetons Activation ou passer.",
+     "Quand les deux joueurs ont passé, la Grande Bataille commence : l'armée la plus puissante l'emporte et gagne un jeton Suprématie.",
+     "La manche se termine en sacrifiant la moitié de son armée."
+    ]
+   },
+   {
+    "title": "Victoire",
+    "rules": [
+     "Gagner 2 Grandes Batailles (2 jetons Suprématie).",
+     "Ou débloquer son 5e jeton Activation, ou avoir 15 cartes face visible dans son armée.",
+     "Ou remplir la condition de victoire alternative d'un clan (Justice, Goan Sul)."
+    ]
+   }
+  ],
+  "minPlayers": 2,
+  "maxPlayers": 2,
+  "themes": [
+   "paquetSpecifique",
+   "duel",
+   "strategie",
+   "draft",
+   "combinaisons",
+   "fantasy",
+   "combat",
+   "moyen"
+  ],
+  "characterChoice": {
+   "label": "Clan",
+   "options": [
+    "Abhilasha",
+    "Galmi",
+    "Goan Sul",
+    "Justice",
+    "Narashima",
+    "Phoenix",
+    "Tomorrow",
+    "Xi'an"
+   ],
+   "count": 3
+  }
  }
 }

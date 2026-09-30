@@ -306,6 +306,7 @@ class GameFormDraft {
   bool characterEnabled;
   String characterLabel;
   bool characterFeminine;
+  int characterCount;
   List<String> characters;
 
   /// The "Sélection pour la partie" settings (see [Game.setupChoice]/
@@ -329,6 +330,7 @@ class GameFormDraft {
     this.characterEnabled = false,
     this.characterLabel = CharacterChoice.defaultLabel,
     this.characterFeminine = false,
+    this.characterCount = 1,
     List<String>? characters,
     this.setupLabel = SetupChoice.defaultLabel,
     this.setupCount = '',
@@ -383,6 +385,7 @@ class GameFormDraft {
           label: characterLabel.trim().isEmpty ? CharacterChoice.defaultLabel : characterLabel.trim(),
           feminine: characterFeminine,
           options: cleanCharacters,
+          count: characterCount,
         )
       : null;
 
