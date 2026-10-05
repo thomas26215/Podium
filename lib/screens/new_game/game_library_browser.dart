@@ -71,7 +71,7 @@ class _GameLibraryBrowserState extends State<GameLibraryBrowser> {
         ],
         const SizedBox(height: 16),
         if (app.libraryLoading)
-          Padding(padding: EdgeInsets.symmetric(vertical: 40), child: Center(child: CircularProgressIndicator(color: AppColors.accent)))
+          const Padding(padding: EdgeInsets.symmetric(vertical: 40), child: Center(child: PodiumLoader()))
         else if (games.isEmpty)
           EmptyState(
             emoji: '📭',

@@ -77,6 +77,17 @@ class AppColors {
   static Color get greenSoft => _dark ? const Color(0xFF1C3327) : const Color(0xFFE4F3EA);
   static Color get gold => const Color(0xFFE8A93B);
   static Color get segTrack => _dark ? const Color(0xFF242229) : const Color(0xFFE7E4DB);
+
+  /// Text/icons drawn on an [ink] fill (a selected pill, a score badge) —
+  /// [ink] flips to near-white in dark mode, so what sits on it has to flip
+  /// too instead of staying white.
+  static Color get onInk => _dark ? const Color(0xFF18171C) : Colors.white;
+
+  /// The always-dark "hero" surface (leader card, champion banner, toast…)
+  /// that carries white text in both themes — unlike [ink], which turns
+  /// light in dark mode. Lifted a little off [bg] there so it still reads
+  /// as a raised block.
+  static Color get hero => _dark ? const Color(0xFF2E2C36) : const Color(0xFF18171C);
 }
 
 class AppRadius {

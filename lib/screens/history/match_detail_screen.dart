@@ -116,7 +116,7 @@ class MatchDetailScreen extends StatelessWidget {
 
   Future<void> _confirmDelete(BuildContext context) async {
     final isLeg = match.seriesId != null;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.bg,
@@ -163,7 +163,7 @@ class MatchDetailScreen extends StatelessWidget {
     final resultLine = matchResultLine(game, match, appState);
     return Container(
       padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(AppRadius.xxl)),
+      decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(AppRadius.xxl)),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -372,7 +372,7 @@ class MatchDetailScreen extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(999)),
-                        child: AnimatedCounter(value: entry.points, style: bodyFont(size: 13, weight: FontWeight.w800, color: Colors.white)),
+                        child: AnimatedCounter(value: entry.points, style: bodyFont(size: 13, weight: FontWeight.w800, color: AppColors.onInk)),
                       ),
                     ],
                   ),

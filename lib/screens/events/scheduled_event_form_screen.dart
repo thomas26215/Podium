@@ -220,7 +220,7 @@ class _KindCard extends StatelessWidget {
           border: Border.all(color: selected ? AppColors.ink : AppColors.line, width: 1.5),
           borderRadius: BorderRadius.circular(AppRadius.lg),
         ),
-        child: Text(label, style: bodyFont(size: 14, weight: FontWeight.w800, color: selected ? Colors.white : AppColors.ink)),
+        child: Text(label, style: bodyFont(size: 14, weight: FontWeight.w800, color: selected ? AppColors.onInk : AppColors.ink)),
       ),
     );
   }

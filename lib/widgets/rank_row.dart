@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../logic/badges.dart';
 import '../models/app_user.dart';
 import '../theme/app_theme.dart';
 import 'avatar.dart';
@@ -17,8 +18,10 @@ class MiniRankRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(14),
+    return Pressable(
+      behavior: HitTestBehavior.opaque,
+      dimOnPress: true,
+      pressedScale: 0.98,
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
@@ -31,7 +34,7 @@ class MiniRankRow extends StatelessWidget {
             const SizedBox(width: 12),
             Avatar(initial: player.initial, color: Color(player.color), size: 38, fontSize: 15),
             const SizedBox(width: 12),
-            Expanded(child: Text(player.displayName, style: bodyFont(size: 15.5, weight: FontWeight.w700, color: AppColors.ink))),
+            Expanded(child: _NameWithBadges(player: player, style: bodyFont(size: 15.5, weight: FontWeight.w700, color: AppColors.ink))),
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -67,7 +70,10 @@ class RankRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return Pressable(
+      behavior: HitTestBehavior.opaque,
+      dimOnPress: true,
+      pressedScale: 0.98,
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -81,7 +87,7 @@ class RankRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(player.displayName, style: bodyFont(size: 15.5, weight: FontWeight.w700, color: AppColors.ink)),
+                  _NameWithBadges(player: player, style: bodyFont(size: 15.5, weight: FontWeight.w700, color: AppColors.ink)),
                   Text(sub, style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
                 ],
               ),
@@ -96,6 +102,27 @@ class RankRow extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// A player's name followed by the emojis of the badges they pinned (see
+/// AppUser.showcasedBadges) — a little flair in the rankings.
+class _NameWithBadges extends StatelessWidget {
+  final AppUser player;
+  final TextStyle style;
+  const _NameWithBadges({required this.player, required this.style});
+
+  @override
+  Widget build(BuildContext context) {
+    final emojis = player.showcasedBadges.map(badgeById).whereType<BadgeDef>().map((b) => b.emoji).join(' ');
+    return Text.rich(
+      TextSpan(children: [
+        TextSpan(text: player.displayName, style: style),
+        if (emojis.isNotEmpty) TextSpan(text: '  $emojis', style: const TextStyle(fontSize: 12)),
+      ]),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
     );
   }
 }

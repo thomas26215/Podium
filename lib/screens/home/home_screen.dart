@@ -51,7 +51,9 @@ class HomeScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Flexible(
-                  child: InkWell(
+                  child: Pressable(
+                    behavior: HitTestBehavior.opaque,
+                    pressedScale: 0.97,
                     onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GroupsPage())),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -60,7 +62,7 @@ class HomeScreen extends StatelessWidget {
                           width: 38,
                           height: 38,
                           alignment: Alignment.center,
-                          decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(12)),
+                          decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(12)),
                           child: Text(headerEmoji, style: const TextStyle(fontSize: 19)),
                         ),
                         const SizedBox(width: 8),
@@ -81,8 +83,8 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                InkWell(
-                  borderRadius: BorderRadius.circular(19),
+                Pressable(
+                  pressedScale: 0.92,
                   onTap: () {
                     final uid = app.currentUser?.uid;
                     if (uid != null) app.openProfile(uid);
@@ -130,17 +132,7 @@ class HomeScreen extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 48),
               child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(strokeWidth: 2, color: AppColors.mut),
-                    const SizedBox(height: 12),
-                    Text(
-                      '${app.groupDataFetchedCount}/${AppState.groupDataTotalCount} données récupérées…',
-                      style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
-                    ),
-                  ],
-                ),
+                child: PodiumLoader(label: '${app.groupDataFetchedCount}/${AppState.groupDataTotalCount} données récupérées…'),
               ),
             )
           else ...[
@@ -418,7 +410,7 @@ List<Widget> _completeSections(BuildContext context, AppState app, Map<String, i
           if (g == null) return const SizedBox.shrink();
           final winners = m.winnerIds();
           final winner = winners.isNotEmpty ? app.playerById(winners.first) : null;
-          return FadeSlideIn(delay: Duration(milliseconds: 140 + i * 40), child: HomeMatchTile(game: g, match: m, winner: winner));
+          return FadeSlideIn(key: ValueKey(m.id), delay: Duration(milliseconds: 140 + i * 40), child: HomeMatchTile(game: g, match: m, winner: winner));
         }),
   ];
 }
@@ -489,19 +481,26 @@ class _LeaderHero extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(AppRadius.xxl)),
+      decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(AppRadius.xxl)),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           Positioned(
             right: -40,
             top: -40,
-            child: Container(
-              width: 150,
-              height: 150,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(colors: [AppColors.accent.withValues(alpha: 0.55), Colors.transparent]),
+            // The accent glow swells in behind the leader.
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.4, end: 1),
+              duration: const Duration(milliseconds: 1200),
+              curve: Curves.easeOutCubic,
+              builder: (context, t, child) => Opacity(opacity: t, child: Transform.scale(scale: t, child: child)),
+              child: Container(
+                width: 150,
+                height: 150,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(colors: [AppColors.accent.withValues(alpha: 0.55), Colors.transparent]),
+                ),
               ),
             ),
           ),
@@ -521,29 +520,49 @@ class _LeaderHero extends StatelessWidget {
                         top: -12,
                         left: 0,
                         right: 0,
-                        child: Transform.rotate(angle: 0.14, child: Icon(Icons.emoji_events, color: AppColors.gold, size: 26)),
+                        // Drops onto the leader's head with a little wobble,
+                        // settling at its resting tilt.
+                        child: TweenAnimationBuilder<double>(
+                          key: ValueKey(row.player.uid),
+                          tween: Tween(begin: 0, end: 1),
+                          duration: const Duration(milliseconds: 900),
+                          curve: Curves.elasticOut,
+                          builder: (context, t, child) => Transform.translate(
+                            offset: Offset(0, -10 * (1 - t)),
+                            child: Transform.rotate(angle: 0.14 + 0.5 * (1 - t), child: Opacity(opacity: t.clamp(0.0, 1.0), child: child)),
+                          ),
+                          child: Icon(Icons.emoji_events, color: AppColors.gold, size: 26),
+                        ),
                       ),
                     ],
                   ),
                   const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(row.player.displayName, style: dispFont(size: 24, weight: FontWeight.w800, color: Colors.white, letterSpacing: -0.4)),
-                      const SizedBox(height: 6),
-                      Row(children: [
-                        AnimatedCounter(value: elo ? row.elo!.round() : row.wins, style: bodyFont(size: 15, weight: FontWeight.w700, color: Colors.white)),
-                        const SizedBox(width: 4),
-                        Text(elo ? 'Elo' : 'victoires', style: bodyFont(size: 13, weight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.6))),
-                        const SizedBox(width: 18),
-                        Row(children: [
-                          AnimatedCounter(value: (row.ratio * 100).round(), style: bodyFont(size: 15, weight: FontWeight.w700, color: Colors.white)),
-                          Text('%', style: bodyFont(size: 15, weight: FontWeight.w700, color: Colors.white)),
-                        ]),
-                        const SizedBox(width: 4),
-                        Text('de winrate', style: bodyFont(size: 13, weight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.6))),
-                      ]),
-                    ],
+                  // Bounded, so a long name ellipsizes and the stats line
+                  // shrinks instead of overflowing on a narrow phone.
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(row.player.displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: dispFont(size: 24, weight: FontWeight.w800, color: Colors.white, letterSpacing: -0.4)),
+                        const SizedBox(height: 6),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Row(children: [
+                            AnimatedCounter(value: elo ? row.elo!.round() : row.wins, style: bodyFont(size: 15, weight: FontWeight.w700, color: Colors.white)),
+                            const SizedBox(width: 4),
+                            Text(elo ? 'Elo' : 'victoires', style: bodyFont(size: 13, weight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.6))),
+                            const SizedBox(width: 18),
+                            Row(children: [
+                              AnimatedCounter(value: (row.ratio * 100).round(), style: bodyFont(size: 15, weight: FontWeight.w700, color: Colors.white)),
+                              Text('%', style: bodyFont(size: 15, weight: FontWeight.w700, color: Colors.white)),
+                            ]),
+                            const SizedBox(width: 4),
+                            Text('de winrate', style: bodyFont(size: 13, weight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.6))),
+                          ]),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -561,7 +580,7 @@ class _NoDataHero extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(AppRadius.xxl)),
+      decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(AppRadius.xxl)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

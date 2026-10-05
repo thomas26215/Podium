@@ -49,7 +49,7 @@ class _RanksScoreList extends StatelessWidget {
                     height: 28,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(color: AppColors.ink, shape: BoxShape.circle),
-                    child: Text('${i + 1}', style: bodyFont(size: 13, weight: FontWeight.w800, color: Colors.white)),
+                    child: Text('${i + 1}', style: bodyFont(size: 13, weight: FontWeight.w800, color: AppColors.onInk)),
                   ),
                   const SizedBox(width: 12),
                   Avatar(initial: p.initial, color: Color(p.color), size: 38, fontSize: 15),
@@ -127,7 +127,7 @@ class _RanksRoundsInput extends StatelessWidget {
                     height: 28,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(color: AppColors.ink, shape: BoxShape.circle),
-                    child: Text('${i + 1}', style: bodyFont(size: 13, weight: FontWeight.w800, color: Colors.white)),
+                    child: Text('${i + 1}', style: bodyFont(size: 13, weight: FontWeight.w800, color: AppColors.onInk)),
                   ),
                   const SizedBox(width: 12),
                   Avatar(initial: p.initial, color: Color(p.color), size: 38, fontSize: 15),
@@ -1374,7 +1374,7 @@ Future<void> _showEditScoreDialog(
   required void Function(int value) onSubmit,
 }) async {
   final ctrl = TextEditingController(text: '$currentValue');
-  await showDialog(
+  await showAppDialog(
     context: context,
     builder: (dialogContext) => Dialog(
       backgroundColor: AppColors.bg,

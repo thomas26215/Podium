@@ -18,11 +18,13 @@ import 'package:podium/models/group.dart';
 import 'package:podium/models/group_invite_code.dart';
 import 'package:podium/models/server_invite_code.dart';
 import 'package:podium/models/match.dart';
+import 'package:podium/models/message.dart';
 import 'package:podium/models/tournament.dart';
 import 'package:podium/repositories/fakes.dart';
 import 'package:podium/repositories/game_library_repository.dart';
 import 'package:podium/repositories/games_repository.dart';
 import 'package:podium/repositories/guests_repository.dart';
+import 'package:podium/repositories/messages_repository.dart';
 import 'package:podium/repositories/users_repository.dart';
 import 'package:podium/screens/auth/auth_gate.dart';
 import 'package:podium/screens/auth/invite_link_handler.dart';
@@ -52,7 +54,7 @@ import 'package:podium/state/new_game_draft.dart';
 const _lea = AppUser(uid: 'lea', email: 'lea@test.fr', displayName: 'Léa', color: 0xFFFF5B34);
 const _tom = AppUser(uid: 'tom', email: 'tom@test.fr', displayName: 'Tom', color: 0xFF5B4BE8);
 
-({AppState state, FakeAuthRepository auth}) _buildSeededState({List<Game>? library}) {
+({AppState state, FakeAuthRepository auth}) _buildSeededState({List<Game>? library, MessagesRepository? serverMessages}) {
   final usersMap = {'lea': _lea, 'tom': _tom};
   final users = FakeUsersRepository(usersMap);
   final auth = FakeAuthRepository(seedUsers: usersMap);
@@ -101,7 +103,7 @@ const _tom = AppUser(uid: 'tom', email: 'tom@test.fr', displayName: 'Tom', color
     serverTournamentsRepo: FakeTournamentsRepository(),
     eventsRepo: FakeEventsRepository(),
     messagesRepo: FakeMessagesRepository(),
-    serverMessagesRepo: FakeMessagesRepository(),
+    serverMessagesRepo: serverMessages ?? FakeMessagesRepository(),
   );
   return (state: state, auth: auth);
 }
@@ -2057,7 +2059,19 @@ void main() {
     await tester.pumpAndSettle();
 
     // Léa won the one recorded Catan match (Stratégie, Gestion, Négociation…).
+    // The stats card opens on "Par jeu"; themes are one toggle away.
     expect(find.text('Par thème'), findsOneWidget);
+    expect(find.text('Stratégie'), findsNothing);
+    await tester.ensureVisible(find.text('Par thème'));
+    await tester.tap(find.text('Par thème'));
+    await tester.pumpAndSettle();
+    // Catan's 6 themes tie, so they're alphabetical — only the first 4 fit
+    // on the profile, the rest are behind "Voir les 6 thèmes".
+    expect(find.text('Dés'), findsOneWidget);
+    expect(find.text('Stratégie'), findsNothing);
+    await tester.ensureVisible(find.text('Voir les 6 thèmes'));
+    await tester.tap(find.text('Voir les 6 thèmes'));
+    await tester.pumpAndSettle();
     expect(find.text('Stratégie'), findsOneWidget);
     expect(find.text('100%'), findsWidgets);
   });
@@ -2253,6 +2267,39 @@ void main() {
     state.selectSalon(server.id, salonA.id);
     await tester.pumpAndSettle();
     expect(state.games.any((g) => g.name == 'Jeu du Salon A'), isTrue, reason: 'still there when switching back to Salon A');
+  });
+
+  testWidgets('a group\'s messages never show up in a salon whose thread fails to load', (tester) async {
+    final seeded = _buildSeededState(serverMessages: _FailingSalonMessagesRepository());
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    final state = seeded.state;
+    await state.messagesRepo.sendMessage('bandits', authorId: 'tom', text: 'Message du groupe');
+    await tester.pumpAndSettle();
+    expect(state.messages.map((m) => m.text), contains('Message du groupe'));
+
+    await state.createServer(name: 'Café Test', emoji: '☕', emojiBg: 0);
+    await tester.pumpAndSettle();
+    final server = state.servers.single;
+    await state.createSalon(serverId: server.id, name: 'Salon A', emoji: '🎮', emojiBg: 0);
+    await tester.pumpAndSettle();
+
+    state.selectSalon(server.id, state.salons.single.id);
+    // Before the salon's thread has answered at all, the group's messages
+    // are already gone…
+    expect(state.messages, isEmpty);
+    await tester.pumpAndSettle();
+    // …and a failed query doesn't bring them back either.
+    expect(state.messages, isEmpty);
+    expect(state.messagesLoaded, isTrue);
   });
 
   testWidgets('scoring a match inside a salon broadcasts a live session scoped to that salon', (tester) async {
@@ -2957,4 +3004,13 @@ void main() {
       await tester.pump(const Duration(milliseconds: 2700));
     });
   });
+}
+
+/// Salon threads always fail — like a Firestore query missing its index.
+class _FailingSalonMessagesRepository extends FakeMessagesRepository {
+  @override
+  Stream<List<GroupMessage>> watchMessages(String rootId, {String? salonId}) {
+    if (salonId != null) return Stream.error(Exception('FAILED_PRECONDITION: the query requires an index'));
+    return super.watchMessages(rootId, salonId: salonId);
+  }
 }

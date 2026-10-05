@@ -125,7 +125,7 @@ class _ProfileEloSectionState extends State<ProfileEloSection> {
             ),
             child: Text(
               emoji == null ? label : '$emoji $label',
-              style: bodyFont(size: 12, weight: FontWeight.w700, color: selected ? Colors.white : AppColors.ink2),
+              style: bodyFont(size: 12, weight: FontWeight.w700, color: selected ? AppColors.onInk : AppColors.ink2),
             ),
           ),
         ),

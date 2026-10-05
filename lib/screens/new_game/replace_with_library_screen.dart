@@ -46,7 +46,7 @@ class _ReplaceWithLibraryScreenState extends State<ReplaceWithLibraryScreen> {
     final duplicate = app.libraryCopyOf(libraryGame);
     final merging = duplicate != null && duplicate.id != target.id;
     final mergedCount = merging ? app.matches.where((m) => m.gameId == duplicate.id).length : 0;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.bg,
@@ -117,7 +117,7 @@ class _ReplaceWithLibraryScreenState extends State<ReplaceWithLibraryScreen> {
           ),
           const SizedBox(height: 14),
           if (app.libraryLoading)
-            Padding(padding: const EdgeInsets.only(top: 40), child: Center(child: CircularProgressIndicator(color: AppColors.accent)))
+            Padding(padding: const EdgeInsets.only(top: 40), child: const Center(child: PodiumLoader()))
           else if (results.isEmpty)
             EmptyState(emoji: '🔎', message: app.gameLibrary.isEmpty ? 'La bibliothèque est indisponible pour le moment.' : 'Aucun jeu ne correspond à cette recherche.')
           else

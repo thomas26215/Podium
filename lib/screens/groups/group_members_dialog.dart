@@ -6,6 +6,7 @@ import '../../repositories/guests_repository.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/avatar.dart';
+import '../../widgets/common.dart';
 
 /// A group's roster: who's in it and who owns it. The owner can remove a
 /// member or hand ownership over (see [AppState.removeGroupMember] and
@@ -169,7 +170,7 @@ Future<void> confirmLeaveGroup(BuildContext context, AppState app, Group group, 
 }
 
 Future<bool> _confirm(BuildContext context, {required String title, required String body, required String action, bool destructive = false}) async {
-  final confirmed = await showDialog<bool>(
+  final confirmed = await showAppDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
       backgroundColor: AppColors.bg,

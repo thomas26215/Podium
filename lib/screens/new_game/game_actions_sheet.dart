@@ -159,7 +159,7 @@ Future<void> showGameActionsSheet(BuildContext context, AppState app, Game game)
 /// isn't linked to the library, so callers can guard every edit with it.
 Future<bool> confirmDetachFromLibrary(BuildContext context, Game game) async {
   if (!game.followsLibrary) return true;
-  final confirmed = await showDialog<bool>(
+  final confirmed = await showAppDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
       backgroundColor: AppColors.bg,
@@ -180,7 +180,7 @@ Future<bool> confirmDetachFromLibrary(BuildContext context, Game game) async {
 }
 
 Future<void> confirmDeleteGame(BuildContext context, AppState app, Game game) async {
-  final confirmed = await showDialog<bool>(
+  final confirmed = await showAppDialog<bool>(
     context: context,
     builder: (_) => AlertDialog(
       backgroundColor: AppColors.bg,

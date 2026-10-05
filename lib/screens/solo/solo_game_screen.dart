@@ -177,8 +177,10 @@ class _SoloGameScreenState extends State<SoloGameScreen> {
                       child: Column(
                         children: [
                           for (final m in matches.reversed)
-                            InkWell(
-                              borderRadius: BorderRadius.circular(12),
+                            Pressable(
+                              behavior: HitTestBehavior.opaque,
+                              dimOnPress: true,
+                              pressedScale: 0.98,
                               onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => MatchDetailScreen(game: game, match: m, appState: app))),
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
@@ -333,7 +335,7 @@ class _RecordHero extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(AppRadius.xxl)),
+      decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(AppRadius.xxl)),
       child: Stack(
         clipBehavior: Clip.none,
         children: [

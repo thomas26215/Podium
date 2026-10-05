@@ -57,7 +57,7 @@ List<GameMatch>? seriesLegsOf(GameMatch match, AppState appState) {
 }
 
 Future<void> _showShareImageDialog(BuildContext context, {required Widget card, required String text}) {
-  return showDialog<void>(context: context, builder: (_) => _ShareImageDialog(card: card, text: text));
+  return showAppDialog<void>(context: context, builder: (_) => _ShareImageDialog(card: card, text: text));
 }
 
 /// Previews [card] (a [kShareCardWidth]-wide share card, as tall as its

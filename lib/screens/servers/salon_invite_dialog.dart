@@ -300,7 +300,7 @@ class _ModeTab extends StatelessWidget {
         child: Text(
           label,
           textAlign: TextAlign.center,
-          style: bodyFont(size: 13, weight: FontWeight.w800, color: selected ? Colors.white : AppColors.mut),
+          style: bodyFont(size: 13, weight: FontWeight.w800, color: selected ? AppColors.onInk : AppColors.mut),
         ),
       ),
     );

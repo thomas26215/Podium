@@ -88,14 +88,14 @@ class _FormatCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(selected ? Icons.radio_button_checked : Icons.radio_button_unchecked, size: 18, color: selected ? Colors.white : AppColors.mut),
+            Icon(selected ? Icons.radio_button_checked : Icons.radio_button_unchecked, size: 18, color: selected ? AppColors.onInk : AppColors.mut),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label, style: bodyFont(size: 14.5, weight: FontWeight.w800, color: selected ? Colors.white : AppColors.ink)),
-                  Text(sub, style: bodyFont(size: 12, weight: FontWeight.w600, color: selected ? Colors.white.withValues(alpha: 0.7) : AppColors.mut)),
+                  Text(label, style: bodyFont(size: 14.5, weight: FontWeight.w800, color: selected ? AppColors.onInk : AppColors.ink)),
+                  Text(sub, style: bodyFont(size: 12, weight: FontWeight.w600, color: selected ? AppColors.onInk.withValues(alpha: 0.7) : AppColors.mut)),
                 ],
               ),
             ),
@@ -125,7 +125,7 @@ class _NumberChip extends StatelessWidget {
           border: Border.all(color: selected ? AppColors.ink : AppColors.line, width: 1.5),
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Text('$value', style: bodyFont(size: 13.5, weight: FontWeight.w800, color: selected ? Colors.white : AppColors.ink)),
+        child: Text('$value', style: bodyFont(size: 13.5, weight: FontWeight.w800, color: selected ? AppColors.onInk : AppColors.ink)),
       ),
     );
   }

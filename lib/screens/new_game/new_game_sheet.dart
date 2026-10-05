@@ -76,7 +76,7 @@ Future<void> _maybeShowSeriesDecidedPrompt(BuildContext context, AppState app) a
   if (app.draft.bestOf <= 1 || app.draft.seriesDecidedPromptDismissed || !app.draftSeriesDecided) return;
   var dontShowAgain = false;
   final leader = app.draftSeriesLeaderLabel;
-  final action = await showDialog<String>(
+  final action = await showAppDialog<String>(
     context: context,
     builder: (dialogContext) => StatefulBuilder(
       builder: (dialogContext, setState) => AlertDialog(

@@ -1,15 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../../logic/theme_stats.dart';
+import '../../logic/badges.dart';
 import '../../models/app_user.dart';
+import '../../models/game.dart';
 import '../../state/app_state.dart';
 import '../../state/session_manager.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/avatar.dart';
+import '../../widgets/badge_widgets.dart';
 import '../../widgets/common.dart';
+import '../../widgets/profile_banners.dart';
+import '../../widgets/profile_style.dart';
 import '../settings/settings_screen.dart';
+import 'badges_screen.dart';
+import 'collection_screen.dart';
+import 'edit_profile_screen.dart';
 import 'friends_screen.dart';
+import 'profile_header.dart';
+import 'profile_stats.dart';
 import 'profile_elo_section.dart';
 
 /// Reached by tapping the avatar button in the group/salon header (see
@@ -25,7 +35,7 @@ class ProfileScreen extends StatelessWidget {
     final profileId = app.profileId ?? (players.isNotEmpty ? players.first.uid : null);
     final profile = profileId == null ? null : app.playerById(profileId);
 
-    if (profile == null) {
+    if (profileId == null || profile == null) {
       return Scaffold(
         backgroundColor: AppColors.bg,
         appBar: AppBar(
@@ -52,276 +62,224 @@ class ProfileScreen extends StatelessWidget {
     final ratio = mine.isNotEmpty ? mine.first.ratio : 0.0;
     final points = mine.isNotEmpty ? mine.first.points : 0;
     final eloRow = mine.firstOrNull;
-    final breakdown = app.profileGameBreakdown(profileId!);
-    final themes = themeStats(breakdown);
+    final isMe = profileId == app.currentUser?.uid;
+    // Discord-style profile theme: the screen picks up a wash of the
+    // player's banner colour at the top.
+    final tint = Color.alphaBlend(bannerThemeById(profile.banner).colors.first.withValues(alpha: AppColors.isDark ? 0.45 : 0.16), AppColors.bg);
 
     return Scaffold(
       backgroundColor: AppColors.bg,
       appBar: AppBar(
-        backgroundColor: AppColors.bg,
+        backgroundColor: tint,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
         foregroundColor: AppColors.ink,
         title: Text('Profil', style: bodyFont(size: 17, weight: FontWeight.w800, color: AppColors.ink)),
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 6, 20, 116),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              FadeSlideIn(
-                child: SizedBox(
-                  height: 44,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: [
-                      for (final p in players)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: Pressable(
-                            onTap: () => app.openProfile(p.uid),
-                            child: Container(
-                              padding: const EdgeInsets.fromLTRB(6, 6, 12, 6),
-                              decoration: BoxDecoration(
-                                color: p.uid == profileId ? AppColors.ink : AppColors.card,
-                                border: Border.all(color: p.uid == profileId ? AppColors.ink : AppColors.line),
-                                borderRadius: BorderRadius.circular(30),
-                              ),
-                              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                Avatar(initial: p.initial, color: Color(p.color), size: 26, fontSize: 11),
-                                const SizedBox(width: 7),
-                                Text(p.displayName, style: bodyFont(size: 13, weight: FontWeight.w700, color: p.uid == profileId ? Colors.white : AppColors.ink2)),
-                              ]),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-              FadeSlideIn(
-                delay: const Duration(milliseconds: 60),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Avatar(initial: profile.initial, color: Color(profile.color), size: 72, fontSize: 30),
-                    const SizedBox(width: 16),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(profile.displayName, style: dispFont(size: 26, weight: FontWeight.w800, color: AppColors.ink, letterSpacing: -0.4)),
-                        Text('${rank > 0 ? '${rank}e du classement' : 'Pas encore classé'} · $points pts cumulés', style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.mut)),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 22),
-              FadeSlideIn(
-                delay: const Duration(milliseconds: 100),
-                child: Row(children: [
-                  _stat('$wins', 'Victoires', AppColors.green),
-                  const SizedBox(width: 10),
-                  _stat('$played', 'Parties', AppColors.ink),
-                  const SizedBox(width: 10),
-                  _stat('${(ratio * 100).round()}%', 'Winrate', AppColors.accent),
-                  if (app.eloAvailable) ...[
-                    const SizedBox(width: 10),
-                    _stat(eloRow?.elo != null ? '${eloRow!.elo!.round()}' : '—', 'Elo', AppColors.gold),
-                  ],
-                ]),
-              ),
-              if (app.eloAvailable && eloRow?.elo != null) ...[
-                const SizedBox(height: 22),
-                const SectionHeader(title: 'Elo'),
-                FadeSlideIn(delay: const Duration(milliseconds: 120), child: ProfileEloSection(uid: profileId)),
-              ],
-              const SizedBox(height: 22),
-              const SectionHeader(title: 'Par jeu'),
-              FadeSlideIn(
-                delay: const Duration(milliseconds: 140),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                  decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
-                  child: breakdown.isEmpty
-                      ? const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: EmptyState(emoji: '🎮', message: "Pas encore de partie jouée."))
-                      : Column(
-                          children: [
-                            for (final b in breakdown)
-                              Container(
-                                padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 4),
-                                decoration: BoxDecoration(border: Border(top: BorderSide(color: AppColors.line))),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 38,
-                                      height: 38,
-                                      alignment: Alignment.center,
-                                      decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(11)),
-                                      child: Text(b.game.emoji, style: const TextStyle(fontSize: 19)),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(b.game.name, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
-                                          Text(
-                                            '${b.played} parties · ${b.wins} V${switch (app.groupElo.gameRatings[b.game.id]?[profileId]) {
-                                              final r? => ' · ${r.round()} Elo',
-                                              _ => '',
-                                            }}',
-                                            style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.end,
-                                      children: [
-                                        Text(b.avg.toStringAsFixed(1), style: dispFont(size: 16, weight: FontWeight.w700, color: AppColors.ink)),
-                                        Text('moy. pts', style: bodyFont(size: 11, weight: FontWeight.w600, color: AppColors.mut)),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                          ],
-                        ),
-                ),
-              ),
-              if (themes.isNotEmpty) ...[
-                const SizedBox(height: 22),
-                const SectionHeader(title: 'Par thème'),
-                FadeSlideIn(
-                  delay: const Duration(milliseconds: 160),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                    decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
-                    child: Column(
-                      children: [
-                        for (final (i, t) in themes.take(8).indexed)
-                          Container(
-                            padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 4),
-                            decoration: BoxDecoration(border: i == 0 ? null : Border(top: BorderSide(color: AppColors.line))),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(t.tag.label, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
-                                      Text('${t.played} parties · ${t.wins} V', style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
-                                    ],
-                                  ),
-                                ),
-                                Text('${(t.ratio * 100).round()}%', style: dispFont(size: 16, weight: FontWeight.w700, color: AppColors.ink)),
-                              ],
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 22),
-              FadeSlideIn(
-                delay: const Duration(milliseconds: 180),
-                child: Pressable(
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FriendsScreen())),
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.lg)),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 38,
-                          height: 38,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(color: AppColors.accentSoft, borderRadius: BorderRadius.circular(11)),
-                          child: Icon(Icons.people_alt_rounded, size: 19, color: AppColors.accent),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(child: Text('Mes amis', style: bodyFont(size: 14.5, weight: FontWeight.w700, color: AppColors.ink))),
-                        if (app.friends.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: Text('${app.friends.length}', style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.mut)),
-                          ),
-                        Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.mut),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              FadeSlideIn(
-                delay: const Duration(milliseconds: 200),
-                child: Pressable(
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.lg)),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 38,
-                          height: 38,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(color: AppColors.accentSoft, borderRadius: BorderRadius.circular(11)),
-                          child: Icon(Icons.palette_rounded, size: 19, color: AppColors.accent),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(child: Text('Personnalisation', style: bodyFont(size: 14.5, weight: FontWeight.w700, color: AppColors.ink))),
-                        Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.mut),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
-                onPressed: () => showDialog(context: context, builder: (_) => const _SwitchAccountDialog()),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.accent,
-                  side: BorderSide(color: AppColors.accent, width: 1.5),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
-                  minimumSize: const Size.fromHeight(0),
-                ),
-                icon: const Icon(Icons.swap_horiz_rounded, size: 20),
-                label: Text('Changer de compte', style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.accent)),
-              ),
-              const SizedBox(height: 10),
-              TextButton.icon(
-                onPressed: () => _confirmSignOut(context, app),
-                style: TextButton.styleFrom(foregroundColor: AppColors.mut),
-                icon: const Icon(Icons.logout_rounded, size: 18),
-                label: Text('Se déconnecter', style: bodyFont(size: 13.5, weight: FontWeight.w700, color: AppColors.mut)),
-              ),
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
-                onPressed: () => showDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: const _DeleteAccountDialog())),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.red,
-                  side: const BorderSide(color: Colors.red, width: 1.5),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
-                  minimumSize: const Size.fromHeight(0),
-                ),
-                icon: const Icon(Icons.delete_forever_rounded, size: 20),
-                label: Text('Supprimer mon compte', style: bodyFont(size: 14, weight: FontWeight.w700, color: Colors.red)),
-              ),
-            ],
+      body: Stack(
+        children: [
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 380,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 450),
+              decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [tint, AppColors.bg])),
+            ),
           ),
-        ),
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 6, 20, 116),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  FadeSlideIn(
+                    child: SizedBox(
+                      height: 44,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: [
+                          for (final p in players)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: Pressable(
+                                onTap: () => app.openProfile(p.uid),
+                                child: Container(
+                                  padding: const EdgeInsets.fromLTRB(6, 6, 12, 6),
+                                  decoration: BoxDecoration(
+                                    color: p.uid == profileId ? AppColors.ink : AppColors.card,
+                                    border: Border.all(color: p.uid == profileId ? AppColors.ink : AppColors.line),
+                                    borderRadius: BorderRadius.circular(30),
+                                  ),
+                                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                    Avatar(initial: p.initial, color: Color(p.color), size: 26, fontSize: 11),
+                                    const SizedBox(width: 7),
+                                    Text(p.displayName, style: bodyFont(size: 13, weight: FontWeight.w700, color: p.uid == profileId ? AppColors.onInk : AppColors.ink2)),
+                                  ]),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 60),
+                    child: ProfileHeaderCard(
+                      user: profile,
+                      subtitle: '${rank > 0 ? '${rank}e du classement' : 'Pas encore classé'} · $points pts cumulés',
+                      favoriteGame: profile.favoriteGameId == null ? null : app.libraryGameById(profile.favoriteGameId!),
+                      onEdit: isMe ? () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EditProfileScreen())) : null,
+                      onTapBadge: (b) => _openBadge(context, app, profile, b),
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 100),
+                    child: Row(children: [
+                      _stat('$wins', 'Victoires', AppColors.green),
+                      const SizedBox(width: 10),
+                      _stat('$played', 'Parties', AppColors.ink),
+                      const SizedBox(width: 10),
+                      _stat('${(ratio * 100).round()}%', 'Winrate', AppColors.accent),
+                      if (app.eloAvailable) ...[
+                        const SizedBox(width: 10),
+                        _stat(eloRow?.elo != null ? '${eloRow!.elo!.round()}' : '—', 'Elo', AppColors.gold),
+                      ],
+                    ]),
+                  ),
+                  if (!profile.isGuest) ...[
+                    const SizedBox(height: 22),
+                    SectionHeader(
+                      title: 'Badges · ${app.earnedBadgeIds(profileId).where((id) => badgeById(id) != null).length}/${kBadges.length}',
+                      actionLabel: 'Tout voir',
+                      onAction: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => BadgesScreen(uid: profileId))),
+                    ),
+                    FadeSlideIn(delay: const Duration(milliseconds: 110), child: _BadgeShelf(user: profile, isMe: isMe)),
+                    const SizedBox(height: 22),
+                    SectionHeader(
+                      title: 'Collection · ${profile.ownedGameIds.length} jeu${profile.ownedGameIds.length > 1 ? 'x' : ''}',
+                      actionLabel: isMe ? 'Gérer' : (profile.ownedGameIds.isEmpty ? null : 'Tout voir'),
+                      onAction: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CollectionScreen(uid: profileId))),
+                    ),
+                    FadeSlideIn(delay: const Duration(milliseconds: 120), child: _CollectionShelf(user: profile, isMe: isMe)),
+                    if (profile.gameAccounts.isNotEmpty) ...[
+                      const SizedBox(height: 22),
+                      const SectionHeader(title: 'Comptes de jeu'),
+                      FadeSlideIn(delay: const Duration(milliseconds: 130), child: _GameAccounts(user: profile)),
+                    ],
+                  ],
+                  if (app.eloAvailable && eloRow?.elo != null) ...[
+                    const SizedBox(height: 22),
+                    const SectionHeader(title: 'Elo'),
+                    FadeSlideIn(delay: const Duration(milliseconds: 120), child: ProfileEloSection(uid: profileId)),
+                  ],
+                  const SizedBox(height: 22),
+                  const SectionHeader(title: 'Statistiques'),
+                  FadeSlideIn(delay: const Duration(milliseconds: 140), child: ProfileStatsCard(uid: profileId)),
+                  if (isMe) ...[
+                    const SizedBox(height: 22),
+                    FadeSlideIn(
+                      delay: const Duration(milliseconds: 180),
+                      child: Pressable(
+                        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FriendsScreen())),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.lg)),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 38,
+                                height: 38,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(color: AppColors.accentSoft, borderRadius: BorderRadius.circular(11)),
+                                child: Icon(Icons.people_alt_rounded, size: 19, color: AppColors.accent),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(child: Text('Mes amis', style: bodyFont(size: 14.5, weight: FontWeight.w700, color: AppColors.ink))),
+                              if (app.friends.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: Text('${app.friends.length}', style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.mut)),
+                                ),
+                              Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.mut),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    FadeSlideIn(
+                      delay: const Duration(milliseconds: 200),
+                      child: Pressable(
+                        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.lg)),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 38,
+                                height: 38,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(color: AppColors.accentSoft, borderRadius: BorderRadius.circular(11)),
+                                child: Icon(Icons.palette_rounded, size: 19, color: AppColors.accent),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(child: Text('Apparence & réglages', style: bodyFont(size: 14.5, weight: FontWeight.w700, color: AppColors.ink))),
+                              Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.mut),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      onPressed: () => showAppDialog(context: context, builder: (_) => const _SwitchAccountDialog()),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.accent,
+                        side: BorderSide(color: AppColors.accent, width: 1.5),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+                        minimumSize: const Size.fromHeight(0),
+                      ),
+                      icon: const Icon(Icons.swap_horiz_rounded, size: 20),
+                      label: Text('Changer de compte', style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.accent)),
+                    ),
+                    const SizedBox(height: 10),
+                    TextButton.icon(
+                      onPressed: () => _confirmSignOut(context, app),
+                      style: TextButton.styleFrom(foregroundColor: AppColors.mut),
+                      icon: const Icon(Icons.logout_rounded, size: 18),
+                      label: Text('Se déconnecter', style: bodyFont(size: 13.5, weight: FontWeight.w700, color: AppColors.mut)),
+                    ),
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      onPressed: () => showAppDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: const _DeleteAccountDialog())),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        side: const BorderSide(color: Colors.red, width: 1.5),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+                        minimumSize: const Size.fromHeight(0),
+                      ),
+                      icon: const Icon(Icons.delete_forever_rounded, size: 20),
+                      label: Text('Supprimer mon compte', style: bodyFont(size: 14, weight: FontWeight.w700, color: Colors.red)),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Future<void> _confirmSignOut(BuildContext context, AppState app) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.bg,
@@ -335,6 +293,18 @@ class ProfileScreen extends StatelessWidget {
       ),
     );
     if (confirmed == true) await app.signOut();
+  }
+
+  void _openBadge(BuildContext context, AppState app, AppUser user, BadgeDef b) {
+    final isMe = user.uid == app.currentUser?.uid;
+    showBadgeDetail(
+      context,
+      badge: b,
+      earned: app.earnedBadgeIds(user.uid).contains(b.id),
+      stats: app.badgeStatsFor(user.uid),
+      showcased: user.showcasedBadges.contains(b.id),
+      onToggleShowcase: isMe ? () => app.toggleShowcasedBadge(b.id) : null,
+    );
   }
 
   Widget _stat(String value, String label, Color color) {
@@ -571,6 +541,235 @@ class _SwitchAccountDialogState extends State<_SwitchAccountDialog> {
         ],
         const SizedBox(height: 16),
         PrimaryButton(label: 'Se connecter', loading: sessionManager.busy, onPressed: () => _addAccount(sessionManager)),
+      ],
+    );
+  }
+}
+
+/// The profile's badge row: the player's unlocked medals (most prestigious
+/// first) — or, before any, the ones they're closest to.
+class _BadgeShelf extends StatelessWidget {
+  final AppUser user;
+  final bool isMe;
+  const _BadgeShelf({required this.user, required this.isMe});
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final earnedIds = app.earnedBadgeIds(user.uid);
+    final earned = kBadges.where((b) => earnedIds.contains(b.id)).toList()..sort((a, b) => b.tier.index.compareTo(a.tier.index));
+    final stats = app.badgeStatsFor(user.uid);
+    final upcoming = earned.isEmpty ? (kBadges.toList()..sort((a, b) => b.progress(stats).compareTo(a.progress(stats)))).take(4).toList() : const <BadgeDef>[];
+    final shown = earned.isNotEmpty ? earned : upcoming;
+    if (shown.isEmpty) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (earned.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(isMe ? 'Vos prochains badges :' : 'Pas encore de badge débloqué.', style: bodyFont(size: 12.5, weight: FontWeight.w700, color: AppColors.mut)),
+            ),
+          SizedBox(
+            height: 84,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: shown.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
+              itemBuilder: (context, i) {
+                final b = shown[i];
+                final isEarned = earned.isNotEmpty;
+                return FadeSlideIn(
+                  delay: staggerDelay(i, baseMs: 150, stepMs: 50),
+                  child: Pressable(
+                    onTap: () => showBadgeDetail(
+                      context,
+                      badge: b,
+                      earned: isEarned,
+                      stats: stats,
+                      showcased: user.showcasedBadges.contains(b.id),
+                      onToggleShowcase: isMe ? () => app.toggleShowcasedBadge(b.id) : null,
+                    ),
+                    child: SizedBox(
+                      width: 64,
+                      child: Column(
+                        children: [
+                          BadgeMedal(badge: b, earned: isEarned, size: 54, progress: isEarned ? null : b.progress(stats)),
+                          const SizedBox(height: 6),
+                          Text(b.name, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: bodyFont(size: 10.5, weight: FontWeight.w800, color: isEarned ? AppColors.ink2 : AppColors.mut)),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A horizontal peek at the player's game collection; the full list (and,
+/// on your own profile, adding games) is in CollectionScreen.
+class _CollectionShelf extends StatefulWidget {
+  final AppUser user;
+  final bool isMe;
+  const _CollectionShelf({required this.user, required this.isMe});
+
+  @override
+  State<_CollectionShelf> createState() => _CollectionShelfState();
+}
+
+class _CollectionShelfState extends State<_CollectionShelf> {
+  @override
+  void initState() {
+    super.initState();
+    // Owned games are stored as library ids — the library itself is only
+    // fetched on demand.
+    if (widget.user.ownedGameIds.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) context.read<AppState>().ensureGameLibraryLoaded();
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final user = widget.user;
+    void open() => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CollectionScreen(uid: user.uid)));
+    if (user.ownedGameIds.isEmpty) {
+      return Pressable(
+        onTap: widget.isMe ? open : null,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
+          child: Row(
+            children: [
+              const Text('📦', style: TextStyle(fontSize: 26)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  widget.isMe ? 'Ajoutez les jeux que vous possédez pour savoir chez qui jouer à quoi.' : 'Aucun jeu dans sa collection pour l\'instant.',
+                  style: bodyFont(size: 13, weight: FontWeight.w600, color: AppColors.mut),
+                ),
+              ),
+              if (widget.isMe) Icon(Icons.add_circle_rounded, color: AppColors.accent, size: 26),
+            ],
+          ),
+        ),
+      );
+    }
+    if (app.libraryLoading && app.gameLibrary.isEmpty) {
+      return const SizedBox(height: 96, child: Center(child: PodiumLoader(size: 26)));
+    }
+    final games = user.ownedGameIds.map(app.libraryGameById).whereType<Game>().where((g) => g.collectible).toList();
+    // The favourite first, then most recently added.
+    games.sort((a, b) {
+      if (a.id == user.favoriteGameId) return -1;
+      if (b.id == user.favoriteGameId) return 1;
+      return user.ownedGameIds.indexOf(b.id).compareTo(user.ownedGameIds.indexOf(a.id));
+    });
+    final mine = app.currentUser?.ownedGameIds.toSet() ?? const <String>{};
+    return SizedBox(
+      height: 104,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: games.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
+        itemBuilder: (context, i) {
+          final g = games[i];
+          final fav = g.id == user.favoriteGameId;
+          return FadeSlideIn(
+            delay: staggerDelay(i, baseMs: 160, stepMs: 40),
+            child: Pressable(
+              onTap: open,
+              child: Container(
+                width: 88,
+                padding: const EdgeInsets.fromLTRB(8, 10, 8, 8),
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  border: Border.all(color: fav ? AppColors.accent : AppColors.line, width: 1.5),
+                  borderRadius: BorderRadius.circular(AppRadius.lg),
+                ),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Column(
+                      children: [
+                        Text(g.emoji, style: const TextStyle(fontSize: 30)),
+                        const Spacer(),
+                        Text(g.name, maxLines: 2, textAlign: TextAlign.center, overflow: TextOverflow.ellipsis, style: bodyFont(size: 11, weight: FontWeight.w800, color: AppColors.ink, height: 1.15)),
+                      ],
+                    ),
+                    if (fav) Positioned(top: -4, right: -2, child: Icon(Icons.favorite_rounded, size: 16, color: AppColors.accent))
+                    else if (!widget.isMe && mine.contains(g.id)) Positioned(top: -4, right: -2, child: Icon(Icons.check_circle_rounded, size: 16, color: AppColors.green)),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// The player's game platform handles (see AppUser.gameAccounts) — tap one
+/// to copy it, e.g. to add them as a friend on Steam.
+class _GameAccounts extends StatelessWidget {
+  final AppUser user;
+  const _GameAccounts({required this.user});
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.read<AppState>();
+    final entries = [
+      for (final p in kGamePlatforms)
+        if (user.gameAccounts[p.id] case final handle?) (platform: p, handle: handle),
+    ];
+    return Column(
+      children: [
+        for (final (i, e) in entries.indexed)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: FadeSlideIn(
+              delay: staggerDelay(i, baseMs: 140, stepMs: 40),
+              child: Pressable(
+                pressedScale: 0.98,
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: e.handle));
+                  HapticFeedback.selectionClick();
+                  app.showToast('${e.platform.label} : « ${e.handle} » copié');
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.lg)),
+                  child: Row(
+                    children: [
+                      PlatformLogo(platform: e.platform, size: 34),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(e.platform.label, style: bodyFont(size: 11.5, weight: FontWeight.w700, color: AppColors.mut)),
+                            Text(e.handle, maxLines: 1, overflow: TextOverflow.ellipsis, style: bodyFont(size: 14.5, weight: FontWeight.w800, color: AppColors.ink)),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.copy_rounded, size: 18, color: AppColors.mut),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }

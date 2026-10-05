@@ -137,8 +137,10 @@ class RankingScreen extends StatelessWidget {
                   : 'Pas encore de données pour ce classement.',
             )
           else ...[
+            // Keyed on the mode/filter too: switching "Victoires" → "Points"
+            // replays the podium's rising bars even when the top 3 stay put.
             FadeSlideIn(
-              key: ValueKey(podiumRows.map((r) => r.player.uid).join(',')),
+              key: ValueKey('$mode|${app.gameFilter}|${podiumRows.map((r) => r.player.uid).join(',')}'),
               child: PodiumWidget(columns: [
                 if (podiumRows.length > 1)
                   PodiumColumn(row: podiumRows[1], metric: app.metricFor(podiumRows[1], mode), place: 2, onTap: () => _openProfile(context, app, podiumRows[1].player.uid)),
@@ -149,6 +151,7 @@ class RankingScreen extends StatelessWidget {
             ),
             if (rest.isNotEmpty)
               FadeSlideIn(
+                key: ValueKey('rest|$mode|${app.gameFilter}'),
                 delay: const Duration(milliseconds: 80),
                 child: Container(
                   padding: const EdgeInsets.all(4),
@@ -157,7 +160,7 @@ class RankingScreen extends StatelessWidget {
                     children: [
                       for (var i = 0; i < rest.length; i++)
                         FadeSlideIn(
-                          delay: Duration(milliseconds: 80 + i * 30),
+                          delay: staggerDelay(i, baseMs: 120, stepMs: 30, maxMs: 450),
                           child: RankRow(
                             rank: i + 4,
                             player: rest[i].player,
@@ -242,7 +245,7 @@ class _FilterChip extends StatelessWidget {
               Text(emoji!, style: const TextStyle(fontSize: 13)),
               const SizedBox(width: 6),
             ],
-            Text(label, style: bodyFont(size: 13, weight: FontWeight.w700, color: selected ? Colors.white : AppColors.ink2)),
+            Text(label, style: bodyFont(size: 13, weight: FontWeight.w700, color: selected ? AppColors.onInk : AppColors.ink2)),
           ],
         ),
       ),

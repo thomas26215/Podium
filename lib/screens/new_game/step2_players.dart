@@ -147,7 +147,7 @@ class Step2Players extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(vertical: 6),
                             alignment: Alignment.center,
                             decoration: BoxDecoration(color: d.bestOf == n ? AppColors.ink : null, borderRadius: BorderRadius.circular(8)),
-                            child: Text(n == 1 ? 'x1' : 'Bo$n', style: bodyFont(size: 12.5, weight: FontWeight.w800, color: d.bestOf == n ? Colors.white : AppColors.mut)),
+                            child: Text(n == 1 ? 'x1' : 'Bo$n', style: bodyFont(size: 12.5, weight: FontWeight.w800, color: d.bestOf == n ? AppColors.onInk : AppColors.mut)),
                           ),
                         ),
                     ],
@@ -219,7 +219,7 @@ class Step2Players extends StatelessWidget {
                               color: d.teamCount == n ? AppColors.ink : null,
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: Text('$n', style: bodyFont(size: 13, weight: FontWeight.w800, color: d.teamCount == n ? Colors.white : AppColors.mut)),
+                            child: Text('$n', style: bodyFont(size: 13, weight: FontWeight.w800, color: d.teamCount == n ? AppColors.onInk : AppColors.mut)),
                           ),
                         ),
                     ],
@@ -290,7 +290,7 @@ class Step2Players extends StatelessWidget {
                                   padding: const EdgeInsets.symmetric(vertical: 6),
                                   alignment: Alignment.center,
                                   decoration: BoxDecoration(color: on ? AppColors.ink : null, borderRadius: BorderRadius.circular(8)),
-                                  child: Text(label, style: bodyFont(size: 13, weight: FontWeight.w800, color: on ? Colors.white : AppColors.mut)),
+                                  child: Text(label, style: bodyFont(size: 13, weight: FontWeight.w800, color: on ? AppColors.onInk : AppColors.mut)),
                                 ),
                               );
                             }),
@@ -652,7 +652,7 @@ class _DateChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? Colors.white : AppColors.mut;
+    final color = selected ? AppColors.onInk : AppColors.mut;
     return Pressable(
       onTap: onTap,
       child: AnimatedContainer(
@@ -698,8 +698,8 @@ class _ModeCard extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Text(label, style: bodyFont(size: 14, weight: FontWeight.w800, color: selected ? Colors.white : AppColors.ink)),
-            Text(sub, style: bodyFont(size: 11, weight: FontWeight.w600, color: selected ? Colors.white.withValues(alpha: 0.7) : AppColors.mut)),
+            Text(label, style: bodyFont(size: 14, weight: FontWeight.w800, color: selected ? AppColors.onInk : AppColors.ink)),
+            Text(sub, style: bodyFont(size: 11, weight: FontWeight.w600, color: selected ? AppColors.onInk.withValues(alpha: 0.7) : AppColors.mut)),
           ],
         ),
       ),

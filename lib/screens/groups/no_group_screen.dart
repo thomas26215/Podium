@@ -36,7 +36,7 @@ class NoGroupScreen extends StatelessWidget {
               FadeSlideIn(
                 child: Container(
                   padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(AppRadius.xxl)),
+                  decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(AppRadius.xxl)),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -46,7 +46,7 @@ class NoGroupScreen extends StatelessWidget {
                       const SizedBox(height: 18),
                       PrimaryButton(
                         label: 'Créer un groupe',
-                        onPressed: () => showDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: const GroupFormDialog())),
+                        onPressed: () => showAppDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: const GroupFormDialog())),
                       ),
                     ],
                   ),
@@ -99,7 +99,7 @@ class NoGroupScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 14),
                       OutlinedButton.icon(
-                        onPressed: () => showDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: const JoinByLinkDialog())),
+                        onPressed: () => showAppDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: const JoinByLinkDialog())),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.ink,
                           side: BorderSide(color: AppColors.line, width: 1.5),

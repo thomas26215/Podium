@@ -66,7 +66,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
 
   void _openDialog(AppState app, Widget dialog) {
     app.flowError = null;
-    showDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: dialog));
+    showAppDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: dialog));
   }
 
   @override
@@ -302,7 +302,10 @@ class _Row extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = danger ? Colors.red : AppColors.ink;
-    return InkWell(
+    return Pressable(
+      behavior: HitTestBehavior.opaque,
+      dimOnPress: true,
+      pressedScale: 0.98,
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -349,7 +352,7 @@ class _UnsavedBar extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
         padding: const EdgeInsets.fromLTRB(16, 10, 10, 10),
-        decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(AppRadius.lg)),
+        decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(AppRadius.lg)),
         child: Row(
           children: [
             Expanded(

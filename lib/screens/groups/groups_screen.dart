@@ -106,9 +106,9 @@ class _GroupsScreenState extends State<GroupsScreen> {
     );
     if (!context.mounted || kind == null) return;
     if (kind == 'group') {
-      await showDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: const GroupFormDialog()));
+      await showAppDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: const GroupFormDialog()));
     } else {
-      await showDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: const ServerFormDialog()));
+      await showAppDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: const ServerFormDialog()));
     }
   }
 
@@ -145,7 +145,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                   const SizedBox(height: 12),
                 ],
                 if (app.groupsLoading)
-                  Padding(padding: EdgeInsets.symmetric(vertical: 40), child: Center(child: CircularProgressIndicator(color: AppColors.accent)))
+                  const Padding(padding: EdgeInsets.symmetric(vertical: 40), child: Center(child: PodiumLoader()))
                 else if (nothingAtAll)
                   const EmptyState(emoji: '👥', message: 'Créez votre premier groupe pour jouer entre amis.')
                 else ...[
@@ -157,7 +157,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                     if (activeGroups.isNotEmpty) const SizedBox(height: 12),
                     const _SectionLabel('SERVEURS'),
                     if (app.serversLoading)
-                      Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: CircularProgressIndicator(color: AppColors.accent)))
+                      const Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: PodiumLoader(size: 26)))
                     else
                       for (final (i, s) in activeServers.indexed) FadeSlideIn(delay: Duration(milliseconds: i * 60), child: ServerCard(server: s)),
                   ],
@@ -200,7 +200,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: Pressable(
-                  onTap: () => showDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: const JoinByLinkDialog())),
+                  onTap: () => showAppDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: const JoinByLinkDialog())),
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(border: Border.all(color: AppColors.line, width: 2), borderRadius: BorderRadius.circular(AppRadius.lg)),
@@ -404,7 +404,10 @@ class _RootGroupCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: InkWell(
+              child: Pressable(
+                behavior: HitTestBehavior.opaque,
+                dimOnPress: true,
+                pressedScale: 0.98,
                 onTap: () => _selectAndClose(context, app, group.id),
                 child: Row(
                   children: [
@@ -486,8 +489,10 @@ class ServerCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppRadius.lg),
+      child: Pressable(
+        behavior: HitTestBehavior.opaque,
+        dimOnPress: true,
+        pressedScale: 0.98,
         onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ServerDetailScreen(serverId: server.id))),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -548,7 +553,7 @@ class ServerCard extends StatelessWidget {
 /// [AppState.setGroupClosed]). Unlike [confirmDeleteGroup], reversible and
 /// keeps every bit of data.
 Future<void> confirmCloseGroup(BuildContext context, AppState app, Group group, {required bool closed}) async {
-  final confirmed = await showDialog<bool>(
+  final confirmed = await showAppDialog<bool>(
     context: context,
     builder: (_) => AlertDialog(
       backgroundColor: AppColors.bg,
@@ -572,7 +577,7 @@ Future<void> confirmCloseGroup(BuildContext context, AppState app, Group group, 
 /// Confirms then deletes `group`, showing an error toast-style message via
 /// [AppState.flowError] if the delete fails (surfaced by the caller screen).
 Future<void> confirmDeleteGroup(BuildContext context, AppState app, Group group) async {
-  final confirmed = await showDialog<bool>(
+  final confirmed = await showAppDialog<bool>(
     context: context,
     builder: (_) => AlertDialog(
       backgroundColor: AppColors.bg,

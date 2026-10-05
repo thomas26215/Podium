@@ -39,6 +39,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   final _scrollController = ScrollController();
   final _inputFocus = FocusNode();
   int _lastMessageCount = -1;
+  final _seenMessageIds = <String>{};
 
   // At most one of these is set at a time — starting one clears the other
   // (see _startReply/_startEdit). Both are purely local UI state: neither
@@ -53,6 +54,51 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     _scrollController.dispose();
     _inputFocus.dispose();
     super.dispose();
+  }
+
+  Widget _messageItem(AppState app, List<GroupMessage> messages, int i) {
+    final m = messages[i];
+    if (m.system) {
+      return Padding(padding: const EdgeInsets.only(top: 12), child: _SystemPill(message: m));
+    }
+    if (m.isPoll) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: _PollBubble(poll: m, app: app, onLaunch: (gameId) => _launchGame(app, gameId)),
+      );
+    }
+    final isMine = m.authorId == app.currentUser?.uid;
+    final previous = i > 0 ? messages[i - 1] : null;
+    final continuesPrevious = previous != null && !previous.system && !previous.isPoll && previous.authorId == m.authorId;
+    return Padding(
+      padding: EdgeInsets.only(top: continuesPrevious ? 3 : 12),
+      child: Dismissible(
+        key: ValueKey(m.id),
+        direction: DismissDirection.startToEnd,
+        confirmDismiss: (_) async => false,
+        onUpdate: (details) {
+          if (details.reached && !details.previousReached) _startReply(m);
+        },
+        background: Align(
+          alignment: Alignment.centerLeft,
+          child: Padding(
+            padding: const EdgeInsets.only(left: 6),
+            child: Icon(Icons.reply_rounded, color: AppColors.accent, size: 22),
+          ),
+        ),
+        child: _MessageBubble(
+          message: m,
+          isMine: isMine,
+          author: app.playerById(m.authorId),
+          replyAuthor: m.replyToAuthorId == null ? null : app.playerById(m.replyToAuthorId!),
+          showAuthor: !continuesPrevious && !isMine,
+          currentUid: app.currentUser?.uid,
+          mentionedNames: m.mentionedUids.map((uid) => app.playerById(uid)?.displayName).whereType<String>().toList(),
+          onLongPress: () => _showMessageActions(app, m, isMine),
+          onReact: (emoji) => app.reactToMessage(m, emoji),
+        ),
+      ),
+    );
   }
 
   void _scrollToBottom({bool animated = false}) {
@@ -112,7 +158,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   }
 
   Future<void> _confirmDelete(AppState app, GroupMessage message) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.bg,
@@ -217,7 +263,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   Future<void> _showMentionPicker(AppState app) async {
     final members = app.discussionMembers.where((m) => m.uid != app.currentUser?.uid).toList();
     if (members.isEmpty) {
-      app.showToast('Aucun autre membre à mentionner.');
+      app.showToast('Aucun autre membre à mentionner.', error: true);
       return;
     }
     final picked = await showModalBottomSheet<AppUser>(
@@ -276,7 +322,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         children: [
           ScreenHeading(eyebrow: 'Discussion', title: title ?? 'Discussion'),
           Expanded(
-            child: messages.isEmpty
+            child: messages.isEmpty && !app.messagesLoaded
+                ? const Center(child: PodiumLoader())
+                : messages.isEmpty
                 ? Center(child: EmptyState(emoji: '💬', message: "Aucun message pour l'instant — lancez la discussion !"))
                 : ListView.builder(
                     controller: _scrollController,
@@ -284,46 +332,15 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                     itemCount: messages.length,
                     itemBuilder: (context, i) {
                       final m = messages[i];
-                      if (m.system) {
-                        return Padding(padding: const EdgeInsets.only(top: 12), child: _SystemPill(message: m));
-                      }
-                      if (m.isPoll) {
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 12),
-                          child: _PollBubble(poll: m, app: app, onLaunch: (gameId) => _launchGame(app, gameId)),
-                        );
-                      }
-                      final isMine = m.authorId == app.currentUser?.uid;
-                      final previous = i > 0 ? messages[i - 1] : null;
-                      final continuesPrevious = previous != null && !previous.system && !previous.isPoll && previous.authorId == m.authorId;
-                      return Padding(
-                        padding: EdgeInsets.only(top: continuesPrevious ? 3 : 12),
-                        child: Dismissible(
-                          key: ValueKey(m.id),
-                          direction: DismissDirection.startToEnd,
-                          confirmDismiss: (_) async => false,
-                          onUpdate: (details) {
-                            if (details.reached && !details.previousReached) _startReply(m);
-                          },
-                          background: Align(
-                            alignment: Alignment.centerLeft,
-                            child: Padding(
-                              padding: const EdgeInsets.only(left: 6),
-                              child: Icon(Icons.reply_rounded, color: AppColors.accent, size: 22),
-                            ),
-                          ),
-                          child: _MessageBubble(
-                            message: m,
-                            isMine: isMine,
-                            author: app.playerById(m.authorId),
-                            replyAuthor: m.replyToAuthorId == null ? null : app.playerById(m.replyToAuthorId!),
-                            showAuthor: !continuesPrevious && !isMine,
-                            currentUid: app.currentUser?.uid,
-                            mentionedNames: m.mentionedUids.map((uid) => app.playerById(uid)?.displayName).whereType<String>().toList(),
-                            onLongPress: () => _showMessageActions(app, m, isMine),
-                            onReact: (emoji) => app.reactToMessage(m, emoji),
-                          ),
-                        ),
+                      // Only messages arriving live (sent or received while
+                      // the chat is open) pop in — not the backlog, nor rows
+                      // rebuilt as the list scrolls back over them.
+                      final fresh = _seenMessageIds.add(m.id) && DateTime.now().difference(m.createdAt) < const Duration(seconds: 20);
+                      return _MessageAppear(
+                        key: ValueKey('appear-${m.id}'),
+                        animate: fresh,
+                        fromRight: !m.system && !m.isPoll && m.authorId == app.currentUser?.uid,
+                        child: _messageItem(app, messages, i),
                       );
                     },
                   ),
@@ -824,4 +841,53 @@ Future<void> showPollSheet(BuildContext context, AppState app) async {
       ),
     ),
   );
+}
+
+/// Pops a just-arrived message in from its own side (yours from the right,
+/// others' from the left) — a no-op wrapper for messages already on screen
+/// before, so rebuilding the list never replays it.
+class _MessageAppear extends StatefulWidget {
+  final bool animate;
+  final bool fromRight;
+  final Widget child;
+  const _MessageAppear({super.key, required this.animate, required this.fromRight, required this.child});
+
+  @override
+  State<_MessageAppear> createState() => _MessageAppearState();
+}
+
+class _MessageAppearState extends State<_MessageAppear> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 380), value: widget.animate ? 0 : 1);
+  late final Animation<double> _curve = CurvedAnimation(parent: _c, curve: Curves.easeOutBack);
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.animate) _c.forward();
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, child) => Opacity(
+        opacity: _c.value,
+        child: Transform.translate(
+          offset: Offset(0, 10 * (1 - _curve.value)),
+          child: Transform.scale(
+            scale: 0.85 + 0.15 * _curve.value,
+            alignment: widget.fromRight ? Alignment.bottomRight : Alignment.bottomLeft,
+            child: child,
+          ),
+        ),
+      ),
+      child: widget.child,
+    );
+  }
 }

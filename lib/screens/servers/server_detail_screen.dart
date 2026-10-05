@@ -40,7 +40,7 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
       return Scaffold(
         backgroundColor: AppColors.bg,
         appBar: AppBar(backgroundColor: AppColors.bg, elevation: 0, iconTheme: IconThemeData(color: AppColors.ink)),
-        body: const Center(child: CircularProgressIndicator()),
+        body: const Center(child: PodiumLoader(size: 40)),
       );
     }
     final isAdmin = app.isServerAdmin(server);
@@ -66,7 +66,7 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
             icon: Icon(Icons.more_horiz, color: AppColors.mut),
             onSelected: (v) {
               if (v == 'invite') {
-                showDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: ServerInviteDialog(serverId: server.id, serverName: server.name)));
+                showAppDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: ServerInviteDialog(serverId: server.id, serverName: server.name)));
               } else if (v == 'close') {
                 _confirmCloseServer(context, app, server, closed: true);
               } else if (v == 'reopen') {
@@ -106,7 +106,7 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
                   SectionHeader(title: 'Salons'),
                   if (isAdmin && !server.closed)
                     TextButton.icon(
-                      onPressed: () => showDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: SalonFormDialog(serverId: server.id))),
+                      onPressed: () => showAppDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: SalonFormDialog(serverId: server.id))),
                       icon: const Icon(Icons.add, size: 18),
                       label: const Text('Créer'),
                     ),
@@ -142,8 +142,10 @@ class _SalonRow extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppRadius.lg),
+      child: Pressable(
+        behavior: HitTestBehavior.opaque,
+        dimOnPress: true,
+        pressedScale: 0.98,
         // Selecting a salon works exactly like selecting a group (see
         // AppState.selectSalon + _selectAndClose in groups_screen.dart): pop
         // back to the tabbed shell instead of pushing a separate screen — a
@@ -186,7 +188,7 @@ class _SalonRow extends StatelessWidget {
                   icon: Icon(Icons.more_horiz, size: 20, color: AppColors.mut),
                   onSelected: (v) {
                     if (v == 'invite') {
-                      showDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: SalonInviteDialog(serverId: server.id, salonId: salon.id, salonName: salon.name)));
+                      showAppDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: SalonInviteDialog(serverId: server.id, salonId: salon.id, salonName: salon.name)));
                     } else if (v == 'close') {
                       app.setSalonClosed(serverId: server.id, salonId: salon.id, closed: true);
                     } else if (v == 'reopen') {
@@ -247,7 +249,7 @@ class _MemberRow extends StatelessWidget {
 }
 
 Future<void> _confirmCloseServer(BuildContext context, AppState app, Server server, {required bool closed}) async {
-  final confirmed = await showDialog<bool>(
+  final confirmed = await showAppDialog<bool>(
     context: context,
     builder: (_) => AlertDialog(
       backgroundColor: AppColors.bg,
@@ -267,7 +269,7 @@ Future<void> _confirmCloseServer(BuildContext context, AppState app, Server serv
 }
 
 Future<void> _confirmDeleteServer(BuildContext context, AppState app, Server server) async {
-  final confirmed = await showDialog<bool>(
+  final confirmed = await showAppDialog<bool>(
     context: context,
     builder: (_) => AlertDialog(
       backgroundColor: AppColors.bg,
@@ -290,7 +292,7 @@ Future<void> _confirmDeleteServer(BuildContext context, AppState app, Server ser
 }
 
 Future<void> _confirmDeleteSalon(BuildContext context, AppState app, Server server, Salon salon) async {
-  final confirmed = await showDialog<bool>(
+  final confirmed = await showAppDialog<bool>(
     context: context,
     builder: (_) => AlertDialog(
       backgroundColor: AppColors.bg,

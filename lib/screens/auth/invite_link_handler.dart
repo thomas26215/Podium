@@ -8,6 +8,7 @@ import '../../models/group_invite_code.dart';
 import '../../models/server_invite_code.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/common.dart';
 
 /// Catches invite links opening the app (a shared link — see
 /// [inviteLinkFor] — lands here as its `podium://` code) and, once someone
@@ -72,7 +73,7 @@ class _InviteLinkHandlerState extends State<InviteLinkHandler> {
       final invite = InviteTarget.parse(code);
       if (invite == null) return;
       final app = context.read<AppState>();
-      final join = await showDialog<bool>(
+      final join = await showAppDialog<bool>(
         context: context,
         builder: (dialogContext) => AlertDialog(
           backgroundColor: AppColors.bg,
@@ -88,7 +89,7 @@ class _InviteLinkHandlerState extends State<InviteLinkHandler> {
       if (join != true || !mounted) return;
       final ok = await invite.join(app);
       if (ok || !mounted) return;
-      await showDialog<void>(
+      await showAppDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
           backgroundColor: AppColors.bg,

@@ -186,7 +186,7 @@ class _SeedSlot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = selected ? Colors.white : (empty ? AppColors.mut : AppColors.ink);
+    final fg = selected ? AppColors.onInk : (empty ? AppColors.mut : AppColors.ink);
     return Pressable(
       onTap: onTap,
       child: AnimatedContainer(
@@ -208,7 +208,7 @@ class _SeedSlot extends StatelessWidget {
                 style: bodyFont(size: 13.5, weight: empty ? FontWeight.w600 : FontWeight.w700, color: fg),
               ),
             ),
-            Icon(Icons.swap_vert_rounded, size: 16, color: selected ? Colors.white : AppColors.mut),
+            Icon(Icons.swap_vert_rounded, size: 16, color: selected ? AppColors.onInk : AppColors.mut),
           ],
         ),
       ),

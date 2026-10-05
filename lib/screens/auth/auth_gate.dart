@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/common.dart';
 import '../groups/no_group_screen.dart';
 import '../shell/main_shell.dart';
 import 'login_screen.dart';
@@ -22,7 +23,7 @@ class AuthGate extends StatelessWidget {
       key = const ValueKey('authLoading');
       child = Scaffold(
         backgroundColor: AppColors.bg,
-        body: Center(child: CircularProgressIndicator(color: AppColors.accent)),
+        body: const Center(child: PodiumLoader(size: 40)),
       );
     } else if (app.currentUser == null) {
       key = const ValueKey('login');
@@ -31,7 +32,7 @@ class AuthGate extends StatelessWidget {
       key = const ValueKey('groupsLoading');
       child = Scaffold(
         backgroundColor: AppColors.bg,
-        body: Center(child: CircularProgressIndicator(color: AppColors.accent)),
+        body: const Center(child: PodiumLoader(size: 40)),
       );
     } else if (app.groups.isEmpty && !app.isPersonalContext) {
       key = const ValueKey('noGroup');
@@ -41,7 +42,15 @@ class AuthGate extends StatelessWidget {
       child = const MainShell();
     }
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 280),
+      duration: const Duration(milliseconds: 420),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      // The incoming screen settles from slightly enlarged while fading in —
+      // reads as "arriving" rather than a flat cross-fade.
+      transitionBuilder: (child, a) => FadeTransition(
+        opacity: a,
+        child: ScaleTransition(scale: Tween<double>(begin: 1.03, end: 1).animate(a), child: child),
+      ),
       child: KeyedSubtree(key: key, child: child),
     );
   }

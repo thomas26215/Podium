@@ -7,6 +7,7 @@ import '../models/match.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import 'avatar.dart';
+import 'common.dart';
 import 'elo_widgets.dart';
 
 const frMonths = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
@@ -94,7 +95,7 @@ class _SeriesMatchCardState extends State<SeriesMatchCard> {
   bool _expanded = false;
 
   Future<void> _confirmDeleteSeries(BuildContext context, int total) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.bg,
@@ -169,8 +170,10 @@ class _SeriesMatchCardState extends State<SeriesMatchCard> {
                       Container(height: 1, color: AppColors.line),
                       const SizedBox(height: 10),
                       for (final leg in legs)
-                        InkWell(
-                          borderRadius: BorderRadius.circular(12),
+                        Pressable(
+                          behavior: HitTestBehavior.opaque,
+                          dimOnPress: true,
+                          pressedScale: 0.98,
                           onTap: () => widget.onTapLeg(leg),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 8),
@@ -205,7 +208,7 @@ class _CardShell extends StatelessWidget {
       child: child,
     );
     if (onTap == null) return card;
-    return InkWell(borderRadius: BorderRadius.circular(AppRadius.xl), onTap: onTap, child: card);
+    return Pressable(onTap: onTap, pressedScale: 0.98, child: card);
   }
 }
 

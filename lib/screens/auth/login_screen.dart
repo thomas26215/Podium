@@ -107,7 +107,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             width: 64,
                             height: 64,
                             alignment: Alignment.center,
-                            decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(18)),
+                            decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(18)),
                             child: Icon(Icons.emoji_events, color: AppColors.gold, size: 30),
                           ),
                           const SizedBox(height: 20),
@@ -132,7 +132,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               padding: const EdgeInsets.only(top: 6),
                               child: TextButton(
                                 style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-                                onPressed: () => showDialog(
+                                onPressed: () => showAppDialog(
                                   context: context,
                                   builder: (_) => ChangeNotifierProvider.value(value: app, child: _ForgotPasswordDialog(initialEmail: _emailCtrl.text)),
                                 ),

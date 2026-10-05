@@ -36,7 +36,7 @@ class FriendsScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               Pressable(
-                onTap: () => showDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: const _AddFriendDialog())),
+                onTap: () => showAppDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: const _AddFriendDialog())),
                 child: Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(border: Border.all(color: AppColors.line, width: 2), borderRadius: BorderRadius.circular(AppRadius.lg)),
@@ -97,7 +97,7 @@ class _FriendRow extends StatelessWidget {
   }
 
   Future<void> _confirmRemove(BuildContext context, AppState app, AppUser friend) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.bg,

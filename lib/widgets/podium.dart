@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../state/player_row.dart';
 import '../theme/app_theme.dart';
 import 'avatar.dart';
+import 'common.dart';
 
 /// One column of the top-3 podium (`.pcol`/`.pbar`).
 class PodiumColumn {
@@ -23,7 +24,7 @@ class PodiumWidget extends StatefulWidget {
 
 class _PodiumWidgetState extends State<PodiumWidget> with TickerProviderStateMixin {
   static const _barHeight = {1: 120.0, 2: 88.0, 3: 64.0};
-  static Map<int, Color> get _barColor => {1: AppColors.accent, 2: AppColors.ink, 3: const Color(0xFFB8B3A6)};
+  static Map<int, Color> get _barColor => {1: AppColors.accent, 2: AppColors.hero, 3: const Color(0xFFB8B3A6)};
   static const _avatarSize = {1: 60.0, 2: 52.0, 3: 52.0};
 
   // Revealed in ascending suspense: 3rd, then 2nd, then the champion.
@@ -75,8 +76,9 @@ class _PodiumWidgetState extends State<PodiumWidget> with TickerProviderStateMix
     final p = c.row.player;
     final reveal = _revealFor(c.place);
     final crownPop = c.place == 1 ? _crownPop() : kAlwaysCompleteAnimation;
-    return GestureDetector(
+    return Pressable(
       onTap: c.onTap,
+      pressedScale: 0.95,
       child: AnimatedBuilder(
         animation: reveal,
         builder: (context, child) {

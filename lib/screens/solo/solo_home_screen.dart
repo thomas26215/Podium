@@ -36,7 +36,9 @@ class SoloHomeScreen extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
-            child: InkWell(
+            child: Pressable(
+              behavior: HitTestBehavior.opaque,
+              pressedScale: 0.97,
               onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GroupsPage())),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -45,7 +47,7 @@ class SoloHomeScreen extends StatelessWidget {
                     width: 38,
                     height: 38,
                     alignment: Alignment.center,
-                    decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(12)),
+                    decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(12)),
                     child: const Text('⏱️', style: TextStyle(fontSize: 19)),
                   ),
                   const SizedBox(width: 8),
@@ -67,7 +69,7 @@ class SoloHomeScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           if (!app.groupDataFullyLoaded)
-            Padding(padding: const EdgeInsets.symmetric(vertical: 48), child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.mut)))
+            Padding(padding: const EdgeInsets.symmetric(vertical: 48), child: const Center(child: PodiumLoader()))
           else ...[
             FadeSlideIn(
               child: last == null || lastGame == null
@@ -138,7 +140,7 @@ class _ReplayCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(AppRadius.xxl)),
+      decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(AppRadius.xxl)),
       child: Row(
         children: [
           Text(game.emoji, style: const TextStyle(fontSize: 34)),
@@ -184,7 +186,7 @@ class _WelcomeCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(AppRadius.xxl)),
+      decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(AppRadius.xxl)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

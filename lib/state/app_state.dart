@@ -14,6 +14,7 @@ import '../models/group.dart';
 import '../models/group_invite_code.dart';
 import '../logic/game_filter.dart';
 import '../logic/game_sort.dart';
+import '../logic/badges.dart';
 import '../logic/elo.dart';
 import '../logic/personal_records.dart';
 import '../logic/text_search.dart';
@@ -300,6 +301,7 @@ class AppState extends ChangeNotifier {
   List<GroupMessage> messages = [];
   bool messagesLoaded = false;
   StreamSubscription? _messagesSub;
+  String? _messagesThreadKey; // see _resetMessagesFor
 
   // Per-thread "last read" timestamps — device-local only (SharedPreferences,
   // not Firestore), keyed by 'group:<id>'/'salon:<id>' (see _discussionKey).
@@ -353,6 +355,7 @@ class AppState extends ChangeNotifier {
 
   String? profileId;
   String toast = '';
+  bool toastIsError = false;
   Timer? _toastTimer;
 
   // ---- new-game sheet ----
@@ -553,6 +556,7 @@ class AppState extends ChangeNotifier {
     currentUser = fresh;
     _memberCache[fresh.uid] = fresh;
     unawaited(_resolveFriends(fresh.friendIds));
+    _scheduleBadgeCheck();
     notifyListeners();
   }
 
@@ -566,6 +570,7 @@ class AppState extends ChangeNotifier {
       if (u != null) _memberCache[id] = u;
     }
     friends = friendIds.map((id) => _memberCache[id]).whereType<AppUser>().toList();
+    _scheduleBadgeCheck();
     notifyListeners();
   }
 
@@ -1114,7 +1119,7 @@ class AppState extends ChangeNotifier {
       try {
         personalGroup = await groupsRepo.createGroup(name: 'Mon espace solo', emoji: '⏱️', emojiBg: 0xFFE7EBFF, ownerId: uid, personal: true);
       } catch (e) {
-        showToast("Impossible d'ouvrir l'espace solo.");
+        showToast("Impossible d'ouvrir l'espace solo.", error: true);
         return;
       }
     }
@@ -1196,6 +1201,7 @@ class AppState extends ChangeNotifier {
     liveSessionsLoaded = false;
     tournamentsLoaded = false;
     messagesLoaded = false;
+    _resetMessagesFor(root == null ? null : 'group:$root');
     // No Group equivalent for scheduled events (see
     // lib/models/scheduled_event.dart) — nothing to fetch, so this is
     // trivially "loaded" right away rather than left forever pending.
@@ -1212,6 +1218,7 @@ class AppState extends ChangeNotifier {
     _gamesSub = gamesRepo.watchGames(root).listen((gs) {
       games = gs;
       gamesLoaded = true;
+      _scheduleBadgeCheck();
       // null means "tous les jeux" — a real, intentional state now (see
       // RankingScreen), so only clear a filter that's become invalid,
       // never silently pick a different game as a fallback default.
@@ -1223,15 +1230,18 @@ class AppState extends ChangeNotifier {
     _matchesSub = matchesRepo.watchMatches(root, getAllGroupIds(root)).listen((ms) {
       matches = ms;
       matchesLoaded = true;
+      _scheduleBadgeCheck();
       notifyListeners();
     });
     _tournamentsSub = tournamentsRepo.watchTournaments(root, getAllGroupIds(root)).listen((ts) {
       tournaments = ts;
       tournamentsLoaded = true;
+      _scheduleBadgeCheck();
       notifyListeners();
     });
     _liveSessionsSub = matchesRepo.watchLiveSessions(root, getAllGroupIds(root)).listen((ss) {
       liveSessionsLoaded = true;
+      _scheduleBadgeCheck();
       _rawLiveSessions = ss;
       notifyListeners();
     });
@@ -1240,7 +1250,27 @@ class AppState extends ChangeNotifier {
       messagesLoaded = true;
       if (tab == AppTab.games) markDiscussionRead();
       notifyListeners();
-    });
+    }, onError: _onMessagesError);
+  }
+
+  /// Drops [messages] as soon as the thread being watched changes, rather
+  /// than when the new thread's first snapshot lands — until then the old
+  /// group's/salon's messages would show (and count as unread) in the new
+  /// one. A resubscribe to the *same* thread (e.g. the groups list updating)
+  /// keeps them, so the chat doesn't blink empty.
+  void _resetMessagesFor(String? threadKey) {
+    if (threadKey == _messagesThreadKey) return;
+    _messagesThreadKey = threadKey;
+    messages = [];
+  }
+
+  /// A failed thread query must not leave the previous context's messages
+  /// on screen (they'd show up in this group/salon as if posted here).
+  void _onMessagesError(Object e) {
+    debugPrint('Discussion stream failed: $e');
+    messages = [];
+    messagesLoaded = true;
+    notifyListeners();
   }
 
   /// Mirrors [_resubscribeGroupData] but for the active Salon (see
@@ -1263,6 +1293,7 @@ class AppState extends ChangeNotifier {
     messagesLoaded = false;
     final serverId = currentSalonServerId;
     final salonId = currentSalonId;
+    _resetMessagesFor(serverId == null || salonId == null ? null : 'salon:$serverId/$salonId');
     if (serverId == null || salonId == null) {
       games = [];
       matches = [];
@@ -1270,8 +1301,10 @@ class AppState extends ChangeNotifier {
       tournamentsLoaded = true;
       _rawLiveSessions = [];
       liveSessionsLoaded = true;
+      _scheduleBadgeCheck();
       events = [];
       eventsLoaded = true;
+      _scheduleBadgeCheck();
       messages = [];
       return;
     }
@@ -1282,6 +1315,7 @@ class AppState extends ChangeNotifier {
       // catalog.
       games = gs.where((g) => g.salonId == null || g.salonId == salonId).toList();
       gamesLoaded = true;
+      _scheduleBadgeCheck();
       if (gameFilter != null && !games.any((g) => g.id == gameFilter)) {
         gameFilter = null;
       }
@@ -1290,21 +1324,25 @@ class AppState extends ChangeNotifier {
     _matchesSub = serverMatchesRepo.watchMatches(serverId, [salonId], bySalon: true).listen((ms) {
       matches = ms;
       matchesLoaded = true;
+      _scheduleBadgeCheck();
       notifyListeners();
     });
     _tournamentsSub = serverTournamentsRepo.watchTournaments(serverId, [salonId], bySalon: true).listen((ts) {
       tournaments = ts;
       tournamentsLoaded = true;
+      _scheduleBadgeCheck();
       notifyListeners();
     });
     _liveSessionsSub = serverMatchesRepo.watchLiveSessions(serverId, [salonId], bySalon: true).listen((ss) {
       _rawLiveSessions = ss;
       liveSessionsLoaded = true;
+      _scheduleBadgeCheck();
       notifyListeners();
     });
     _eventsSub = eventsRepo.watchEvents(serverId, salonId).listen((es) {
       events = es;
       eventsLoaded = true;
+      _scheduleBadgeCheck();
       notifyListeners();
     });
     _messagesSub = serverMessagesRepo.watchMessages(serverId, salonId: salonId).listen((ms) {
@@ -1312,7 +1350,7 @@ class AppState extends ChangeNotifier {
       messagesLoaded = true;
       if (tab == AppTab.games) markDiscussionRead();
       notifyListeners();
-    });
+    }, onError: _onMessagesError);
   }
 
   Future<void> _ensureMembersLoaded() async {
@@ -2689,6 +2727,235 @@ class AppState extends ChangeNotifier {
   void openProfile(String uid) {
     profileId = uid;
     notifyListeners();
+    // Other players' docs are cached from whenever they were first loaded —
+    // fetch a fresh copy so their latest bio/badges/collection show.
+    if (uid != currentUser?.uid && !isGuestId(uid)) unawaited(_refreshMember(uid));
+  }
+
+  Future<void> _refreshMember(String uid) async {
+    try {
+      final u = await usersRepo.getById(uid);
+      if (u == null) return;
+      _memberCache[uid] = u;
+      notifyListeners();
+    } catch (_) {
+      // Keep the cached copy.
+    }
+  }
+
+  // ============================== PROFILE / BADGES / COLLECTION ==============================
+
+  /// Saves the signed-in player's profile customization — any argument left
+  /// null keeps its current value; [avatarEmoji]/[favoriteGameId] take a
+  /// closure so they can also be cleared back to null.
+  Future<bool> updateProfile({
+    String? displayName,
+    int? color,
+    String? bio,
+    String? Function()? avatarEmoji,
+    String? banner,
+    String? Function()? avatarFrame,
+    List<String>? showcasedBadges,
+    List<String>? ownedGameIds,
+    String? Function()? favoriteGameId,
+  }) async {
+    final me = currentUser;
+    if (me == null) return false;
+    final name = displayName?.trim();
+    if (name != null && name.isEmpty) {
+      flowError = 'Le pseudo ne peut pas être vide.';
+      notifyListeners();
+      return false;
+    }
+    final next = me.copyWith(
+      displayName: name,
+      color: color,
+      bio: bio?.trim(),
+      avatarEmoji: avatarEmoji,
+      banner: banner,
+      avatarFrame: avatarFrame,
+      showcasedBadges: showcasedBadges?.where(me.badges.contains).take(kMaxShowcasedBadges).toList(),
+      ownedGameIds: ownedGameIds,
+      favoriteGameId: favoriteGameId,
+    );
+    return _writeProfile(me, next);
+  }
+
+  /// Saves a whole edited profile (see EditProfileScreen), cleaned up:
+  /// trimmed texts, only unlocked badges/titles, only filled-in accounts
+  /// on known platforms.
+  Future<bool> saveProfile(AppUser edited) async {
+    final me = currentUser;
+    if (me == null || edited.uid != me.uid) return false;
+    final name = edited.displayName.trim();
+    if (name.isEmpty) {
+      flowError = 'Le pseudo ne peut pas être vide.';
+      notifyListeners();
+      return false;
+    }
+    final earned = earnedBadgeIds(me.uid);
+    final title = titleById(edited.titleId);
+    String clip(String v, int max) => v.trim().length > max ? v.trim().substring(0, max) : v.trim();
+    final next = edited.copyWith(
+      displayName: clip(name, 24),
+      bio: clip(edited.bio, 120),
+      pronouns: clip(edited.pronouns, 20),
+      status: clip(edited.status, 60),
+      statusEmoji: () => edited.status.trim().isEmpty ? null : edited.statusEmoji,
+      titleId: () => title != null && title.isUnlocked(earned) ? title.id : null,
+      showcasedBadges: edited.showcasedBadges.where(me.badges.contains).take(kMaxShowcasedBadges).toList(),
+      gameAccounts: {
+        for (final e in edited.gameAccounts.entries)
+          if (gamePlatformIds.contains(e.key) && e.value.trim().isNotEmpty) e.key: clip(e.value, 40),
+      },
+      // Never written from here — see UsersRepository.updateProfile.
+      badges: me.badges,
+      friendIds: me.friendIds,
+    );
+    return _writeProfile(me, next);
+  }
+
+  /// Valid keys of [AppUser.gameAccounts] — mirrors `kGamePlatforms` in
+  /// lib/widgets/profile_style.dart, kept here so state doesn't import UI.
+  static const gamePlatformIds = {'steam', 'playstation', 'xbox', 'switch', 'epic', 'riot', 'discord', 'bga', 'bgg', 'chesscom'};
+
+  Future<bool> _writeProfile(AppUser me, AppUser next) async {
+    // Shown right away; the account stream confirms it a moment later.
+    currentUser = next;
+    _memberCache[me.uid] = next;
+    flowError = null;
+    notifyListeners();
+    try {
+      await usersRepo.updateProfile(next);
+      return true;
+    } catch (e) {
+      currentUser = me;
+      _memberCache[me.uid] = me;
+      flowError = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Adds `libraryGameId` to the signed-in player's collection, or removes
+  /// it if it's already there.
+  Future<void> toggleOwnedGame(String libraryGameId) async {
+    final me = currentUser;
+    if (me == null) return;
+    final owned = me.ownedGameIds.contains(libraryGameId);
+    // A variant (e.g. a "(solo)" version) can't be added — removing one
+    // added before the flag existed still works.
+    if (!owned && libraryGameById(libraryGameId)?.collectible == false) return;
+    await updateProfile(
+      ownedGameIds: owned ? me.ownedGameIds.where((id) => id != libraryGameId).toList() : [...me.ownedGameIds, libraryGameId],
+      // A game that leaves the collection can't stay the favourite.
+      favoriteGameId: owned && me.favoriteGameId == libraryGameId ? () => null : null,
+    );
+  }
+
+  /// Adds every one of `libraryGameIds` not already owned (and collectible)
+  /// to the signed-in player's collection, in one write.
+  Future<void> addOwnedGames(List<String> libraryGameIds) async {
+    final me = currentUser;
+    if (me == null) return;
+    final fresh = libraryGameIds.where((id) => !me.ownedGameIds.contains(id) && libraryGameById(id)?.collectible != false).toList();
+    if (fresh.isEmpty) return;
+    await updateProfile(ownedGameIds: [...me.ownedGameIds, ...fresh]);
+  }
+
+  /// Pins `badgeId` under the player's name, or unpins it — at most
+  /// [kMaxShowcasedBadges] at once (pinning one more drops the oldest).
+  Future<void> toggleShowcasedBadge(String badgeId) async {
+    final me = currentUser;
+    if (me == null || !me.badges.contains(badgeId)) return;
+    final current = me.showcasedBadges;
+    final next = current.contains(badgeId) ? current.where((b) => b != badgeId).toList() : [...current, badgeId];
+    await updateProfile(showcasedBadges: next.length > kMaxShowcasedBadges ? next.sublist(next.length - kMaxShowcasedBadges) : next);
+  }
+
+  /// `uid`'s progress toward every badge, judged on the active group's or
+  /// salon's finalised matches and tournaments (the solo space has no
+  /// opponents to beat, so its attempts don't count). Friends are private,
+  /// so they only count toward the signed-in player's own badges.
+  BadgeStats badgeStatsFor(String uid) {
+    final user = playerById(uid);
+    final ms = isPersonalContext ? const <GameMatch>[] : viewMatches;
+    final standings = isPersonalContext ? const <PlayerRow>[] : headlineStandings;
+    final leading = standings.isNotEmpty && standings.first.player.uid == uid && viewPlayers.length >= 3 && ms.length >= 5;
+    return computeBadgeStats(
+      uid: uid,
+      matches: ms,
+      tournaments: isPersonalContext ? const [] : viewTournaments,
+      leading: leading,
+      ownedGames: user?.ownedGameIds.length ?? 0,
+      friends: uid == currentUser?.uid ? friends.length : 0,
+    );
+  }
+
+  /// The badges to show as earned for `uid`: those saved on their profile,
+  /// plus any they already meet in the active group/salon. Only the player
+  /// themself can save a badge (see [_checkBadgeUnlocks]), so another
+  /// player's newly-met badge would otherwise look locked until they next
+  /// open the app.
+  Set<String> earnedBadgeIds(String uid) {
+    final saved = playerById(uid)?.badges ?? const <String>[];
+    final stats = badgeStatsFor(uid);
+    return {...saved, for (final b in kBadges) if (b.isEarned(stats)) b.id};
+  }
+
+  /// Badges just unlocked this session and not yet celebrated on screen —
+  /// MainShell shows them, then calls [dismissBadgeUnlocks].
+  List<String> pendingBadgeUnlocks = [];
+
+  void dismissBadgeUnlocks() {
+    if (pendingBadgeUnlocks.isEmpty) return;
+    pendingBadgeUnlocks = [];
+    notifyListeners();
+  }
+
+  bool _badgeCheckScheduled = false;
+  final Set<String> _badgeUnlocksInFlight = {};
+
+  /// Coalesces the many data updates that can each earn a badge (matches,
+  /// tournaments, friends, collection…) into one check — run in a microtask
+  /// rather than a timer, so nothing is left pending between frames.
+  void _scheduleBadgeCheck() {
+    if (_badgeCheckScheduled) return;
+    _badgeCheckScheduled = true;
+    scheduleMicrotask(() {
+      _badgeCheckScheduled = false;
+      unawaited(_checkBadgeUnlocks());
+    });
+  }
+
+  Future<void> _checkBadgeUnlocks() async {
+    final me = currentUser;
+    // Judging on half-loaded data would only under-count; every dataset's
+    // listener schedules another check, so the last one to land re-runs it.
+    if (me == null || me.isGuest || !groupDataFullyLoaded) return;
+    final stats = badgeStatsFor(me.uid);
+    final fresh = [
+      for (final b in kBadges)
+        if (b.isEarned(stats) && !me.badges.contains(b.id) && !_badgeUnlocksInFlight.contains(b.id)) b.id,
+    ];
+    if (fresh.isEmpty) return;
+    _badgeUnlocksInFlight.addAll(fresh);
+    try {
+      await usersRepo.unlockBadges(uid: me.uid, badgeIds: fresh);
+      // Recorded locally right away so a check running before the account
+      // stream catches up doesn't unlock (and celebrate) them twice.
+      final now = currentUser;
+      if (now != null && now.uid == me.uid) {
+        currentUser = now.copyWith(badges: {...now.badges, ...fresh}.toList());
+        _memberCache[me.uid] = currentUser!;
+      }
+      pendingBadgeUnlocks = [...pendingBadgeUnlocks, ...fresh];
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Badge unlock failed: $e');
+    } finally {
+      _badgeUnlocksInFlight.removeAll(fresh);
+    }
   }
 
   void setRankMode(String m) {
@@ -2725,8 +2992,11 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void showToast(String msg) {
+  /// [error] swaps the toast's green check for a warning badge — for
+  /// "couldn't do that" messages, which shouldn't read as a success.
+  void showToast(String msg, {bool error = false}) {
     toast = msg;
+    toastIsError = error;
     _toastTimer?.cancel();
     notifyListeners();
     _toastTimer = Timer(const Duration(milliseconds: 2600), () {
@@ -3113,6 +3383,52 @@ class AppState extends ChangeNotifier {
     libraryCategory = null;
     notifyListeners();
     await ensureGameLibraryLoaded();
+  }
+
+  List<Game>? _libraryIndexSource;
+  Map<String, Game> _libraryIndex = const {};
+  Map<String, Game> _libraryByName = const {};
+
+  void _refreshLibraryIndex() {
+    if (identical(_libraryIndexSource, gameLibrary)) return;
+    _libraryIndexSource = gameLibrary;
+    _libraryIndex = {for (final g in gameLibrary) g.id: g};
+    _libraryByName = {for (final g in gameLibrary) foldText(g.name): g};
+  }
+
+  /// A library game by id (see [AppUser.ownedGameIds]) — null until
+  /// [ensureGameLibraryLoaded] has run, or for an id no longer in it.
+  Game? libraryGameById(String id) {
+    _refreshLibraryIndex();
+    return _libraryIndex[id];
+  }
+
+  /// The collectible library game a catalog game stands for: the one it was
+  /// imported from (or shares its id/name with), and for a variant like
+  /// "Catan (solo)" the base game instead — that's the box you own.
+  Game? collectibleLibraryGameFor(Game game) {
+    _refreshLibraryIndex();
+    var lib = _libraryIndex[game.libraryId ?? game.id] ?? _libraryByName[foldText(game.name)];
+    if (lib != null && !lib.collectible) {
+      lib = _libraryByName[foldText(lib.name.replaceFirst(RegExp(r'\s*\(solo\)\s*$', caseSensitive: false), ''))];
+    }
+    return lib != null && lib.collectible ? lib : null;
+  }
+
+  /// Library games `uid` has played in the active group/salon, most played
+  /// first — offered up front when they add games to their collection.
+  List<({Game game, int played})> playedLibraryGames(String uid) {
+    final counts = <String, int>{};
+    final games = <String, Game>{};
+    for (final b in profileGameBreakdown(uid)) {
+      final lib = collectibleLibraryGameFor(b.game);
+      if (lib == null || b.played == 0) continue;
+      games[lib.id] = lib;
+      counts[lib.id] = (counts[lib.id] ?? 0) + b.played;
+    }
+    final out = [for (final id in games.keys) (game: games[id]!, played: counts[id]!)];
+    out.sort((a, b) => b.played.compareTo(a.played));
+    return out;
   }
 
   /// Fetches the shared game library once (see [gameLibrary]); a no-op when

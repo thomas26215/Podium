@@ -287,7 +287,7 @@ class _LifespanCard extends StatelessWidget {
               style: bodyFont(
                 size: 13.5,
                 weight: FontWeight.w800,
-                color: selected ? Colors.white : AppColors.ink,
+                color: selected ? AppColors.onInk : AppColors.ink,
               ),
             ),
             const SizedBox(height: 2),
@@ -297,7 +297,7 @@ class _LifespanCard extends StatelessWidget {
                 size: 11,
                 weight: FontWeight.w600,
                 color: selected
-                    ? Colors.white.withValues(alpha: 0.7)
+                    ? AppColors.onInk.withValues(alpha: 0.7)
                     : AppColors.mut,
               ),
             ),

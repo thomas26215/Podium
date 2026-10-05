@@ -110,7 +110,8 @@ class HistoryScreen extends StatelessWidget {
                 for (final (i, m) in sorted.indexed)
                   if (app.gameById(m.gameId) case final g?)
                     FadeSlideIn(
-                      delay: Duration(milliseconds: (i * 30).clamp(0, 300)),
+                      key: ValueKey(m.id),
+                      delay: staggerDelay(i, stepMs: 30),
                       child: SoloMatchCard(
                         game: g,
                         match: m,
@@ -122,12 +123,15 @@ class HistoryScreen extends StatelessWidget {
             }()
           else
             for (final (i, item) in items.indexed)
-              Builder(builder: (context) {
+              // Keyed by match, so a freshly saved one slides in at the top
+              // while the cards below keep their state instead of each
+              // inheriting its predecessor's.
+              Builder(key: ValueKey(item.legs.first.id), builder: (context) {
                 final g = app.gameById(item.gameId);
                 if (g == null) return const SizedBox.shrink();
                 void onTapLeg(GameMatch leg) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => MatchDetailScreen(game: g, match: leg, appState: app)));
                 return FadeSlideIn(
-                  delay: Duration(milliseconds: i * 40),
+                  delay: staggerDelay(i),
                   child: item.isTournament
                       ? _TournamentMatchCard(
                           tournament: app.tournaments.where((t) => t.id == item.legs.first.tournamentId).firstOrNull,
@@ -176,13 +180,13 @@ class _GroupedMatchCardState extends State<_GroupedMatchCard> {
     final resultLine = '${legs.length} parties le même jour';
     final players = legs.expand((m) => m.entries.map((e) => widget.appState.playerById(e.playerId))).whereType<AppUser>().toSet().toList();
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppRadius.xl),
-        onTap: () => setState(() => _expanded = !_expanded),
+    return Pressable(
+      pressedScale: 0.98,
+      onTap: () => setState(() => _expanded = !_expanded),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -217,8 +221,10 @@ class _GroupedMatchCardState extends State<_GroupedMatchCard> {
                         Container(height: 1, color: AppColors.line),
                         const SizedBox(height: 10),
                         for (final (index, leg) in legs.indexed)
-                          InkWell(
-                            borderRadius: BorderRadius.circular(12),
+                          Pressable(
+                            behavior: HitTestBehavior.opaque,
+                            dimOnPress: true,
+                            pressedScale: 0.98,
                             onTap: () => widget.onTapLeg(leg),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -280,8 +286,10 @@ class _TournamentMatchCardState extends State<_TournamentMatchCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          InkWell(
-            borderRadius: BorderRadius.circular(AppRadius.lg),
+          Pressable(
+            behavior: HitTestBehavior.opaque,
+            dimOnPress: true,
+            pressedScale: 0.98,
             onTap: tournament == null
                 ? null
                 : () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => TournamentDetailScreen(tournamentId: tournament.id))),
@@ -341,8 +349,10 @@ class _TournamentMatchCardState extends State<_TournamentMatchCard> {
                       Container(height: 1, color: AppColors.line),
                       const SizedBox(height: 10),
                       for (final leg in legs)
-                        InkWell(
-                          borderRadius: BorderRadius.circular(12),
+                        Pressable(
+                          behavior: HitTestBehavior.opaque,
+                          dimOnPress: true,
+                          pressedScale: 0.98,
                           onTap: () => widget.onTapLeg(leg),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 8),

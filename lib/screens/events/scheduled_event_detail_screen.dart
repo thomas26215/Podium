@@ -19,7 +19,7 @@ class ScheduledEventDetailScreen extends StatelessWidget {
   const ScheduledEventDetailScreen({super.key, required this.eventId});
 
   Future<void> _confirmDelete(BuildContext context, AppState app) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.bg,
@@ -81,7 +81,7 @@ class ScheduledEventDetailScreen extends StatelessWidget {
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-        children: [
+        children: staggered([
           Row(
             children: [
               Container(
@@ -199,7 +199,7 @@ class ScheduledEventDetailScreen extends StatelessWidget {
                 );
               }),
           ],
-        ],
+        ]),
       ),
     );
   }

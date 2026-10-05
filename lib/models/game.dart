@@ -358,6 +358,13 @@ class Game {
   /// for a game created by hand or no longer following the library.
   final String? libraryId;
 
+  /// For a `gameLibrary` game: whether players can add it to their
+  /// collection (see AppUser.ownedGameIds) — false for a variant of a game
+  /// already in the library, like "Mario Kart 8 Deluxe (solo)", which you
+  /// don't own separately. Read from the doc's `collection` field; true
+  /// when absent, so a newly added library game is collectible by default.
+  final bool collectible;
+
   const Game({
     required this.id,
     required this.name,
@@ -372,6 +379,7 @@ class Game {
     this.setupChoice,
     this.salonId,
     this.libraryId,
+    this.collectible = true,
   });
 
   bool get followsLibrary => libraryId != null;
@@ -552,6 +560,7 @@ class Game {
       setupChoice: data['setupChoice'] is Map ? SetupChoice.fromMap(Map<String, dynamic>.from(data['setupChoice'] as Map)) : null,
       salonId: data['salonId'] as String?,
       libraryId: data['libraryId'] as String?,
+      collectible: (data['collection'] as bool?) ?? true,
     );
   }
 

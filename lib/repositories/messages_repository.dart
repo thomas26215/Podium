@@ -59,9 +59,13 @@ class FirebaseMessagesRepository implements MessagesRepository {
 
   @override
   Stream<List<GroupMessage>> watchMessages(String rootId, {String? salonId}) {
-    Query<Map<String, dynamic>> q = _col(rootId);
-    if (salonId != null) q = q.where('salonId', isEqualTo: salonId);
-    return q.orderBy('createdAt').snapshots().map((snap) => snap.docs.map((d) => GroupMessage.fromDoc(d.id, d.data())).toList());
+    List<GroupMessage> parse(QuerySnapshot<Map<String, dynamic>> snap) => snap.docs.map((d) => GroupMessage.fromDoc(d.id, d.data())).toList();
+    if (salonId == null) return _col(rootId).orderBy('createdAt').snapshots().map(parse);
+    // A salon's thread is filtered only, then sorted here: `where salonId` +
+    // `orderBy createdAt` would need a composite index, and without one the
+    // query just errors out — which left the previous context's messages on
+    // screen in the salon.
+    return _col(rootId).where('salonId', isEqualTo: salonId).snapshots().map((snap) => parse(snap)..sort((a, b) => a.createdAt.compareTo(b.createdAt)));
   }
 
   @override

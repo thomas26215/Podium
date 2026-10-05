@@ -29,6 +29,12 @@ abstract class UsersRepository {
 
   /// Removes `friendUid` from `uid`'s friend list.
   Future<void> removeFriend({required String uid, required String friendUid});
+
+  /// Saves `user`'s customizable profile (see [AppUser.toProfileMap]).
+  Future<void> updateProfile(AppUser user);
+
+  /// Adds `badgeIds` to `uid`'s unlocked badges — never removes any.
+  Future<void> unlockBadges({required String uid, required List<String> badgeIds});
 }
 
 class FirebaseUsersRepository implements UsersRepository {
@@ -156,6 +162,20 @@ class FirebaseUsersRepository implements UsersRepository {
       'friendIds': FieldValue.arrayRemove([friendUid]),
     }, SetOptions(merge: true));
   }
+
+  @override
+  Future<void> updateProfile(AppUser user) async {
+    final data = user.toProfileMap();
+    // mergeFields, not merge: each field is replaced whole — a plain merge
+    // would deep-merge `gameAccounts`, so a removed account never left.
+    await _public(user.uid).set(data, SetOptions(mergeFields: data.keys.toList()));
+  }
+
+  @override
+  Future<void> unlockBadges({required String uid, required List<String> badgeIds}) async {
+    if (badgeIds.isEmpty) return;
+    await _public(uid).set({'badges': FieldValue.arrayUnion(badgeIds)}, SetOptions(merge: true));
+  }
 }
 
 class FakeUsersRepository implements UsersRepository {
@@ -199,7 +219,7 @@ class FakeUsersRepository implements UsersRepository {
   Future<void> addFriend({required String uid, required String friendUid}) async {
     final u = users[uid];
     if (u == null || u.friendIds.contains(friendUid)) return;
-    users[uid] = AppUser(uid: u.uid, email: u.email, displayName: u.displayName, color: u.color, friendIds: [...u.friendIds, friendUid]);
+    users[uid] = u.copyWith(friendIds: [...u.friendIds, friendUid]);
     _ctrl(uid).add(users[uid]);
   }
 
@@ -207,7 +227,25 @@ class FakeUsersRepository implements UsersRepository {
   Future<void> removeFriend({required String uid, required String friendUid}) async {
     final u = users[uid];
     if (u == null) return;
-    users[uid] = AppUser(uid: u.uid, email: u.email, displayName: u.displayName, color: u.color, friendIds: u.friendIds.where((f) => f != friendUid).toList());
+    users[uid] = u.copyWith(friendIds: u.friendIds.where((f) => f != friendUid).toList());
+    _ctrl(uid).add(users[uid]);
+  }
+
+  @override
+  Future<void> updateProfile(AppUser user) async {
+    final u = users[user.uid];
+    if (u == null) return;
+    // Everything customizable comes from `user`; what updateProfile never
+    // writes (badges, friends) stays as stored.
+    users[user.uid] = user.copyWith(badges: u.badges, friendIds: u.friendIds);
+    _ctrl(user.uid).add(users[user.uid]);
+  }
+
+  @override
+  Future<void> unlockBadges({required String uid, required List<String> badgeIds}) async {
+    final u = users[uid];
+    if (u == null) return;
+    users[uid] = u.copyWith(badges: {...u.badges, ...badgeIds}.toList());
     _ctrl(uid).add(users[uid]);
   }
 }

@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
+/// Whether an avatar's `initial` is an emoji rather than a letter — letters
+/// (accented ones included) all sit well below U+2000.
+bool isEmojiAvatar(String initial) => initial.runes.any((r) => r >= 0x2000);
+
 /// Colored circle with a player's initial — used everywhere from the 30px
 /// header cluster to the 72px profile header.
 class Avatar extends StatelessWidget {
@@ -33,10 +37,14 @@ class Avatar extends StatelessWidget {
         shape: BoxShape.circle,
         border: borderColor != null ? Border.all(color: borderColor!, width: borderWidth) : null,
       ),
-      child: Text(
-        initial,
-        style: bodyFont(size: fontSize ?? size * 0.4, weight: FontWeight.w800, color: Colors.white),
-      ),
+      child: isEmojiAvatar(initial)
+          // A chosen avatar emoji (see AppUser.avatarEmoji) reads best a
+          // little larger than a letter.
+          ? Text(initial, style: TextStyle(fontSize: size * 0.5, height: 1.1))
+          : Text(
+              initial,
+              style: bodyFont(size: fontSize ?? size * 0.4, weight: FontWeight.w800, color: Colors.white),
+            ),
     );
   }
 }

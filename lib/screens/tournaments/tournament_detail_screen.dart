@@ -24,7 +24,7 @@ class TournamentDetailScreen extends StatelessWidget {
   const TournamentDetailScreen({super.key, required this.tournamentId});
 
   Future<void> _confirmDelete(BuildContext context, AppState app, Tournament t) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.bg,
@@ -120,7 +120,7 @@ class TournamentDetailScreen extends StatelessWidget {
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-        children: [
+        children: staggered([
           Row(
             children: [
               Container(
@@ -207,7 +207,7 @@ class TournamentDetailScreen extends StatelessWidget {
           ],
           if (!eliminationGenerated && groupMatches.isEmpty)
             const EmptyState(emoji: '🏆', message: 'Ce tournoi n\'a pas encore de match.'),
-        ],
+        ]),
       ),
     );
   }
@@ -261,7 +261,7 @@ class _ChampionBanner extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(AppRadius.xl)),
+      decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(AppRadius.xl)),
       child: Row(
         children: [
           Icon(Icons.emoji_events, color: AppColors.gold, size: 30),

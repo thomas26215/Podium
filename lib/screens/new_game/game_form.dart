@@ -227,7 +227,7 @@ class _IdentitySection extends StatelessWidget {
   }
 
   Future<void> _pickEmoji(BuildContext context, AppState app) async {
-    final picked = await showDialog<String>(
+    final picked = await showAppDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.bg,
@@ -1012,7 +1012,7 @@ Future<int?> _pickScoreFieldColor(BuildContext context, int initialColor) async 
     const Color(0xFFB45309),
   ];
   var selected = Color(initialColor);
-  return showDialog<int>(
+  return showAppDialog<int>(
     context: context,
     builder: (dialogContext) {
       return StatefulBuilder(

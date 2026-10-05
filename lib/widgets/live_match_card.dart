@@ -63,8 +63,7 @@ class LiveMatchCard extends StatelessWidget {
     final leaderPlayer = leader != null ? appState.playerById(leader.playerId) : null;
     final players = session.entries.map((e) => appState.playerById(e.playerId)).whereType<AppUser>().toList();
 
-    return InkWell(
-      borderRadius: BorderRadius.circular(AppRadius.xl),
+    return Pressable(
       onTap: onTap,
       child: Container(
         width: 190,

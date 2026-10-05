@@ -11,7 +11,15 @@ class Pressable extends StatefulWidget {
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final double pressedScale;
-  const Pressable({super.key, required this.child, this.onTap, this.onLongPress, this.pressedScale = 0.96});
+
+  /// Also dims the child slightly while held — for full-width rows/cards,
+  /// where a 2% scale alone is too subtle to notice under a thumb.
+  final bool dimOnPress;
+
+  /// [HitTestBehavior.opaque] for rows whose padding/gaps should be
+  /// tappable too, not just the painted text/icons.
+  final HitTestBehavior? behavior;
+  const Pressable({super.key, required this.child, this.onTap, this.onLongPress, this.pressedScale = 0.96, this.dimOnPress = false, this.behavior});
 
   @override
   State<Pressable> createState() => _PressableState();
@@ -22,25 +30,48 @@ class _PressableState extends State<Pressable> {
 
   void _setPressed(bool v) {
     if (widget.onTap == null && widget.onLongPress == null) return;
+    if (_pressed == v) return;
     setState(() => _pressed = v);
   }
 
   @override
   Widget build(BuildContext context) {
+    // Quick to sink in, a touch springy on release.
+    Widget child = AnimatedScale(
+      scale: _pressed ? widget.pressedScale : 1.0,
+      duration: Duration(milliseconds: _pressed ? 90 : 220),
+      curve: _pressed ? Curves.easeOut : Curves.easeOutBack,
+      child: widget.child,
+    );
+    if (widget.dimOnPress) {
+      child = AnimatedOpacity(opacity: _pressed ? 0.7 : 1.0, duration: const Duration(milliseconds: 120), child: child);
+    }
     return GestureDetector(
+      behavior: widget.behavior,
       onTap: widget.onTap,
       onLongPress: widget.onLongPress,
       onTapDown: (_) => _setPressed(true),
       onTapUp: (_) => _setPressed(false),
       onTapCancel: () => _setPressed(false),
-      child: AnimatedScale(
-        scale: _pressed ? widget.pressedScale : 1.0,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOut,
-        child: widget.child,
-      ),
+      child: child,
     );
   }
+}
+
+/// Entrance delay for the [index]th item of a staggered list — capped, so a
+/// long list's 40th row doesn't sit invisible for over a second while the
+/// user is already scrolling past it.
+Duration staggerDelay(int index, {int baseMs = 0, int stepMs = 40, int maxMs = 360}) {
+  return Duration(milliseconds: (baseMs + index * stepMs).clamp(0, maxMs));
+}
+
+/// Wraps each of [children] in a [FadeSlideIn] with an increasing delay —
+/// the one-liner for "this screen's sections cascade in" instead of
+/// hand-numbering every delay.
+List<Widget> staggered(List<Widget> children, {int baseMs = 0, int stepMs = 50, int maxMs = 400}) {
+  return [
+    for (final (i, c) in children.indexed) FadeSlideIn(delay: staggerDelay(i, baseMs: baseMs, stepMs: stepMs, maxMs: maxMs), child: c),
+  ];
 }
 
 /// Fades + slides a child down from just above its final position on first
@@ -215,13 +246,129 @@ class EmptyState extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 40),
       child: Column(
         children: [
-          Text(emoji, style: const TextStyle(fontSize: 40)),
-          const SizedBox(height: 12),
-          Text(message, textAlign: TextAlign.center, style: bodyFont(size: 14, weight: FontWeight.w600, color: AppColors.mut)),
+          // One-shot springy pop with a little tilt, then rests — never a
+          // looping bob (that would keep `pumpAndSettle()` from settling).
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: 1),
+            duration: const Duration(milliseconds: 700),
+            curve: Curves.elasticOut,
+            builder: (context, t, child) => Transform.rotate(
+              angle: 0.25 * (1 - t),
+              child: Transform.scale(scale: 0.4 + 0.6 * t, child: child),
+            ),
+            child: Container(
+              width: 76,
+              height: 76,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(color: AppColors.card, shape: BoxShape.circle, border: Border.all(color: AppColors.line)),
+              child: Text(emoji, style: const TextStyle(fontSize: 36)),
+            ),
+          ),
+          const SizedBox(height: 14),
+          FadeSlideIn(
+            delay: const Duration(milliseconds: 120),
+            offsetY: 8,
+            child: Text(message, textAlign: TextAlign.center, style: bodyFont(size: 14, weight: FontWeight.w600, color: AppColors.mut)),
+          ),
         ],
       ),
     );
   }
+}
+
+/// The app's loading indicator: three podium bars (2nd, 1st, 3rd) rising
+/// and settling in a wave — on-brand where a bare spinner felt generic.
+/// Loops while shown, exactly like the `CircularProgressIndicator` it
+/// replaces, so only use it where a spinner would have been.
+class PodiumLoader extends StatefulWidget {
+  final Color? color;
+  final double size;
+  final String? label;
+  const PodiumLoader({super.key, this.color, this.size = 34, this.label});
+
+  @override
+  State<PodiumLoader> createState() => _PodiumLoaderState();
+}
+
+class _PodiumLoaderState extends State<PodiumLoader> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100))..repeat();
+
+  // Display order 2nd · 1st · 3rd: each bar's resting height and its
+  // offset in the wave.
+  static const _bars = [(rest: 0.62, phase: 0.15), (rest: 1.0, phase: 0.0), (rest: 0.42, phase: 0.3)];
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = widget.color ?? AppColors.accent;
+    final barW = widget.size * 0.26;
+    final gap = widget.size * 0.1;
+    final loader = SizedBox(
+      width: barW * 3 + gap * 2,
+      height: widget.size,
+      child: AnimatedBuilder(
+        animation: _c,
+        builder: (context, _) => Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            for (final (i, b) in _bars.indexed) ...[
+              if (i > 0) SizedBox(width: gap),
+              Builder(builder: (_) {
+                // A smooth 0→1→0 pulse per bar, offset by its phase.
+                final t = (_c.value - b.phase) % 1.0;
+                final pulse = Curves.easeInOut.transform(t < 0.5 ? t * 2 : (1 - t) * 2);
+                return Container(
+                  width: barW,
+                  height: widget.size * b.rest * (0.45 + 0.55 * pulse),
+                  decoration: BoxDecoration(
+                    color: i == 1 ? color : color.withValues(alpha: 0.45),
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(barW * 0.35), bottom: Radius.circular(barW * 0.12)),
+                  ),
+                );
+              }),
+            ],
+          ],
+        ),
+      ),
+    );
+    if (widget.label == null) return loader;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        loader,
+        const SizedBox(height: 14),
+        Text(widget.label!, textAlign: TextAlign.center, style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
+      ],
+    );
+  }
+}
+
+/// `showDialog` with the app's own entrance: the dialog springs up from
+/// slightly smaller while the barrier fades in, instead of Material's flat
+/// fade — use it for every dialog so they all open the same way.
+Future<T?> showAppDialog<T>({required BuildContext context, required WidgetBuilder builder, bool barrierDismissible = true}) {
+  final themes = InheritedTheme.capture(from: context, to: Navigator.of(context, rootNavigator: true).context);
+  return showGeneralDialog<T>(
+    context: context,
+    barrierDismissible: barrierDismissible,
+    barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+    barrierColor: Colors.black.withValues(alpha: AppColors.isDark ? 0.6 : 0.42),
+    transitionDuration: const Duration(milliseconds: 320),
+    pageBuilder: (dialogContext, _, _) => themes.wrap(SafeArea(child: Builder(builder: builder))),
+    transitionBuilder: (context, animation, _, child) {
+      final scale = CurvedAnimation(parent: animation, curve: Curves.easeOutBack, reverseCurve: Curves.easeInCubic);
+      final fade = CurvedAnimation(parent: animation, curve: Curves.easeOut, reverseCurve: Curves.easeIn);
+      return FadeTransition(
+        opacity: fade,
+        child: ScaleTransition(scale: Tween<double>(begin: 0.9, end: 1).animate(scale), child: child),
+      );
+    },
+  );
 }
 
 /// The app's one recurring `TextField`/`TextFormField` look: filled card
@@ -306,8 +453,16 @@ class PrimaryButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onPressed != null && !loading;
-    return SizedBox(
+    // A soft accent glow under the button only while it's actionable —
+    // fades out as it disables, so "you can go now" reads at a glance.
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
       width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        boxShadow: [BoxShadow(color: AppColors.accent.withValues(alpha: enabled ? 0.28 : 0), blurRadius: 18, offset: const Offset(0, 8))],
+      ),
       child: ElevatedButton(
         onPressed: enabled ? onPressed : null,
         style: ElevatedButton.styleFrom(
@@ -318,9 +473,13 @@ class PrimaryButton extends StatelessWidget {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
           elevation: 0,
         ),
-        child: loading
-            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-            : Text(label, style: bodyFont(size: 16, weight: FontWeight.w800, color: Colors.white)),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          transitionBuilder: (child, a) => FadeTransition(opacity: a, child: ScaleTransition(scale: Tween<double>(begin: 0.8, end: 1).animate(a), child: child)),
+          child: loading
+              ? const SizedBox(key: ValueKey('loading'), width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : Text(label, key: const ValueKey('label'), style: bodyFont(size: 16, weight: FontWeight.w800, color: Colors.white)),
+        ),
       ),
     );
   }

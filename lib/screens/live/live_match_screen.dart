@@ -282,17 +282,22 @@ class _LiveMatchBody extends StatelessWidget {
           reverse: true,
           children: [
             for (final t in session.timeline.reversed)
-              Builder(builder: (_) {
+              // Keyed per event, so each new point slides into the feed as
+              // it arrives while the older rows just keep their place.
+              Builder(key: ValueKey('${t.time.microsecondsSinceEpoch}|${t.playerId}|${t.delta}'), builder: (_) {
                 final p = app.playerById(t.playerId);
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-                  child: Row(
-                    children: [
-                      Avatar(initial: p?.initial ?? '?', color: p != null ? Color(p.color) : AppColors.mut, size: 28, fontSize: 11),
-                      const SizedBox(width: 10),
-                      Expanded(child: Text('${p?.displayName ?? '?'} ${t.delta >= 0 ? '+' : ''}${t.delta}', style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.ink))),
-                      Text(hhmm(t.time), style: bodyFont(size: 11.5, weight: FontWeight.w600, color: AppColors.mut)),
-                    ],
+                return FadeSlideIn(
+                  offsetY: 10,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                    child: Row(
+                      children: [
+                        Avatar(initial: p?.initial ?? '?', color: p != null ? Color(p.color) : AppColors.mut, size: 28, fontSize: 11),
+                        const SizedBox(width: 10),
+                        Expanded(child: Text('${p?.displayName ?? '?'} ${t.delta >= 0 ? '+' : ''}${t.delta}', style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.ink))),
+                        Text(hhmm(t.time), style: bodyFont(size: 11.5, weight: FontWeight.w600, color: AppColors.mut)),
+                      ],
+                    ),
                   ),
                 );
               }),
