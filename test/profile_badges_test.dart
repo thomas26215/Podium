@@ -165,6 +165,17 @@ void main() {
       final now = DateTime.now();
       expect(founder.isAvailable(now), founderOfferOpen(now));
     });
+
+    test('Fondateur brings the title « Membre fondateur », offered as long as the badge shows', () {
+      final title = titleById('fondateur')!;
+      expect(title.badgeId, 'founder');
+      expect(title.isUnlocked(const {'founder'}), isTrue);
+      expect(title.isUnlocked(const <String>{}), isFalse);
+      final now = DateTime.now();
+      expect(title.shownTo(const {}, now), badgeById('founder')!.isAvailable(now));
+      expect(title.shownTo(const {'founder'}, now), isTrue);
+      expect(titleById('joueur')!.shownTo(const {}, now), isTrue, reason: 'a title open to everyone always shows');
+    });
   });
 
   test('every banner id resolves, unknown ones fall back to the default', () {
@@ -353,6 +364,9 @@ void main() {
       final state = await signIn(tester, s);
       await tester.pumpAndSettle();
       expect(state.earnedBadgeIds('lea'), isNot(contains('founder')));
+      await state.saveProfile(state.currentUser!.copyWith(titleId: () => 'fondateur'));
+      await tester.pumpAndSettle();
+      expect(s.users.users['lea']!.titleId, isNull, reason: 'its title waits for the badge');
 
       expect(await state.simulatePlusPurchase(PlusTier.plusPlus, PlusPlan.lifetime), isTrue);
       await tester.pump();
@@ -365,11 +379,17 @@ void main() {
       await tester.pump(const Duration(seconds: 5));
       await tester.pump();
       expect(find.byType(BadgeUnlockBanner), findsNothing);
+      await state.saveProfile(state.currentUser!.copyWith(titleId: () => 'fondateur'));
+      await tester.pump();
+      expect(s.users.users['lea']!.titleId, 'fondateur');
 
       expect(await state.simulatePlusCancel(), isTrue);
       await tester.pump();
       expect(s.users.users['lea']!.badges, contains('founder'), reason: 'once earned, an exclusive badge stays');
       expect(state.earnedBadgeIds('lea'), contains('founder'));
+      await state.saveProfile(state.currentUser!.copyWith(bio: 'Fondatrice'));
+      await tester.pump();
+      expect(s.users.users['lea']!.titleId, 'fondateur', reason: 'and so does its title');
     });
 
     testWidgets('another player who took the Fondateur plan shows its badge before they save it', (tester) async {

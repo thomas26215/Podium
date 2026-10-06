@@ -253,6 +253,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Widget _identityTab(AppState app, AppUser me) {
     final earned = app.earnedBadgeIds(me.uid);
+    final now = DateTime.now();
     return _section([
       _label('Pseudo'),
       TextField(
@@ -318,18 +319,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         children: [
           _textChip(label: 'Aucun', selected: _draft.titleId == null, onTap: () => _edit((d) => d.copyWith(titleId: () => null))),
           for (final t in kTitles)
-            Builder(builder: (_) {
-              final unlocked = t.isUnlocked(earned);
-              final badge = t.badgeId == null ? null : badgeById(t.badgeId!);
-              return _textChip(
-                label: unlocked ? t.label : '🔒 ${t.label}',
-                selected: _draft.titleId == t.id,
-                locked: !unlocked,
-                onTap: unlocked
-                    ? () => _edit((d) => d.copyWith(titleId: () => t.id))
-                    : () => app.showToast('Débloqué avec le badge « ${badge?.name ?? '?'} »', error: true),
-              );
-            }),
+            if (t.shownTo(earned, now))
+              Builder(builder: (_) {
+                final unlocked = t.isUnlocked(earned);
+                final badge = t.badgeId == null ? null : badgeById(t.badgeId!);
+                return _textChip(
+                  label: unlocked ? t.label : '🔒 ${t.label}',
+                  selected: _draft.titleId == t.id,
+                  locked: !unlocked,
+                  onTap: unlocked
+                      ? () => _edit((d) => d.copyWith(titleId: () => t.id))
+                      : () => app.showToast('Débloqué avec le badge « ${badge?.name ?? '?'} »', error: true),
+                );
+              }),
         ],
       ),
     ]);

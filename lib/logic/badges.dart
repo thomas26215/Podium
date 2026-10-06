@@ -279,12 +279,18 @@ class TitleDef {
   const TitleDef(this.id, this.label, [this.badgeId]);
 
   bool isUnlocked(Iterable<String> earnedBadges) => badgeId == null || earnedBadges.contains(badgeId);
+
+  /// Whether it's offered to a player who has [earned] (badge ids): as its
+  /// badge shows (see BadgeDef.shownTo) — an exclusive badge's title goes
+  /// with it once out of reach, but for those who have it.
+  bool shownTo(Set<String> earned, DateTime now) => badgeId == null || (badgeById(badgeId!)?.shownTo(earned, now) ?? false);
 }
 
 const List<TitleDef> kTitles = [
   TitleDef('joueur', 'Joueur du dimanche'),
   TitleDef('stratege', 'Stratège en herbe'),
   TitleDef('bon_perdant', 'Bon perdant'),
+  TitleDef('fondateur', 'Membre fondateur', 'founder'),
   TitleDef('recrue', 'Nouvelle recrue', 'first_game'),
   TitleDef('vainqueur', 'Vainqueur', 'first_win'),
   TitleDef('pilier', 'Pilier du groupe', 'regular'),
