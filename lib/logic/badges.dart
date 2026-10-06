@@ -1,9 +1,11 @@
 import '../models/match.dart';
 import '../models/tournament.dart';
+import 'plus.dart' show kFounderOfferEnds;
 
 /// How prestigious a badge is — drives its medal colours, from the most
-/// common to the rarest.
-enum BadgeTier { bronze, silver, gold, platinum, diamond, mythic }
+/// common to the rarest. Above them all, [exclusive]: badges to be had for
+/// a while only (see BadgeDef.availableUntil).
+enum BadgeTier { bronze, silver, gold, platinum, diamond, mythic, exclusive }
 
 /// Everything badges are judged on, boiled down to counters (see
 /// [computeBadgeStats]) so each badge is just "this counter ≥ target".
@@ -27,6 +29,9 @@ class BadgeStats {
   final int bestDayStreak;
   final int tournamentsPlayed;
 
+  /// 1 for a player who took the Fondateur plan — Podium++ for good.
+  final int founder;
+
   const BadgeStats({
     this.played = 0,
     this.wins = 0,
@@ -46,6 +51,7 @@ class BadgeStats {
     this.daysPlayed = 0,
     this.bestDayStreak = 0,
     this.tournamentsPlayed = 0,
+    this.founder = 0,
   });
 }
 
@@ -57,16 +63,32 @@ class BadgeDef {
   final BadgeTier tier;
   final int target;
   final int Function(BadgeStats s) value;
-  const BadgeDef({required this.id, required this.emoji, required this.name, required this.description, required this.tier, required this.target, required this.value});
+
+  /// For an exclusive badge: when it stops being on offer — null while it
+  /// is until further notice. Past it, nobody can earn it any more, so it
+  /// only shows to those who have it — for good.
+  final DateTime? availableUntil;
+  const BadgeDef({required this.id, required this.emoji, required this.name, required this.description, required this.tier, required this.target, required this.value, this.availableUntil});
 
   /// 0…1 — how close [s] is to unlocking this badge.
   double progress(BadgeStats s) => (value(s) / target).clamp(0.0, 1.0);
   bool isEarned(BadgeStats s) => value(s) >= target;
+
+  bool get isExclusive => tier == BadgeTier.exclusive;
+
+  /// Whether it can still be earned at [now].
+  bool isAvailable(DateTime now) => availableUntil == null || now.isBefore(availableUntil!);
+
+  /// Whether it shows to a player who has [earned] (ids): always once they
+  /// have it, otherwise as long as they can still earn it.
+  bool shownTo(Set<String> earned, DateTime now) => earned.contains(id) || isAvailable(now);
 }
 
 /// Every badge, in display order: by theme, then from the easiest tier to
 /// the rarest.
 final List<BadgeDef> kBadges = [
+  // Exclusifs — on offer for a while only, then never again
+  BadgeDef(id: 'founder', emoji: '🚀', name: 'Fondateur', description: 'Devenir Fondateur de Podium avec l\'offre de lancement : Podium++ à vie.', tier: BadgeTier.exclusive, target: 1, value: (s) => s.founder, availableUntil: kFounderOfferEnds),
   // Parties jouées
   BadgeDef(id: 'first_game', emoji: '🎲', name: 'Première partie', description: 'Jouer sa toute première partie.', tier: BadgeTier.bronze, target: 1, value: (s) => s.played),
   BadgeDef(id: 'played_10', emoji: '🃏', name: 'Mise en jambes', description: 'Jouer 10 parties.', tier: BadgeTier.bronze, target: 10, value: (s) => s.played),
@@ -168,8 +190,13 @@ BadgeDef? badgeById(String id) {
   return null;
 }
 
+/// The badges a player who has [earned] (ids) sees, in catalogue order:
+/// every one, but for an exclusive badge out of reach they don't have.
+List<BadgeDef> badgesShown(Set<String> earned, DateTime now) => [for (final b in kBadges) if (b.shownTo(earned, now)) b];
+
 /// Boils `uid`'s [matches] (finalised ones only — the caller filters out
 /// pending/rejected salon matches) and [tournaments] down to [BadgeStats].
+/// [founder]: they took the Fondateur plan.
 BadgeStats computeBadgeStats({
   required String uid,
   required List<GameMatch> matches,
@@ -177,6 +204,7 @@ BadgeStats computeBadgeStats({
   bool leading = false,
   int ownedGames = 0,
   int friends = 0,
+  bool founder = false,
 }) {
   final mine = matches.where((m) => m.entries.any((e) => e.playerId == uid)).toList()..sort((a, b) => a.createdAt.compareTo(b.createdAt));
   var wins = 0, streak = 0, bestStreak = 0, teamWins = 0, night = 0, crowdWins = 0;
@@ -238,6 +266,7 @@ BadgeStats computeBadgeStats({
     daysPlayed: perDay.length,
     bestDayStreak: bestDayStreak,
     tournamentsPlayed: tournamentsPlayed,
+    founder: founder ? 1 : 0,
   );
 }
 

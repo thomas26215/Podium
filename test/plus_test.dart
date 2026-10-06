@@ -439,6 +439,30 @@ void main() {
       await tester.pump(const Duration(seconds: 3));
     });
 
+    testWidgets('the Fondateur plan comes with its exclusive badge, celebrated on leaving the page', (tester) async {
+      final app = await _pumpApp(tester);
+      unawaited(PlusScreen.open(app.nav.currentContext!, minTier: PlusTier.plusPlus));
+      await _settle(tester);
+      final page = find.descendant(of: find.byType(PlusScreen), matching: find.byType(Scrollable)).first;
+      await tester.scrollUntilVisible(find.text('Fondateur à vie'), 300, scrollable: page);
+      expect(find.text('Podium++ pour toujours, et le badge exclusif Fondateur'), findsOneWidget);
+
+      await _tap(tester, find.text('Fondateur à vie'));
+      await _tap(tester, find.text('Devenir Fondateur pour 49,99 €'));
+      expect(app.users.users['lea']!.plus?.plan, PlusPlan.lifetime);
+      expect(app.users.users['lea']!.badges, contains('founder'));
+      await tester.drag(page, const Offset(0, 3000));
+      // Long enough for the celebration to have played out, had it started
+      // under the page.
+      await _settle(tester, frames: 50);
+      expect(find.text('Bienvenue, Fondateur !'), findsOneWidget);
+
+      await _tap(tester, find.text('Continuer'));
+      expect(find.byType(PlusScreen), findsNothing);
+      expect(find.text('BADGE EXCLUSIF DÉBLOQUÉ !'), findsOneWidget, reason: 'celebrated now that it can be seen');
+      await tester.pump(const Duration(seconds: 5));
+    });
+
     testWidgets('a member manages their membership on the Podium+ page, and can cancel it', (tester) async {
       final app = await _pumpApp(tester, lea: _lea.copyWith(plus: () => _membership));
       unawaited(PlusScreen.open(app.nav.currentContext!));

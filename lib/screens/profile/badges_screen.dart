@@ -10,7 +10,8 @@ import '../../widgets/common.dart';
 
 /// Every badge for [uid]: unlocked ones first, then the rest with how far
 /// along they are (judged on the active group/salon — see
-/// AppState.badgeStatsFor).
+/// AppState.badgeStatsFor). An exclusive badge they don't have shows only
+/// while it's on offer.
 class BadgesScreen extends StatelessWidget {
   final String uid;
   const BadgesScreen({super.key, required this.uid});
@@ -22,11 +23,16 @@ class BadgesScreen extends StatelessWidget {
     final isMe = uid == app.currentUser?.uid;
     final stats = app.badgeStatsFor(uid);
     final earnedIds = app.earnedBadgeIds(uid);
+    final shown = badgesShown(earnedIds, DateTime.now());
     // Rarest first, then in catalogue order within a tier.
     final earned = [
-      for (final t in BadgeTier.values.reversed) ...kBadges.where((b) => b.tier == t && earnedIds.contains(b.id)),
+      for (final t in BadgeTier.values.reversed) ...shown.where((b) => b.tier == t && earnedIds.contains(b.id)),
     ];
-    final locked = kBadges.where((b) => !earnedIds.contains(b.id)).toList()..sort((a, b) => b.progress(stats).compareTo(a.progress(stats)));
+    final locked = [
+      // Exclusive ones first: they won't wait.
+      ...shown.where((b) => b.isExclusive && !earnedIds.contains(b.id)),
+      ...shown.where((b) => !b.isExclusive && !earnedIds.contains(b.id)).toList()..sort((a, b) => b.progress(stats).compareTo(a.progress(stats))),
+    ];
 
     Widget tile(BadgeDef b, bool isEarned) {
       final pinned = user?.showcasedBadges.contains(b.id) ?? false;
@@ -88,7 +94,7 @@ class BadgesScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 6, 20, 40),
         children: [
-          FadeSlideIn(child: _ProgressSummary(earned: earned)),
+          FadeSlideIn(child: _ProgressSummary(earned: earned, shown: shown)),
           if (isMe)
             Padding(
               padding: const EdgeInsets.only(top: 10),
@@ -118,14 +124,15 @@ class BadgesScreen extends StatelessWidget {
   }
 }
 
-/// How many badges are unlocked overall, then per tier.
+/// How many of the badges [shown] are unlocked overall, then per tier.
 class _ProgressSummary extends StatelessWidget {
   final List<BadgeDef> earned;
-  const _ProgressSummary({required this.earned});
+  final List<BadgeDef> shown;
+  const _ProgressSummary({required this.earned, required this.shown});
 
   @override
   Widget build(BuildContext context) {
-    final total = kBadges.length;
+    final total = shown.length;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: cardDecoration(radius: AppRadius.xl),
@@ -138,7 +145,8 @@ class _ProgressSummary extends StatelessWidget {
             spacing: 6,
             runSpacing: 6,
             children: [
-              for (final t in BadgeTier.values) _TierChip(tier: t, earned: earned.where((b) => b.tier == t).length, total: kBadges.where((b) => b.tier == t).length),
+              for (final t in BadgeTier.values)
+                if (shown.any((b) => b.tier == t)) _TierChip(tier: t, earned: earned.where((b) => b.tier == t).length, total: shown.where((b) => b.tier == t).length),
             ],
           ),
         ],
@@ -192,19 +200,21 @@ class _TierChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = badgeTierColors(tier);
     final any = earned > 0;
+    // Once one is earned, the exclusive tier's chip turns black and gold.
+    final vip = any && tier == BadgeTier.exclusive;
     return Container(
       padding: const EdgeInsets.fromLTRB(6, 4, 9, 4),
       decoration: BoxDecoration(
-        color: any ? c.to.withValues(alpha: 0.16) : AppColors.segTrack,
+        color: vip ? c.face : (any ? c.to.withValues(alpha: 0.16) : AppColors.segTrack),
         borderRadius: BorderRadius.circular(99),
-        border: Border.all(color: any ? c.from.withValues(alpha: 0.45) : Colors.transparent),
+        border: Border.all(color: vip ? c.from : (any ? c.from.withValues(alpha: 0.45) : Colors.transparent)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           BadgeTierGlyph(tier: tier, size: 13),
           const SizedBox(width: 5),
-          Text('${badgeTierLabel(tier)} $earned/$total', style: bodyFont(size: 11.5, weight: FontWeight.w800, color: any ? AppColors.ink : AppColors.mut)),
+          Text('${badgeTierLabel(tier)} $earned/$total', style: bodyFont(size: 11.5, weight: FontWeight.w800, color: vip ? c.to : (any ? AppColors.ink : AppColors.mut))),
         ],
       ),
     );

@@ -225,6 +225,18 @@ ShopPack themePack(AppearancePreset theme) {
   );
 }
 
+// ============================== the Fondateur offer ==============================
+
+/// When the launch offer — Fondateur: Podium++ for good, paid once — stops
+/// being sold: null while it runs until further notice. Setting a date
+/// (`final`, then: DateTime has no const constructor) takes the plan off
+/// the Podium+ page and, for whoever didn't take it, its exclusive badge
+/// off the badges still to unlock (see kBadges).
+const DateTime? kFounderOfferEnds = null;
+
+/// Whether the Fondateur plan is on sale at [now].
+bool founderOfferOpen(DateTime now) => kFounderOfferEnds == null || now.isBefore(kFounderOfferEnds!);
+
 // ============================== jetons ==============================
 
 /// Jetons are bought at 100 for 1 €: what [coins] are worth, in cents —

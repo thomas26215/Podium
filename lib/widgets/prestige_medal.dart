@@ -18,7 +18,11 @@ bool isPrestigeTier(BadgeTier t) => t.index > BadgeTier.gold.index;
 ///   * diamond — a brilliant-cut gem: its facets catch a light turning
 ///     round it, with flashes of fire and glints;
 ///   * mythic — a starry core in an opal rim, on a slowly turning star of
-///     gold and violet in a breathing halo, a shooting star now and then.
+///     gold and violet in a breathing halo, a shooting star now and then;
+///   * exclusive — black and gold, like no other: a crowned obsidian
+///     medallion in a laurel wreath. A light climbs the laurels up to the
+///     crown's pearls, another turns round the bezel, a prism sweeps the
+///     black face and gold dust rises in a breathing aura.
 ///
 /// Locked, it's the same shape greyed out, its progress traced along the
 /// outline. Earned, it runs its own loop — or draws [phase], for a parent
@@ -176,10 +180,20 @@ _Look _lookOf(BadgeTier t) => switch (t) {
       BadgeTier.platinum => const _Platinum(),
       BadgeTier.diamond => const _Diamond(),
       BadgeTier.mythic => const _Mythic(),
+      BadgeTier.exclusive => const _Exclusive(),
       _ => throw ArgumentError.value(t, 'tier', 'not above gold'),
     };
 
 Offset _dir(double a) => Offset(math.cos(a), math.sin(a));
+
+/// The colour [x] (0…1) of the way along [stops], set [at] those points.
+Color _ramp(List<Color> stops, List<double> at, double x) {
+  x = clamp01(x);
+  for (var i = 1; i < stops.length; i++) {
+    if (x <= at[i]) return Color.lerp(stops[i - 1], stops[i], (x - at[i - 1]) / (at[i] - at[i - 1]))!;
+  }
+  return stops.last;
+}
 
 /// [n] points evenly round a circle of radius [r] about [c], the first at
 /// angle [start] — clockwise on screen.
@@ -297,15 +311,7 @@ class _Diamond extends _Look {
   static const _ink = Color(0xFF15398F);
 
   /// The stone's colour, from deep blue (0) to white (1).
-  static Color _ice(double b) {
-    const stops = [Color(0xFF173E9E), Color(0xFF3F8FEA), Color(0xFFAEE6FF), Color(0xFFFFFFFF)];
-    const at = [0.0, 0.45, 0.82, 1.0];
-    final x = clamp01(b);
-    for (var i = 1; i < stops.length; i++) {
-      if (x <= at[i]) return Color.lerp(stops[i - 1], stops[i], (x - at[i - 1]) / (at[i] - at[i - 1]))!;
-    }
-    return stops.last;
-  }
+  static Color _ice(double b) => _ramp(const [Color(0xFF173E9E), Color(0xFF3F8FEA), Color(0xFFAEE6FF), Color(0xFFFFFFFF)], const [0.0, 0.45, 0.82, 1.0], b);
 
   /// The crown's 40 facets round the table, each with the direction it
   /// faces and its kind: 0 star, 1 bezel, 2 upper girdle — from the
@@ -546,4 +552,266 @@ class _Mythic extends _Look {
     final c = Offset(S / 2, S / 2);
     return _poly([for (var i = 0; i < 16; i++) c + _dir(-math.pi / 2 + i * tau / 16) * S * (i.isEven ? 0.5 : 0.3)]);
   }
+}
+
+typedef _Leaf = ({Offset base, double angle, double len, double up});
+
+/// Exclusive: a crowned obsidian medallion in a milled gold bezel, in a
+/// laurel wreath tied with a red ribbon, light rays fanning out behind.
+class _Exclusive extends _Look {
+  const _Exclusive();
+
+  // The medallion sits a little low, under its crown; the wreath round it
+  // a little higher, so its ribbon stays in the square.
+  static const _cy = 0.56, _outer = 0.335, _inner = 0.28;
+  static const _wy = 0.53, _wreath = 0.385;
+  static const _ink = Color(0xFF3A2405);
+
+  /// Where the laurel branches end, either side of the crown.
+  static const _branchTop = -math.pi / 2 + 0.78;
+
+  /// The pearls on the crown's three points (× S).
+  static const _pearls = [Offset(0.355, 0.088), Offset(0.5, 0.05), Offset(0.645, 0.088)];
+
+  @override
+  double get faceDy => _cy - 0.5;
+
+  @override
+  double get emojiScale => 0.31;
+
+  /// Gold, from its shade (0) to its highlight (1).
+  static Color _gold(double k) => _ramp(const [Color(0xFF6E4609), Color(0xFFB98322), Color(0xFFF0C55A), Color(0xFFFFF4C9)], const [0.0, 0.42, 0.78, 1.0], k);
+
+  /// The laurel's leaves, from the bottom up — the right branch, then its
+  /// mirror: where each grows, the way it points, how long it is and how
+  /// far up its branch (0…1). A pair per node, one leaf at the tip.
+  static List<_Leaf> _leaves(double S) {
+    const nodes = 7, from = math.pi / 2 - 0.14;
+    final c = Offset(S / 2, S * _wy);
+    final right = <_Leaf>[];
+    for (var i = 0; i <= nodes; i++) {
+      final up = i / nodes;
+      final a = lerpD(from, _branchTop, up);
+      final base = c + _dir(a) * S * _wreath;
+      final along = a - math.pi / 2; // up the branch
+      final len = S * 0.155 * (1 - 0.3 * up);
+      if (i == nodes) {
+        right.add((base: base, angle: along, len: len, up: up));
+      } else {
+        right.addAll([(base: base, angle: along - 0.55, len: len, up: up), (base: base, angle: along + 0.55, len: len, up: up)]);
+      }
+    }
+    return [...right, for (final l in right) (base: Offset(S - l.base.dx, l.base.dy), angle: math.pi - l.angle, len: l.len, up: l.up)];
+  }
+
+  /// A leaf [len] long, pointing along +x from its base at the origin.
+  static Path _leaf(double len) {
+    final w = len * 0.46;
+    return Path()
+      ..moveTo(0, 0)
+      ..quadraticBezierTo(len * 0.4, -w, len, 0)
+      ..quadraticBezierTo(len * 0.4, w, 0, 0)
+      ..close();
+  }
+
+  /// The wreath behind the medallion, tied at the bottom. Lit from the top
+  /// left, a light climbing its branches once per loop — or, [flat], a
+  /// silhouette in one colour.
+  void _laurels(Canvas canvas, double S, double ph, {Color? flat}) {
+    final c = Offset(S / 2, S * _wy);
+    final rect = Rect.fromCircle(center: c, radius: S * _wreath);
+    final stem = strokePaint(flat ?? _gold(0.2), S * 0.018);
+    canvas.drawArc(rect, _branchTop, math.pi / 2 - _branchTop, false, stem);
+    canvas.drawArc(rect, math.pi / 2, math.pi / 2 - _branchTop, false, stem);
+    final edge = strokePaint(_ink, S * 0.007, 0.55);
+    for (final l in _leaves(S)) {
+      final leaf = _leaf(l.len);
+      canvas.save();
+      canvas.translate(l.base.dx, l.base.dy);
+      canvas.rotate(l.angle);
+      if (flat != null) {
+        canvas.drawPath(leaf, fillPaint(flat));
+      } else {
+        final lit = 0.38 + 0.26 * math.cos(l.angle + 3 * math.pi / 4);
+        final k = loopWindow(ph, 0.06 + 0.32 * l.up, 0.16);
+        canvas.drawPath(leaf, fillPaint(_gold(lit + 0.4 * (k == null ? 0 : bump(k)))));
+        canvas.drawPath(leaf, edge);
+      }
+      canvas.restore();
+    }
+    // The ribbon tying the branches: two notched tails, then the knot.
+    final knot = c + Offset(0, S * _wreath);
+    final len = S * 0.085, w = S * 0.05;
+    final tail = _poly([Offset(0, -w / 2), Offset(len, -w / 2), Offset(len - w * 0.45, 0), Offset(len, w / 2), Offset(0, w / 2)]);
+    for (final side in const [1.0, -1.0]) {
+      canvas.save();
+      canvas.translate(knot.dx, knot.dy);
+      canvas.rotate(math.pi / 2 - side * 0.55);
+      canvas.drawPath(tail, fillPaint(flat ?? const Color(0xFFA30F35)));
+      if (flat == null) canvas.drawPath(tail, strokePaint(const Color(0xFF5C0619), S * 0.006, 0.6));
+      canvas.restore();
+    }
+    canvas.drawCircle(knot, S * 0.034, fillPaint(flat ?? const Color(0xFFD02A52)));
+    if (flat == null) canvas.drawCircle(knot, S * 0.034, strokePaint(const Color(0xFF5C0619), S * 0.007, 0.7));
+  }
+
+  static Path _crownPath(double S) => _poly([
+        Offset(S * 0.37, S * 0.25),
+        _pearls[0] * S,
+        Offset(S * 0.43, S * 0.165),
+        _pearls[1] * S,
+        Offset(S * 0.57, S * 0.165),
+        _pearls[2] * S,
+        Offset(S * 0.63, S * 0.25),
+      ]);
+
+  /// The crown on the medallion: gold, a pearl on each point and a ruby on
+  /// its band — or, [flat], a silhouette.
+  void _crown(Canvas canvas, double S, {Color? flat}) {
+    final crown = _crownPath(S);
+    if (flat != null) {
+      canvas.drawPath(crown, fillPaint(flat));
+      for (final p in _pearls) {
+        canvas.drawCircle(p * S, S * 0.026, fillPaint(flat));
+      }
+      return;
+    }
+    canvas.drawPath(crown, Paint()..shader = ui.Gradient.linear(Offset(0, S * 0.05), Offset(0, S * 0.25), [_gold(0.9), _gold(0.55), _gold(0.22)], const [0, 0.55, 1]));
+    canvas.drawLine(Offset(S * 0.366, S * 0.2), Offset(S * 0.634, S * 0.2), strokePaint(_ink, S * 0.009, 0.45));
+    canvas.drawPath(crown, strokePaint(_ink, S * 0.011, 0.85));
+    for (final p in _pearls) {
+      final at = p * S;
+      canvas.drawCircle(at, S * 0.026, Paint()..shader = ui.Gradient.radial(at - Offset(S * 0.008, S * 0.008), S * 0.034, const [Colors.white, Color(0xFFE9D9B5)]));
+      canvas.drawCircle(at, S * 0.026, strokePaint(_ink, S * 0.007, 0.55));
+    }
+    final ruby = Offset(S * 0.5, S * 0.225);
+    canvas.drawCircle(ruby, S * 0.021, Paint()..shader = ui.Gradient.radial(ruby - Offset(S * 0.007, S * 0.007), S * 0.029, const [Color(0xFFFF8FA8), Color(0xFFC8143F), Color(0xFF6E0620)], const [0, 0.55, 1]));
+  }
+
+  /// [n] spokes round [c], from [r0] out to [r1] — as one path.
+  static Path _spokes(Offset c, int n, double r0, double r1) {
+    final path = Path();
+    for (var i = 0; i < n; i++) {
+      final d = _dir(i * tau / n);
+      final a = c + d * r0, b = c + d * r1;
+      path
+        ..moveTo(a.dx, a.dy)
+        ..lineTo(b.dx, b.dy);
+    }
+    return path;
+  }
+
+  @override
+  void paintBack(Canvas canvas, double S, double ph) {
+    final c = Offset(S / 2, S * _cy);
+    final mid = Offset(S / 2, S / 2);
+    // A warm aura, and rays of light fanning out round the crown — long and
+    // short, turning a twelfth of a turn per loop (they look the same every
+    // twelfth), both breathing.
+    final breathe = wave01(ph, 0, 2);
+    canvas.drawCircle(mid, S * 0.5, Paint()..shader = ui.Gradient.radial(mid, S * 0.5, [const Color(0xFFFFC94D).withValues(alpha: 0.32 + 0.2 * breathe), const Color(0x00FFC94D)]));
+    final rays = Path();
+    for (var i = 0; i < 24; i++) {
+      final a = -math.pi / 2 + ph * tau / 12 + i * tau / 24;
+      final long = i.isEven;
+      final half = long ? 0.075 : 0.045;
+      final tip = mid + _dir(a) * S * (long ? 0.5 : 0.43);
+      final l = mid + _dir(a - half) * S * 0.2, r = mid + _dir(a + half) * S * 0.2;
+      rays.addPolygon([l, tip, r], true);
+    }
+    canvas.drawPath(rays, Paint()..shader = ui.Gradient.radial(mid, S * 0.5, [const Color(0xFFFFD36B).withValues(alpha: 0.7 + 0.3 * breathe), const Color(0x00FFD36B)], const [0.4, 1]));
+    _laurels(canvas, S, ph);
+    canvas.drawCircle(
+      c + Offset(0, S * 0.03),
+      S * _outer,
+      Paint()
+        ..color = const Color(0x70000000)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, S * 0.035),
+    );
+    // The bezel, a light turning round it once per loop, milled like the
+    // edge of a coin.
+    canvas.drawCircle(
+      c,
+      S * (_outer + _inner) / 2,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = S * (_outer - _inner)
+        ..shader = SweepGradient(colors: [_gold(0.85), _gold(0.25), _gold(0.62), _gold(0.2), _gold(0.85)], transform: GradientRotation(ph * tau)).createShader(Rect.fromCircle(center: c, radius: S * _outer)),
+    );
+    canvas.drawPath(_spokes(c, 40, S * (_inner + 0.01), S * (_outer - 0.01)), strokePaint(_ink, S * 0.006, 0.3));
+    canvas.drawCircle(c, S * _outer, strokePaint(_ink, S * 0.013, 0.85));
+    // The obsidian face, a sunray dial engraved in it.
+    final fr = S * _inner;
+    canvas.drawCircle(c, fr, Paint()..shader = ui.Gradient.radial(c + Offset(-S * 0.07, -S * 0.09), fr * 1.4, const [Color(0xFF3D3225), Color(0xFF15100A), Color(0xFF040302)], const [0, 0.5, 1]));
+    canvas.drawPath(_spokes(c, 36, S * 0.06, fr - S * 0.02), strokePaint(_gold(0.6), S * 0.005, 0.12));
+    canvas.drawCircle(c, fr * 0.9, strokePaint(_gold(0.6), S * 0.006, 0.35));
+    canvas.drawCircle(c, fr, strokePaint(_gold(0.92), S * 0.011, 0.8));
+    _crown(canvas, S);
+  }
+
+  /// A band of rainbow light across the disc of radius [r] round [c], like
+  /// on a hologram — [u] from 0 (off to the left) to 1 (off to the right).
+  static void _prism(Canvas canvas, Offset c, double r, double u) {
+    if (u <= 0 || u >= 1) return;
+    final w = r * 1.1;
+    canvas.save();
+    canvas.clipPath(Path()..addOval(Rect.fromCircle(center: c, radius: r)));
+    canvas.translate(c.dx + lerpD(-r * 2.1, r * 2.1, u), c.dy);
+    canvas.rotate(-0.6);
+    canvas.drawRect(
+      Rect.fromCenter(center: Offset.zero, width: w, height: r * 3),
+      Paint()
+        ..blendMode = BlendMode.plus
+        ..shader = ui.Gradient.linear(Offset(-w / 2, 0), Offset(w / 2, 0), const [Color(0x0019E3FF), Color(0x5C19E3FF), Color(0x6BFF4FD8), Color(0x6BFFD25C), Color(0x00FFD25C)], const [0, 0.28, 0.52, 0.76, 1]),
+    );
+    canvas.restore();
+  }
+
+  @override
+  void paintFront(Canvas canvas, double S, double ph) {
+    _prism(canvas, Offset(S / 2, S * _cy), S * _inner, loopWindow(ph, 0.6, 0.3) ?? 0);
+    // The light that climbed the laurels ends on the crown's pearls.
+    for (final (i, start) in const [(0, 0.42), (1, 0.48), (2, 0.54)]) {
+      final k = loopWindow(ph, start, 0.14);
+      if (k != null) drawSparkle(canvas, _pearls[i] * S, S * 0.12 * bump(k), fillPaint(Colors.white, bump(k)));
+    }
+    // Gold dust rising either side.
+    for (var i = 0; i < 6; i++) {
+      final u = fract(ph * (1 + (i ~/ 2) % 2) + hash01(i + 3));
+      final side = i.isEven ? 1.0 : -1.0;
+      final p = Offset(S / 2 + side * S * (0.36 + 0.09 * hash01(i + 11)) + S * 0.02 * wave(ph, hash01(i + 7), 2), S * lerpD(0.86, 0.1, u));
+      final a = bump(u);
+      drawGlow(canvas, p, S * 0.05 * a, const Color(0xFFFFC94D), 0.7 * a);
+      canvas.drawCircle(p, S * (0.008 + 0.006 * hash01(i + 5)), fillPaint(const Color(0xFFFFF3CC), a));
+    }
+  }
+
+  @override
+  void paintLocked(Canvas canvas, double S, Color track, Color face) {
+    final c = Offset(S / 2, S * _cy);
+    _laurels(canvas, S, 0, flat: Color.lerp(track, face, 0.35));
+    canvas.drawCircle(c, S * _outer, fillPaint(track));
+    canvas.drawCircle(c, S * _inner, fillPaint(face));
+    _crown(canvas, S, flat: track);
+  }
+
+  @override
+  Path track(double S) {
+    final rect = Rect.fromCircle(center: Offset(S / 2, S * _cy), radius: S * (_outer + _inner) / 2);
+    return Path()
+      ..addArc(rect, -math.pi / 2, math.pi)
+      ..arcTo(rect, math.pi / 2, math.pi, false);
+  }
+
+  /// A crown.
+  @override
+  Path glyph(double S) => _poly([
+        Offset(S * 0.1, S * 0.9),
+        Offset(S * 0.04, S * 0.2),
+        Offset(S * 0.32, S * 0.48),
+        Offset(S * 0.5, S * 0.08),
+        Offset(S * 0.68, S * 0.48),
+        Offset(S * 0.96, S * 0.2),
+        Offset(S * 0.9, S * 0.9),
+      ]);
 }

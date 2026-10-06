@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 
 import '../logic/badges.dart';
@@ -8,9 +9,11 @@ import '../theme/app_theme.dart';
 import 'ambient_loop.dart';
 import 'common.dart';
 import 'fx_kit.dart';
+import 'match_card.dart' show frenchDayMonth;
 import 'prestige_medal.dart';
 
-/// Medal colours per tier: rim gradient, then the face behind the emoji.
+/// Medal colours per tier: rim gradient, then the face behind the emoji —
+/// the exclusive tier's face is its obsidian.
 ({Color from, Color to, Color face}) badgeTierColors(BadgeTier t) => switch (t) {
       BadgeTier.bronze => (from: const Color(0xFFB0652A), to: const Color(0xFFE9A86B), face: const Color(0xFFFFF1E4)),
       BadgeTier.silver => (from: const Color(0xFF8D96A5), to: const Color(0xFFE3E7EE), face: const Color(0xFFF5F7FA)),
@@ -18,6 +21,7 @@ import 'prestige_medal.dart';
       BadgeTier.platinum => (from: const Color(0xFF4F8A96), to: const Color(0xFFCFF4F2), face: const Color(0xFFEFFCFB)),
       BadgeTier.diamond => (from: const Color(0xFF2A6FE8), to: const Color(0xFF9FE6FF), face: const Color(0xFFEAF7FF)),
       BadgeTier.mythic => (from: const Color(0xFF8A2BE2), to: const Color(0xFFFF7AD9), face: const Color(0xFFFCEFFF)),
+      BadgeTier.exclusive => (from: const Color(0xFFC08A2C), to: const Color(0xFFFFE3A0), face: const Color(0xFF16110A)),
     };
 
 String badgeTierLabel(BadgeTier t) => switch (t) {
@@ -27,6 +31,7 @@ String badgeTierLabel(BadgeTier t) => switch (t) {
       BadgeTier.platinum => 'Platine',
       BadgeTier.diamond => 'Diamant',
       BadgeTier.mythic => 'Mythique',
+      BadgeTier.exclusive => 'Exclusif',
     };
 
 /// A tiny swatch of [tier] — its medal's shape in its colours — for legends.
@@ -176,9 +181,9 @@ class _MedalFx extends CustomPainter {
   bool shouldRepaint(_MedalFx old) => old.ph != ph || old.shine != shine;
 }
 
-/// Full details of one badge: what it takes, how far along [stats] is, and
-/// — on the signed-in player's own earned badge — a "show on my profile"
-/// toggle.
+/// Full details of one badge: what it takes, how far along [stats] is — for
+/// an exclusive one, until when it's on offer — and, on the signed-in
+/// player's own earned badge, a "show on my profile" toggle.
 Future<void> showBadgeDetail(
   BuildContext context, {
   required BadgeDef badge,
@@ -215,6 +220,10 @@ Future<void> showBadgeDetail(
               ),
               const SizedBox(height: 12),
               Text(badge.description, textAlign: TextAlign.center, style: bodyFont(size: 14, weight: FontWeight.w600, color: AppColors.ink2)),
+              if (badge.isExclusive) ...[
+                const SizedBox(height: 14),
+                _OfferNote(badge: badge),
+              ],
               if (!earned && value != null && badge.target > 1) ...[
                 const SizedBox(height: 16),
                 ClipRRect(
@@ -257,9 +266,42 @@ Future<void> showBadgeDetail(
   );
 }
 
+/// Under an exclusive badge's description, in its black and gold: until
+/// when it's on offer — or that it's out of reach for good, which only
+/// those who have it get to see.
+class _OfferNote extends StatelessWidget {
+  final BadgeDef badge;
+  const _OfferNote({required this.badge});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = badgeTierColors(badge.tier);
+    final until = badge.availableUntil;
+    final open = badge.isAvailable(DateTime.now());
+    // The last day it's on offer: [until] itself is the first one it isn't.
+    final last = until?.subtract(const Duration(milliseconds: 1));
+    final text = !open ? 'Ne s’obtient plus' : (last == null ? 'Disponible pour un temps limité' : 'Disponible jusqu’au ${frenchDayMonth(last)} ${last.year}');
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 6, 12, 6),
+      decoration: BoxDecoration(color: c.face, borderRadius: BorderRadius.circular(99), border: Border.all(color: c.from.withValues(alpha: 0.8))),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(open ? Icons.hourglass_top_rounded : Icons.auto_awesome_rounded, size: 14, color: c.to),
+          const SizedBox(width: 6),
+          Flexible(child: Text(text, style: bodyFont(size: 12, weight: FontWeight.w800, color: c.to))),
+        ],
+      ),
+    );
+  }
+}
+
 /// The "badge unlocked!" celebration: drops in from the top, the medal
 /// spins in, holds a moment, then slides away and calls [onDone]. Driven by
 /// one animation controller — no timers — so it always runs to completion.
+/// It starts once it can be seen: a badge unlocked under another page —
+/// Fondateur, under the Podium+ page it's bought on — is celebrated on
+/// coming back, rather than played out unseen.
 class BadgeUnlockBanner extends StatefulWidget {
   final List<String> badgeIds;
   final VoidCallback onDone;
@@ -270,13 +312,27 @@ class BadgeUnlockBanner extends StatefulWidget {
 }
 
 class _BadgeUnlockBannerState extends State<BadgeUnlockBanner> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 3800))
-    ..forward().whenComplete(() {
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 3800));
+  ValueListenable<TickerModeData>? _visible;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _visible?.removeListener(_start);
+    _visible = TickerMode.getValuesNotifier(context)..addListener(_start);
+    _start();
+  }
+
+  void _start() {
+    if (!_visible!.value.enabled || !_c.isDismissed) return;
+    _c.forward().whenComplete(() {
       if (mounted) widget.onDone();
     });
+  }
 
   @override
   void dispose() {
+    _visible?.removeListener(_start);
     _c.dispose();
     super.dispose();
   }
@@ -287,7 +343,7 @@ class _BadgeUnlockBannerState extends State<BadgeUnlockBanner> with SingleTicker
     final badges = widget.badgeIds.map(badgeById).whereType<BadgeDef>().toList()..sort((a, b) => b.tier.index.compareTo(a.tier.index));
     if (badges.isEmpty) return const SizedBox.shrink();
     final first = badges.first;
-    final title = badges.length == 1 ? 'Badge débloqué !' : '${badges.length} badges débloqués !';
+    final title = badges.length > 1 ? '${badges.length} badges débloqués !' : (first.isExclusive ? 'Badge exclusif débloqué !' : 'Badge débloqué !');
     final subtitle = badges.length == 1 ? first.name : badges.map((b) => b.name).join(' · ');
     // 0–12%: drop in · 12–85%: hold · 85–100%: leave.
     final inOut = TweenSequence<double>([

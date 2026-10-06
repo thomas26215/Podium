@@ -6,10 +6,12 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:podium/logic/badges.dart';
+import 'package:podium/logic/plus.dart';
 import 'package:podium/models/app_user.dart';
 import 'package:podium/models/game.dart';
 import 'package:podium/models/group.dart';
 import 'package:podium/models/match.dart';
+import 'package:podium/models/plus_membership.dart';
 import 'package:podium/models/tournament.dart';
 import 'package:podium/repositories/fakes.dart';
 import 'package:podium/repositories/game_library_repository.dart';
@@ -17,6 +19,7 @@ import 'package:podium/repositories/games_repository.dart';
 import 'package:podium/repositories/guests_repository.dart';
 import 'package:podium/repositories/users_repository.dart';
 import 'package:podium/screens/auth/auth_gate.dart';
+import 'package:podium/screens/profile/badges_screen.dart';
 import 'package:podium/state/app_state.dart';
 import 'package:podium/widgets/badge_widgets.dart';
 import 'package:podium/widgets/profile_banners.dart';
@@ -130,6 +133,40 @@ void main() {
     });
   });
 
+  group('exclusive badges', () {
+    BadgeDef exclusive(String id, DateTime? until) => BadgeDef(id: id, emoji: '⌛', name: id, description: '', tier: BadgeTier.exclusive, target: 1, value: (s) => s.founder, availableUntil: until);
+
+    test('one out of reach shows only to those who have it — for good', () {
+      final now = DateTime(2026, 10, 6);
+      final gone = exclusive('gone', DateTime(2026, 10, 1));
+      expect(gone.isAvailable(now), isFalse);
+      expect(gone.shownTo(const {}, now), isFalse, reason: 'no longer to unlock: hidden');
+      expect(gone.shownTo(const {'gone'}, now), isTrue, reason: 'earned: shown for good');
+
+      final open = exclusive('open', DateTime(2026, 11, 1));
+      expect(open.shownTo(const {}, now), isTrue, reason: 'still on offer: to unlock');
+      expect(open.isAvailable(DateTime(2026, 11, 1)), isFalse, reason: 'its end is the first moment it is gone');
+      expect(exclusive('open_ended', null).isAvailable(DateTime(2100)), isTrue, reason: 'no end set: on offer until further notice');
+    });
+
+    test('every other badge stays on offer for good', () {
+      for (final b in kBadges.where((b) => !b.isExclusive)) {
+        expect(b.availableUntil, isNull, reason: b.id);
+      }
+      expect(badgesShown(const {}, DateTime(2100)).where((b) => !b.isExclusive), hasLength(kBadges.where((b) => !b.isExclusive).length));
+    });
+
+    test('Fondateur: exclusive, earned with the Fondateur plan, on offer as long as the plan is', () {
+      final founder = badgeById('founder')!;
+      expect(founder.isExclusive, isTrue);
+      expect(founder.isEarned(computeBadgeStats(uid: 'a', matches: const [], founder: true)), isTrue);
+      expect(founder.isEarned(computeBadgeStats(uid: 'a', matches: const [])), isFalse);
+      expect(founder.availableUntil, kFounderOfferEnds);
+      final now = DateTime.now();
+      expect(founder.isAvailable(now), founderOfferOpen(now));
+    });
+  });
+
   test('every banner id resolves, unknown ones fall back to the default', () {
     for (final b in kBannerThemes) {
       expect(bannerThemeById(b.id).id, b.id);
@@ -222,8 +259,8 @@ void main() {
     const lea = AppUser(uid: 'lea', email: 'lea@test.fr', displayName: 'Léa', color: 0xFFFF5B34);
     const tom = AppUser(uid: 'tom', email: 'tom@test.fr', displayName: 'Tom', color: 0xFF5B4BE8);
 
-    ({AppState state, FakeAuthRepository auth, FakeUsersRepository users}) seed({FakeMatchesRepository Function(Map<String, List<GameMatch>> seed)? matchesRepo}) {
-      final usersMap = {'lea': lea, 'tom': tom};
+    ({AppState state, FakeAuthRepository auth, FakeUsersRepository users}) seed({FakeMatchesRepository Function(Map<String, List<GameMatch>> seed)? matchesRepo, AppUser tomAs = tom}) {
+      final usersMap = {'lea': lea, 'tom': tomAs};
       final users = FakeUsersRepository(usersMap);
       final auth = FakeAuthRepository(seedUsers: usersMap);
       final group = Group(id: 'bandits', name: 'Les Bandits', emoji: '🃏', emojiBg: 0, memberIds: const ['lea', 'tom'], ownerId: 'lea');
@@ -309,6 +346,64 @@ void main() {
       expect(s.users.users['tom']!.badges, isEmpty, reason: 'only Tom himself can save his badges');
       expect(state.earnedBadgeIds('tom'), contains('first_game'));
       expect(state.earnedBadgeIds('tom'), isNot(contains('first_win')));
+    });
+
+    testWidgets('taking the Fondateur plan unlocks its exclusive badge, kept for good once the plan is gone', (tester) async {
+      final s = seed();
+      final state = await signIn(tester, s);
+      await tester.pumpAndSettle();
+      expect(state.earnedBadgeIds('lea'), isNot(contains('founder')));
+
+      expect(await state.simulatePlusPurchase(PlusTier.plusPlus, PlusPlan.lifetime), isTrue);
+      await tester.pump();
+      await tester.pump();
+      expect(s.users.users['lea']!.badges, contains('founder'));
+      expect(state.pendingBadgeUnlocks, ['founder']);
+      expect(find.text('BADGE EXCLUSIF DÉBLOQUÉ !'), findsOneWidget);
+      // The celebration plays out — its medal alive all along, so not
+      // pumpAndSettle.
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pump();
+      expect(find.byType(BadgeUnlockBanner), findsNothing);
+
+      expect(await state.simulatePlusCancel(), isTrue);
+      await tester.pump();
+      expect(s.users.users['lea']!.badges, contains('founder'), reason: 'once earned, an exclusive badge stays');
+      expect(state.earnedBadgeIds('lea'), contains('founder'));
+    });
+
+    testWidgets('another player who took the Fondateur plan shows its badge before they save it', (tester) async {
+      final s = seed(tomAs: tom.copyWith(plus: () => PlusMembership(tier: PlusTier.plusPlus, plan: PlusPlan.lifetime, since: DateTime(2026, 10, 1))));
+      final state = await signIn(tester, s);
+      await tester.pumpAndSettle();
+      expect(s.users.users['tom']!.badges, isEmpty);
+      expect(state.earnedBadgeIds('tom'), contains('founder'));
+    });
+
+    testWidgets('the badges screen lists Fondateur first: to unlock while it\'s on offer, then earned', (tester) async {
+      tester.view.physicalSize = const Size(800, 5000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final s = seed();
+      final state = await signIn(tester, s);
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(ChangeNotifierProvider.value(value: state, child: const MaterialApp(home: BadgesScreen(uid: 'lea'))));
+      await tester.pumpAndSettle();
+      // The badge names in a grid, in order.
+      List<String> names(Finder grid) => [
+            for (final t in tester.widgetList<Text>(find.descendant(of: grid, matching: find.byType(Text))))
+              if (kBadges.any((b) => b.name == t.data)) t.data!,
+          ];
+      final earned = state.earnedBadgeIds('lea').length;
+      expect(find.text('À débloquer · ${kBadges.length - earned}'), findsOneWidget, reason: 'every badge shows while Fondateur is on offer');
+      expect(names(find.byType(GridView).last).first, 'Fondateur');
+
+      await state.simulatePlusPurchase(PlusTier.plusPlus, PlusPlan.lifetime);
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(names(find.byType(GridView).first).first, 'Fondateur', reason: 'the rarest of those earned');
+      expect(names(find.byType(GridView).last), isNot(contains('Fondateur')));
     });
 
     testWidgets('solo variants stay out of the collection; played games map to the box you own', (tester) async {

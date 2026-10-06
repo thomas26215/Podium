@@ -3064,7 +3064,8 @@ class AppState extends ChangeNotifier {
   /// `uid`'s progress toward every badge, judged on the active group's or
   /// salon's finalised matches and tournaments (the solo space has no
   /// opponents to beat, so its attempts don't count). Friends are private,
-  /// so they only count toward the signed-in player's own badges.
+  /// so they only count toward the signed-in player's own badges; the
+  /// Fondateur plan is on the public profile, so it counts for anyone.
   BadgeStats badgeStatsFor(String uid) {
     final user = playerById(uid);
     final ms = isPersonalContext ? const <GameMatch>[] : viewMatches;
@@ -3077,6 +3078,7 @@ class AppState extends ChangeNotifier {
       leading: leading,
       ownedGames: user?.ownedGameIds.length ?? 0,
       friends: uid == currentUser?.uid ? friends.length : 0,
+      founder: user?.plus?.plan == PlusPlan.lifetime,
     );
   }
 

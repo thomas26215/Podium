@@ -59,7 +59,7 @@ _Offer _offer(PlusTier tier, PlusPlan plan, {bool upgrade = false}) {
         title: 'Fondateur à vie',
         price: '49,99 €',
         per: 'une seule fois',
-        detail: 'Podium++ pour toujours',
+        detail: 'Podium++ pour toujours, et le badge exclusif Fondateur',
         tag: 'Offre de lancement',
         cta: 'Devenir Fondateur pour 49,99 €',
         fine: 'Un seul paiement : Podium++ reste à vous pour toujours.',
@@ -67,8 +67,9 @@ _Offer _offer(PlusTier tier, PlusPlan plan, {bool upgrade = false}) {
   };
 }
 
-/// The plans of [tier] — the lifetime one is Podium++'s.
-List<PlusPlan> _plansOf(PlusTier tier) => [PlusPlan.yearly, PlusPlan.monthly, if (tier == PlusTier.plusPlus) PlusPlan.lifetime];
+/// The plans of [tier] — the lifetime one is Podium++'s, while its launch
+/// offer runs.
+List<PlusPlan> _plansOf(PlusTier tier) => [PlusPlan.yearly, PlusPlan.monthly, if (tier == PlusTier.plusPlus && founderOfferOpen(DateTime.now())) PlusPlan.lifetime];
 
 /// "6 oct. 2026".
 String _longDate(DateTime d) => '${frenchDayMonth(d)} ${d.year}';
@@ -268,7 +269,7 @@ class _PlusScreenState extends State<PlusScreen> {
     final String title, text;
     if (joined?.plan == PlusPlan.lifetime) {
       title = 'Bienvenue, Fondateur !';
-      text = 'Podium++ est à vous pour toujours. Merci de soutenir Podium !';
+      text = 'Podium++ est à vous pour toujours, avec le badge exclusif Fondateur. Merci de soutenir Podium !';
     } else if (joined != null) {
       final trialEnd = membership?.trialEndsAt;
       title = 'Bienvenue dans ${joined.tier.label} !';

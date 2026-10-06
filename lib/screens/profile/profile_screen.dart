@@ -69,6 +69,7 @@ class ProfileScreen extends StatelessWidget {
     final points = mine.isNotEmpty ? mine.first.points : 0;
     final eloRow = mine.firstOrNull;
     final isMe = profileId == app.currentUser?.uid;
+    final earnedBadges = app.earnedBadgeIds(profileId);
     // Only a member's card shows its Podium+ cosmetics.
     final card = profile.shown;
     // Discord-style profile theme: the screen picks up a wash of the
@@ -165,7 +166,7 @@ class ProfileScreen extends StatelessWidget {
                   if (!profile.isGuest) ...[
                     const SizedBox(height: 22),
                     SectionHeader(
-                      title: 'Badges · ${app.earnedBadgeIds(profileId).where((id) => badgeById(id) != null).length}/${kBadges.length}',
+                      title: 'Badges · ${earnedBadges.where((id) => badgeById(id) != null).length}/${badgesShown(earnedBadges, DateTime.now()).length}',
                       actionLabel: 'Tout voir',
                       onAction: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => BadgesScreen(uid: profileId))),
                     ),
@@ -648,7 +649,8 @@ class _SwitchAccountDialogState extends State<_SwitchAccountDialog> {
 }
 
 /// The profile's badge row: the player's unlocked medals (most prestigious
-/// first) — or, before any, the ones they're closest to.
+/// first) — or, before any, the ones they're closest to: won by playing,
+/// so never an exclusive one.
 class _BadgeShelf extends StatelessWidget {
   final AppUser user;
   final bool isMe;
@@ -660,7 +662,7 @@ class _BadgeShelf extends StatelessWidget {
     final earnedIds = app.earnedBadgeIds(user.uid);
     final earned = kBadges.where((b) => earnedIds.contains(b.id)).toList()..sort((a, b) => b.tier.index.compareTo(a.tier.index));
     final stats = app.badgeStatsFor(user.uid);
-    final upcoming = earned.isEmpty ? (kBadges.toList()..sort((a, b) => b.progress(stats).compareTo(a.progress(stats)))).take(4).toList() : const <BadgeDef>[];
+    final upcoming = earned.isEmpty ? (kBadges.where((b) => !b.isExclusive).toList()..sort((a, b) => b.progress(stats).compareTo(a.progress(stats)))).take(4).toList() : const <BadgeDef>[];
     final shown = earned.isNotEmpty ? earned : upcoming;
     if (shown.isEmpty) return const SizedBox.shrink();
     return Container(
