@@ -96,6 +96,33 @@ void main() {
       expect(badgeById('champion')!.isEarned(computeBadgeStats(uid: 'b', matches: const [], tournaments: [t])), isFalse);
     });
 
+    test('opponents, games won, big tables, days played and the longest daily run', () {
+      final ms = [
+        _match('1', ['a'], ['b', 'c', 'd', 'e', 'f'], game: 'catan', at: DateTime(2026, 3, 30, 20)),
+        _match('2', ['a', 'g'], ['b', 'h'], game: 'petanque', mode: 'team', at: DateTime(2026, 3, 31, 20)),
+        _match('3', ['a', 'i'], const [], game: 'pandemic', mode: 'coop', at: DateTime(2026, 4, 1, 20)),
+        _match('4', ['b'], ['a'], game: 'skyjo', at: DateTime(2026, 4, 3, 20)),
+      ];
+      final s = computeBadgeStats(uid: 'a', matches: ms);
+      expect(s.distinctOpponents, 6); // b–f, then h; not teammate g nor co-op partner i
+      expect(s.distinctGamesWon, 3);
+      expect(s.crowdWins, 1);
+      expect(s.daysPlayed, 4);
+      expect(s.bestDayStreak, 3); // 30 Mar → 1 Apr, across the month change
+      expect(badgeById('crowd_1')!.isEarned(s), isTrue);
+      expect(badgeById('daily_3')!.isEarned(s), isTrue);
+    });
+
+    test('every badge id is unique and every title points to a real badge', () {
+      expect(kBadges.map((b) => b.id).toSet().length, kBadges.length);
+      for (final t in kTitles) {
+        if (t.badgeId != null) expect(badgeById(t.badgeId!), isNotNull, reason: t.id);
+      }
+      for (final tier in BadgeTier.values) {
+        expect(kBadges.any((b) => b.tier == tier), isTrue, reason: tier.name);
+      }
+    });
+
     test('progress is capped at 1', () {
       final s = computeBadgeStats(uid: 'a', matches: const [], ownedGames: 80);
       expect(badgeById('game_library')!.progress(s), 1.0);

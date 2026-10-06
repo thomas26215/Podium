@@ -22,7 +22,10 @@ class BadgesScreen extends StatelessWidget {
     final isMe = uid == app.currentUser?.uid;
     final stats = app.badgeStatsFor(uid);
     final earnedIds = app.earnedBadgeIds(uid);
-    final earned = kBadges.where((b) => earnedIds.contains(b.id)).toList();
+    // Rarest first, then in catalogue order within a tier.
+    final earned = [
+      for (final t in BadgeTier.values.reversed) ...kBadges.where((b) => b.tier == t && earnedIds.contains(b.id)),
+    ];
     final locked = kBadges.where((b) => !earnedIds.contains(b.id)).toList()..sort((a, b) => b.progress(stats).compareTo(a.progress(stats)));
 
     Widget tile(BadgeDef b, bool isEarned) {
@@ -85,7 +88,7 @@ class BadgesScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 6, 20, 40),
         children: [
-          FadeSlideIn(child: _ProgressSummary(earned: earned.length, total: kBadges.length)),
+          FadeSlideIn(child: _ProgressSummary(earned: earned)),
           if (isMe)
             Padding(
               padding: const EdgeInsets.only(top: 10),
@@ -115,45 +118,93 @@ class BadgesScreen extends StatelessWidget {
   }
 }
 
+/// How many badges are unlocked overall, then per tier.
 class _ProgressSummary extends StatelessWidget {
-  final int earned;
-  final int total;
-  const _ProgressSummary({required this.earned, required this.total});
+  final List<BadgeDef> earned;
+  const _ProgressSummary({required this.earned});
 
   @override
   Widget build(BuildContext context) {
+    final total = kBadges.length;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: cardDecoration(radius: AppRadius.xl),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('🏅', style: const TextStyle(fontSize: 30)),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    AnimatedCounter(value: earned, style: dispFont(size: 24, weight: FontWeight.w800, color: AppColors.ink)),
-                    Text(' / $total badges', style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.mut)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(99),
-                  child: TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0, end: total == 0 ? 0 : earned / total),
-                    duration: const Duration(milliseconds: 1000),
-                    curve: Curves.easeOutCubic,
-                    builder: (context, v, _) => LinearProgressIndicator(value: v, minHeight: 8, color: AppColors.gold, backgroundColor: AppColors.segTrack),
-                  ),
-                ),
-              ],
-            ),
+          _overall(total),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final t in BadgeTier.values) _TierChip(tier: t, earned: earned.where((b) => b.tier == t).length, total: kBadges.where((b) => b.tier == t).length),
+            ],
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _overall(int total) {
+    final earned = this.earned.length;
+    return Row(
+      children: [
+        Text('🏅', style: const TextStyle(fontSize: 30)),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  AnimatedCounter(value: earned, style: dispFont(size: 24, weight: FontWeight.w800, color: AppColors.ink)),
+                  Text(' / $total badges', style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.mut)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(99),
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: total == 0 ? 0 : earned / total),
+                  duration: const Duration(milliseconds: 1000),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, v, _) => LinearProgressIndicator(value: v, minHeight: 8, color: AppColors.gold, backgroundColor: AppColors.segTrack),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TierChip extends StatelessWidget {
+  final BadgeTier tier;
+  final int earned;
+  final int total;
+  const _TierChip({required this.tier, required this.earned, required this.total});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = badgeTierColors(tier);
+    final any = earned > 0;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(6, 4, 9, 4),
+      decoration: BoxDecoration(
+        color: any ? c.to.withValues(alpha: 0.16) : AppColors.segTrack,
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: any ? c.from.withValues(alpha: 0.45) : Colors.transparent),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          BadgeTierGlyph(tier: tier, size: 13),
+          const SizedBox(width: 5),
+          Text('${badgeTierLabel(tier)} $earned/$total', style: bodyFont(size: 11.5, weight: FontWeight.w800, color: any ? AppColors.ink : AppColors.mut)),
         ],
       ),
     );

@@ -79,6 +79,23 @@ void drawGlow(Canvas canvas, Offset c, double radius, Color color, [double alpha
   );
 }
 
+/// A band of light sweeping across [clip] — [u] from 0 (off to the left of
+/// the shape, about [r] round [c]) to 1 (off to the right).
+void drawSheen(Canvas canvas, Path clip, Offset c, double r, double u, [double alpha = 0.7]) {
+  if (u <= 0 || u >= 1) return;
+  canvas.save();
+  canvas.clipPath(clip);
+  canvas.translate(c.dx + lerpD(-r * 1.6, r * 1.6, u), c.dy);
+  canvas.rotate(-0.6);
+  canvas.drawRect(
+    Rect.fromCenter(center: Offset.zero, width: r * 0.55, height: r * 3),
+    Paint()
+      ..blendMode = BlendMode.plus
+      ..shader = ui.Gradient.linear(Offset(-r * 0.28, 0), Offset(r * 0.28, 0), [const Color(0x00FFFFFF), Colors.white.withValues(alpha: alpha), const Color(0x00FFFFFF)], const [0, 0.5, 1]),
+  );
+  canvas.restore();
+}
+
 Color hsv(double hue, double s, double v, [double a = 1]) => HSVColor.fromAHSV(a, fract(hue / 360) * 360, s, v).toColor();
 
 // ============================== particles ==============================

@@ -7,7 +7,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:podium/logic/badges.dart';
 import 'package:podium/widgets/ambient_loop.dart';
+import 'package:podium/widgets/badge_widgets.dart';
 import 'package:podium/widgets/profile_banners.dart';
 import 'package:podium/widgets/profile_style.dart';
 
@@ -163,6 +165,26 @@ void main() {
         if (seam > 0.002) jumps.add('${effect.id}: ${_pct(seam)}');
       }
       expect(jumps, isEmpty, reason: 'these effects jump when their loop restarts');
+    });
+  });
+
+  group('prestige medals', () {
+    testWidgets('every tier above gold paints at any moment, locked or not, and loops seamlessly', (tester) async {
+      final jumps = <String>[];
+      for (final tier in BadgeTier.values.where((t) => t.index > BadgeTier.gold.index)) {
+        final badge = kBadges.firstWhere((b) => b.tier == tier);
+        Widget at(double ph) => ColoredBox(color: Colors.white, child: Center(child: BadgeMedal(badge: badge, earned: true, size: 96, phase: ph)));
+        for (final ph in const [0.2, 0.55, 0.9]) {
+          await _capture(tester, at(ph), const Size(120, 120));
+          expect(tester.takeException(), isNull, reason: tier.name);
+        }
+        await _capture(tester, BadgeMedal(badge: badge, earned: false, size: 56, progress: 0.6), const Size(80, 80));
+        await tester.pump(const Duration(seconds: 1)); // the progress traced along the outline
+        expect(tester.takeException(), isNull, reason: '${tier.name}, locked');
+        final seam = await _seam(tester, at, const Size(120, 120));
+        if (seam > 0.002) jumps.add('${tier.name}: ${_pct(seam)}');
+      }
+      expect(jumps, isEmpty, reason: 'these medals jump when their loop restarts');
     });
   });
 

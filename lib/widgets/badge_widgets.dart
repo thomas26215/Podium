@@ -8,29 +8,65 @@ import '../theme/app_theme.dart';
 import 'ambient_loop.dart';
 import 'common.dart';
 import 'fx_kit.dart';
+import 'prestige_medal.dart';
 
 /// Medal colours per tier: rim gradient, then the face behind the emoji.
 ({Color from, Color to, Color face}) badgeTierColors(BadgeTier t) => switch (t) {
       BadgeTier.bronze => (from: const Color(0xFFB0652A), to: const Color(0xFFE9A86B), face: const Color(0xFFFFF1E4)),
       BadgeTier.silver => (from: const Color(0xFF8D96A5), to: const Color(0xFFE3E7EE), face: const Color(0xFFF5F7FA)),
       BadgeTier.gold => (from: const Color(0xFFC98A12), to: const Color(0xFFFFD873), face: const Color(0xFFFFF8E1)),
+      BadgeTier.platinum => (from: const Color(0xFF4F8A96), to: const Color(0xFFCFF4F2), face: const Color(0xFFEFFCFB)),
+      BadgeTier.diamond => (from: const Color(0xFF2A6FE8), to: const Color(0xFF9FE6FF), face: const Color(0xFFEAF7FF)),
+      BadgeTier.mythic => (from: const Color(0xFF8A2BE2), to: const Color(0xFFFF7AD9), face: const Color(0xFFFCEFFF)),
     };
 
 String badgeTierLabel(BadgeTier t) => switch (t) {
       BadgeTier.bronze => 'Bronze',
       BadgeTier.silver => 'Argent',
       BadgeTier.gold => 'Or',
+      BadgeTier.platinum => 'Platine',
+      BadgeTier.diamond => 'Diamant',
+      BadgeTier.mythic => 'Mythique',
     };
 
-/// A round medal for one badge. Locked: greyed out, with a progress ring
-/// when [progress] is given. Earned: tier-coloured rim and a shine sweeping
-/// across it as it appears — or, when [live], kept alive on its own loop
-/// (the light turning round the rim, a shine every few seconds, gold ones
-/// twinkling). [phase] draws that live look at one point of the loop, for
-/// a parent that runs the loop itself.
+/// A tiny swatch of [tier] — its medal's shape in its colours — for legends.
+class BadgeTierGlyph extends StatelessWidget {
+  final BadgeTier tier;
+  final double size;
+  const BadgeTierGlyph({super.key, required this.tier, this.size = 12});
+
+  @override
+  Widget build(BuildContext context) => CustomPaint(size: Size.square(size), painter: _TierGlyphPainter(tier));
+}
+
+class _TierGlyphPainter extends CustomPainter {
+  final BadgeTier tier;
+  _TierGlyphPainter(this.tier);
+
+  @override
+  void paint(Canvas canvas, Size s) {
+    final c = badgeTierColors(tier);
+    final shape = isPrestigeTier(tier) ? prestigeGlyph(tier, s.width) : (Path()..addOval(Offset.zero & s));
+    canvas.drawPath(shape, Paint()..shader = ui.Gradient.linear(Offset.zero, Offset(s.width, s.height), [c.to, c.from]));
+  }
+
+  @override
+  bool shouldRepaint(_TierGlyphPainter old) => old.tier != tier;
+}
+
+/// The medal for one badge. Bronze, silver and gold ones are round. Locked:
+/// greyed out, with a progress ring when [progress] is given. Earned:
+/// tier-coloured rim and a shine sweeping across it as it appears — or,
+/// when [live], kept alive on its own loop (the light turning round the
+/// rim, a shine every few seconds, gold ones twinkling). [phase] draws that
+/// live look at one point of the loop, for a parent that runs the loop
+/// itself.
 ///
 /// Only go [live] where the player chose to show the badge off: a looping
 /// medal on a default screen would keep tests' pumpAndSettle from settling.
+/// Rarer tiers are the exception: they get a design of their own, which
+/// always moves once earned (see [PrestigeMedal]) — earning one is the
+/// player's doing too.
 class BadgeMedal extends StatelessWidget {
   final BadgeDef badge;
   final bool earned;
@@ -42,6 +78,7 @@ class BadgeMedal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (isPrestigeTier(badge.tier)) return PrestigeMedal(badge: badge, earned: earned, size: size, progress: progress, phase: phase);
     final c = badgeTierColors(badge.tier);
     final rim = size * 0.09;
     if (!earned) {
@@ -74,16 +111,7 @@ class BadgeMedal extends StatelessWidget {
                   builder: (context, v, _) => CircularProgressIndicator(value: v, strokeWidth: rim, color: AppColors.accent, backgroundColor: Colors.transparent, strokeCap: StrokeCap.round),
                 ),
               ),
-            Positioned(
-              right: 0,
-              bottom: 0,
-              child: Container(
-                width: size * 0.32,
-                height: size * 0.32,
-                decoration: BoxDecoration(color: AppColors.bg, shape: BoxShape.circle, border: Border.all(color: AppColors.line)),
-                child: Icon(Icons.lock_rounded, size: size * 0.18, color: AppColors.mut),
-              ),
-            ),
+            Positioned(right: 0, bottom: 0, child: BadgeLockPip(size: size)),
           ],
         ),
       );
@@ -132,17 +160,7 @@ class _MedalFx extends CustomPainter {
     final c = s.center(Offset.zero);
     final r = s.width / 2;
     final u = shine ?? (ph == null ? null : loopWindow(ph!, 0.05, 0.3));
-    if (u != null && u > 0 && u < 1) {
-      canvas.save();
-      canvas.clipPath(Path()..addOval(Rect.fromCircle(center: c, radius: r)));
-      final x = lerpD(-r * 1.6, r * 1.6, u);
-      canvas.translate(c.dx + x, c.dy);
-      canvas.rotate(-0.6);
-      canvas.drawRect(Rect.fromCenter(center: Offset.zero, width: r * 0.55, height: r * 3), Paint()
-        ..blendMode = BlendMode.plus
-        ..shader = ui.Gradient.linear(Offset(-r * 0.28, 0), Offset(r * 0.28, 0), [const Color(0x00FFFFFF), const Color(0xB3FFFFFF), const Color(0x00FFFFFF)], const [0, 0.5, 1]));
-      canvas.restore();
-    }
+    if (u != null) drawSheen(canvas, Path()..addOval(Rect.fromCircle(center: c, radius: r)), c, r, u);
     if (ph != null && tier == BadgeTier.gold) {
       for (var i = 0; i < 2; i++) {
         final k = loopWindow(ph!, 0.45 + i * 0.25, 0.18);
@@ -265,7 +283,8 @@ class _BadgeUnlockBannerState extends State<BadgeUnlockBanner> with SingleTicker
 
   @override
   Widget build(BuildContext context) {
-    final badges = widget.badgeIds.map(badgeById).whereType<BadgeDef>().toList();
+    // The rarest one leads the celebration.
+    final badges = widget.badgeIds.map(badgeById).whereType<BadgeDef>().toList()..sort((a, b) => b.tier.index.compareTo(a.tier.index));
     if (badges.isEmpty) return const SizedBox.shrink();
     final first = badges.first;
     final title = badges.length == 1 ? 'Badge débloqué !' : '${badges.length} badges débloqués !';
