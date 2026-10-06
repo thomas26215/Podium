@@ -3,17 +3,23 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../logic/badges.dart';
+import '../../logic/plus.dart';
 import '../../models/app_user.dart';
 import '../../models/game.dart';
+import '../../models/plus_membership.dart';
 import '../../state/app_state.dart';
 import '../../state/session_manager.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/avatar.dart';
 import '../../widgets/badge_widgets.dart';
+import '../../widgets/coins.dart';
 import '../../widgets/common.dart';
+import '../../widgets/plus_mark.dart';
 import '../../widgets/profile_banners.dart';
 import '../../widgets/profile_style.dart';
+import '../plus/plus_screen.dart';
 import '../settings/settings_screen.dart';
+import '../shop/shop_screen.dart';
 import 'badges_screen.dart';
 import 'collection_screen.dart';
 import 'edit_profile_screen.dart';
@@ -63,9 +69,11 @@ class ProfileScreen extends StatelessWidget {
     final points = mine.isNotEmpty ? mine.first.points : 0;
     final eloRow = mine.firstOrNull;
     final isMe = profileId == app.currentUser?.uid;
+    // Only a member's card shows its Podium+ cosmetics.
+    final card = profile.shown;
     // Discord-style profile theme: the screen picks up a wash of the
     // player's banner colour at the top — see-through over a backdrop.
-    final wash = bannerThemeById(profile.banner).colors.first.withValues(alpha: AppColors.isDark ? 0.45 : 0.16);
+    final wash = bannerThemeById(card.banner).colors.first.withValues(alpha: AppColors.isDark ? 0.45 : 0.16);
     final overBackdrop = AppColors.canvas.a == 0;
     final tint = overBackdrop ? wash : Color.alphaBlend(wash, AppColors.bg);
 
@@ -131,11 +139,12 @@ class ProfileScreen extends StatelessWidget {
                   FadeSlideIn(
                     delay: const Duration(milliseconds: 60),
                     child: ProfileHeaderCard(
-                      user: profile,
+                      user: card,
                       subtitle: '${rank > 0 ? '${rank}e du classement' : 'Pas encore classé'} · $points pts cumulés',
                       favoriteGame: profile.favoriteGameId == null ? null : app.libraryGameById(profile.favoriteGameId!),
                       onEdit: isMe ? () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EditProfileScreen())) : null,
                       onTapBadge: (b) => _openBadge(context, app, profile, b),
+                      onTapPlus: () => PlusScreen.open(context),
                     ),
                   ),
                   const SizedBox(height: 22),
@@ -184,6 +193,10 @@ class ProfileScreen extends StatelessWidget {
                   FadeSlideIn(delay: const Duration(milliseconds: 140), child: ProfileStatsCard(uid: profileId)),
                   if (isMe) ...[
                     const SizedBox(height: 22),
+                    FadeSlideIn(delay: const Duration(milliseconds: 170), child: _PlusEntry(membership: profile.plus)),
+                    const SizedBox(height: 10),
+                    FadeSlideIn(delay: const Duration(milliseconds: 175), child: _ShopEntry(coins: app.coins)),
+                    const SizedBox(height: 10),
                     FadeSlideIn(
                       delay: const Duration(milliseconds: 180),
                       child: Pressable(
@@ -320,6 +333,91 @@ class ProfileScreen extends StatelessWidget {
             FittedBox(fit: BoxFit.scaleDown, child: Text(value, style: dispFont(size: 26, weight: FontWeight.w700, color: color))),
             const SizedBox(height: 1),
             Text(label, style: bodyFont(size: 11, weight: FontWeight.w700, color: AppColors.mut)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Podium+ and Podium++ on the player's own profile — an invitation, or
+/// their membership — opening the Podium+ page. Holds still: it sits on a
+/// screen everyone sees.
+class _PlusEntry extends StatelessWidget {
+  final PlusMembership? membership;
+  const _PlusEntry({required this.membership});
+
+  @override
+  Widget build(BuildContext context) {
+    final m = membership;
+    final line = m == null
+        ? 'Podium+ pour votre carte, Podium++ pour toute l’interface en plus. 7 jours offerts.'
+        : m.plan == PlusPlan.lifetime
+            ? 'Fondateur à vie · Merci de soutenir Podium !'
+            : 'Abonnement ${m.plan.label.toLowerCase()} · Gérer';
+    return Pressable(
+      onTap: () => PlusScreen.open(context),
+      child: Container(
+        padding: const EdgeInsets.all(1.6),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppRadius.lg + 1.6),
+          gradient: const LinearGradient(colors: kPlusGradient),
+          boxShadow: [BoxShadow(color: kPlusGradient[1].withValues(alpha: 0.25), blurRadius: 16, offset: const Offset(0, 6))],
+        ),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [kPlusNight, Color.lerp(kPlusNight, kPlusGradient[2], 0.4)!]),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    PlusWordmark(size: 19, tier: m?.tier ?? PlusTier.plus),
+                    const SizedBox(height: 7),
+                    Text(line, style: bodyFont(size: 12.5, weight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.78), height: 1.35)),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Icon(Icons.chevron_right_rounded, size: 22, color: Colors.white.withValues(alpha: 0.85)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The Boutique, from the player's own profile, with their jetons.
+class _ShopEntry extends StatelessWidget {
+  final int coins;
+  const _ShopEntry({required this.coins});
+
+  @override
+  Widget build(BuildContext context) {
+    return Pressable(
+      onTap: () => ShopScreen.open(context),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: cardDecoration(radius: AppRadius.lg),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(color: AppColors.gold.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(11)),
+              child: Icon(Icons.storefront_rounded, size: 19, color: AppColors.gold),
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Text('Boutique', style: bodyFont(size: 14.5, weight: FontWeight.w700, color: AppColors.ink))),
+            CoinAmount(coins, size: 13.5, color: AppColors.ink2),
+            const SizedBox(width: 8),
+            Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.mut),
           ],
         ),
       ),

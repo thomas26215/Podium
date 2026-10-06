@@ -4,13 +4,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../logic/plus.dart';
+import '../../models/plus_membership.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/backdrop.dart';
 import '../../widgets/appearance_preview.dart';
 import '../../widgets/common.dart';
 import '../../widgets/option_chip.dart';
+import '../../widgets/plus_mark.dart';
 import '../../widgets/segmented_control.dart';
+import '../shop/shop_item_view.dart';
+import '../shop/shop_screen.dart';
+import '../shop/unlock_sheet.dart';
 
 const _tabs = <({String label, IconData icon})>[
   (label: 'Thèmes', icon: Icons.auto_awesome_rounded),
@@ -25,7 +31,8 @@ const _tabs = <({String label, IconData icon})>[
 /// themes, then every piece of the look on its own — colours, surface
 /// effects, backdrop, fonts, corners — with a live miniature of the app
 /// pinned on top, and the app's other settings. Every change applies at
-/// once, everywhere (see AppearanceScope).
+/// once, everywhere (see AppearanceScope) — but for the Podium+ ones
+/// (marked with a +), which a non-member first sees on the Podium+ page.
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -110,21 +117,77 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
+/// Applies a pick — at once when the player has it (free, bought, or with
+/// Podium++); otherwise once it's unlocked, with the Boutique's sheet for
+/// the theme's [pack] or the one [item], which shows [look] off — in dark
+/// mode when [dark].
+Future<void> _pick(
+  BuildContext context,
+  AppState app, {
+  required bool locked,
+  ShopPack? pack,
+  ShopItem? item,
+  required String title,
+  String? why,
+  required Appearance look,
+  bool? dark,
+  required VoidCallback apply,
+}) async {
+  if (!locked) {
+    apply();
+    return;
+  }
+  final d = dark ?? app.isDark;
+  final outcome = await showUnlockSheet(
+    context,
+    items: [?item],
+    pack: pack,
+    title: title,
+    message: why,
+    preview: Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 300),
+        child: AspectRatio(
+          aspectRatio: AppearancePreview.designSize.aspectRatio,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(AppRadius.xl),
+            child: FittedBox(fit: BoxFit.cover, child: SizedBox.fromSize(size: AppearancePreview.designSize, child: AppearancePreview(tokens: AppTokens.resolve(look, dark: d)))),
+          ),
+        ),
+      ),
+    ),
+    plusPreviewLook: look,
+    plusPreviewDark: d,
+  );
+  if (outcome == UnlockOutcome.unlocked) apply();
+}
+
+/// [_pick] for one [part] of the look, sold on its own.
+Future<void> _pickPart(BuildContext context, AppState app, Object part, {required Appearance look, required VoidCallback apply}) {
+  final item = partItem(part);
+  return _pick(context, app, locked: !partUnlocked(part, app.unlocks), item: item, title: shopItemLabel(item), why: item.kind.label, look: look, apply: apply);
+}
+
 // ============================== tabs ==============================
 
 class _ThemesTab extends StatelessWidget {
   final AppState app;
   const _ThemesTab({required this.app});
 
-  /// A random look — one roll of the dice per setting.
+  /// A random look — one roll of the dice per setting, among what the
+  /// player has unlocked.
   Appearance _roll(math.Random r) {
-    T pick<T>(List<T> values) => values[r.nextInt(values.length)];
+    T pick<T extends Object>(Iterable<T> values) {
+      final list = values.where((v) => partUnlocked(v, app.unlocks)).toList();
+      return list[r.nextInt(list.length)];
+    }
+
     return app.appearance.copyWith(
       palette: pick(PaletteId.values),
-      accent: pick(AccentId.values.where((a) => a != AccentId.custom).toList()),
+      accent: pick(AccentId.values.where((a) => a != AccentId.custom)),
       surface: pick(SurfaceStyle.values),
       corners: pick(CornerStyle.values),
-      font: pick(FontPair.values.where((f) => f != FontPair.system).toList()),
+      font: pick(FontPair.values.where((f) => f != FontPair.system)),
       backdrop: pick(BackdropStyle.values),
       navBar: pick(NavBarStyle.values),
     );
@@ -156,6 +219,15 @@ class _ThemesTab extends StatelessWidget {
             ),
           ],
         ),
+        if (app.plusTier != PlusTier.plusPlus) ...[
+          const SizedBox(height: 14),
+          PlusHint(
+            text: 'Ce qui est marqué ++ s’achète à l’unité dans la Boutique, ou vient tout entier avec Podium++.',
+            action: 'Boutique',
+            tier: PlusTier.plusPlus,
+            onTap: () => ShopScreen.open(context, interface: true),
+          ),
+        ],
         const SizedBox(height: 14),
         GridView.count(
           crossAxisCount: 2,
@@ -607,11 +679,23 @@ class _PresetTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = preset.mode == ThemeMode.dark || (preset.mode == null && app.isDark);
-    final tokens = AppTokens.resolve(app.appearance.withLookOf(preset.look), dark: dark);
+    final look = app.appearance.withLookOf(preset.look);
+    final tokens = AppTokens.resolve(look, dark: dark);
+    final plus = preset.look.paidParts.any(app.unlocks.marksPart);
     return Pressable(
       onTap: () {
         HapticFeedback.selectionClick();
-        app.applyAppearancePreset(preset);
+        _pick(
+          context,
+          app,
+          locked: !preset.look.allowedBy(app.unlocks),
+          pack: themePack(preset),
+          title: '${preset.emoji}  Thème ${preset.label}',
+          why: '${preset.description} Achetez-le pour en garder chaque élément, à mélanger avec le reste de vos réglages.',
+          look: look,
+          dark: dark,
+          apply: () => app.applyAppearancePreset(preset),
+        );
       },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -636,6 +720,10 @@ class _PresetTile extends StatelessWidget {
                     if (preset.mode == ThemeMode.dark) ...[
                       const SizedBox(width: 5),
                       Icon(Icons.dark_mode_rounded, size: 13, color: AppColors.mut),
+                    ],
+                    if (plus) ...[
+                      const SizedBox(width: 6),
+                      const PlusMark(size: 16, tier: PlusTier.plusPlus),
                     ],
                   ],
                 ),
@@ -715,30 +803,37 @@ class _AccentSwatch extends StatelessWidget {
     final selected = a.accent == accent;
     final custom = accent == AccentId.custom;
     final color = custom ? accentForHue(a.customHue) : accent.color;
+    final plus = app.unlocks.marksPart(accent);
     return Pressable(
-      onTap: () => app.setAppearance(a.copyWith(accent: accent)),
+      onTap: () => _pickPart(context, app, accent, look: a.copyWith(accent: accent), apply: () => app.setAppearance(a.copyWith(accent: accent))),
       child: SizedBox(
         width: 54,
         child: Column(
           children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              width: 44,
-              height: 44,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: custom ? null : color,
-                gradient: custom ? SweepGradient(colors: [for (var h = 0; h <= 360; h += 45) accentForHue(h.toDouble())]) : null,
-                shape: BoxShape.circle,
-                border: selected ? Border.all(color: AppColors.ink, width: 3) : null,
-                boxShadow: [BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 10, offset: const Offset(0, 4))],
-              ),
-              child: AnimatedScale(
-                scale: selected || custom ? 1 : 0,
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOutBack,
-                child: Icon(custom && !selected ? Icons.tune_rounded : Icons.check, color: Colors.white, size: 19),
-              ),
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  width: 44,
+                  height: 44,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: custom ? null : color,
+                    gradient: custom ? SweepGradient(colors: [for (var h = 0; h <= 360; h += 45) accentForHue(h.toDouble())]) : null,
+                    shape: BoxShape.circle,
+                    border: selected ? Border.all(color: AppColors.ink, width: 3) : null,
+                    boxShadow: [BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 10, offset: const Offset(0, 4))],
+                  ),
+                  child: AnimatedScale(
+                    scale: selected || custom ? 1 : 0,
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOutBack,
+                    child: Icon(custom && !selected ? Icons.tune_rounded : Icons.check, color: Colors.white, size: 19),
+                  ),
+                ),
+                if (plus) const Positioned(top: -3, right: -9, child: PlusMark(size: 17, tier: PlusTier.plusPlus)),
+              ],
             ),
             const SizedBox(height: 6),
             Text(accent.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: bodyFont(size: 11, weight: FontWeight.w700, color: selected ? AppColors.ink : AppColors.mut)),
@@ -819,9 +914,10 @@ class _SurfaceTile extends StatelessWidget {
     final look = a.copyWith(surface: style, backdrop: style == SurfaceStyle.glass && a.backdrop == BackdropStyle.none ? BackdropStyle.aurora : a.backdrop);
     final t = AppTokens.resolve(look, dark: app.isDark);
     final f = t.radiusFactor;
+    final plus = app.unlocks.marksPart(style);
     Widget bar(Color c, double w) => Container(height: 5, width: w, decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(3)));
     return Pressable(
-      onTap: () => app.setAppearance(a.copyWith(surface: style)),
+      onTap: () => _pickPart(context, app, style, look: look, apply: () => app.setAppearance(a.copyWith(surface: style))),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -867,6 +963,7 @@ class _SurfaceTile extends StatelessWidget {
                       ],
                     ),
                   ),
+                  if (plus) const Positioned(bottom: 8, right: 8, child: PlusMark(size: 18, tier: PlusTier.plusPlus)),
                 ],
               ),
             ),
@@ -925,8 +1022,9 @@ class _BackdropTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final a = app.appearance;
     final selected = a.backdrop == style;
+    final plus = app.unlocks.marksPart(style);
     return Pressable(
-      onTap: () => app.setAppearance(a.copyWith(backdrop: style)),
+      onTap: () => _pickPart(context, app, style, look: a.copyWith(backdrop: style), apply: () => app.setAppearance(a.copyWith(backdrop: style))),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -938,7 +1036,17 @@ class _BackdropTile extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   BackdropView(tokens: AppColors.tokens, style: style, still: true),
-                  if (style.animatable) const Positioned(top: 5, right: 5, child: _Badge(icon: Icons.motion_photos_on_rounded)),
+                  Positioned(
+                    top: 5,
+                    right: 5,
+                    child: Row(
+                      children: [
+                        if (style.animatable) const _Badge(icon: Icons.motion_photos_on_rounded),
+                        if (style.animatable && plus) const SizedBox(width: 4),
+                        if (plus) const PlusMark(size: 19, tier: PlusTier.plusPlus),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -961,30 +1069,37 @@ class _FontTile extends StatelessWidget {
     final a = app.appearance;
     final selected = a.font == font;
     final families = font.bodyFamily == null ? 'Police de l’appareil' : '${font.bodyFamily} · ${font.displayFamily}';
+    final plus = app.unlocks.marksPart(font);
     return Pressable(
-      onTap: () => app.setAppearance(a.copyWith(font: font)),
-      child: AnimatedContainer(
-        duration: AppColors.motion.change,
-        curve: AppColors.motion.changeCurve,
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-        decoration: chipDecoration(radius: AppRadius.lg, fill: selected ? AppColors.accentSoft : null, border: selected ? AppColors.accent : null, borderWidth: 1.5, selected: selected),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
+      onTap: () => _pickPart(context, app, font, look: a.copyWith(font: font), apply: () => app.setAppearance(a.copyWith(font: font))),
+      child: Stack(
+        fit: StackFit.passthrough,
+        children: [
+          AnimatedContainer(
+            duration: AppColors.motion.change,
+            curve: AppColors.motion.changeCurve,
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+            decoration: chipDecoration(radius: AppRadius.lg, fill: selected ? AppColors.accentSoft : null, border: selected ? AppColors.accent : null, borderWidth: 1.5, selected: selected),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Aa', style: pairDisplayFont(font, size: 24, weight: FontWeight.w700, color: AppColors.ink, height: 1.1)),
-                const SizedBox(width: 8),
-                Expanded(child: Text('123', maxLines: 1, style: pairDisplayFont(font, size: 16, weight: FontWeight.w700, color: AppColors.accent))),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text('Aa', style: pairDisplayFont(font, size: 24, weight: FontWeight.w700, color: AppColors.ink, height: 1.1)),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text('123', maxLines: 1, style: pairDisplayFont(font, size: 16, weight: FontWeight.w700, color: AppColors.accent))),
+                  ],
+                ),
+                const Spacer(),
+                Text(font.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: pairBodyFont(font, size: 12.5, weight: FontWeight.w800, color: selected ? AppColors.accent : AppColors.ink2)),
+                Text(families, maxLines: 1, overflow: TextOverflow.ellipsis, style: bodyFont(size: 10, weight: FontWeight.w600, color: AppColors.mut)),
               ],
             ),
-            const Spacer(),
-            Text(font.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: pairBodyFont(font, size: 12.5, weight: FontWeight.w800, color: selected ? AppColors.accent : AppColors.ink2)),
-            Text(families, maxLines: 1, overflow: TextOverflow.ellipsis, style: bodyFont(size: 10, weight: FontWeight.w600, color: AppColors.mut)),
-          ],
-        ),
+          ),
+          if (plus) const Positioned(top: 8, right: 8, child: PlusMark(size: 17, tier: PlusTier.plusPlus)),
+        ],
       ),
     );
   }

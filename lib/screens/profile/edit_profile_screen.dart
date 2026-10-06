@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../logic/badges.dart';
+import '../../logic/plus.dart';
 import '../../models/app_user.dart';
 import '../../models/game.dart';
 import '../../state/app_state.dart';
@@ -13,8 +14,11 @@ import '../../widgets/avatar.dart';
 import '../../widgets/badge_widgets.dart';
 import '../../widgets/common.dart';
 import '../../widgets/option_chip.dart';
+import '../../widgets/plus_mark.dart';
 import '../../widgets/profile_banners.dart';
 import '../../widgets/profile_style.dart';
+import '../shop/shop_item_view.dart';
+import '../shop/unlock_sheet.dart';
 import 'profile_header.dart';
 
 const _avatarEmojis = [
@@ -42,6 +46,8 @@ const _tabs = <({String label, IconData icon})>[
 /// pronouns, title, status, bio), avatar (emoji, colour, decoration), card
 /// (banner, name font & effect, profile effect), showcase (pinned badges,
 /// favourite game) and game accounts — with the card previewed live on top.
+/// Podium+ cosmetics (marked with a +) can be tried on the preview by
+/// anyone; saving them takes Podium+.
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
 
@@ -118,8 +124,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   bool get _dirty => _signature(_built) != _signature(_initial);
 
   Future<void> _save(AppState app) async {
+    var profile = _built;
+    final locked = profile.lockedFor(app.unlocks);
+    if (locked.isNotEmpty) {
+      final outcome = await _unlock(locked, declineLabel: 'Enregistrer sans ces options');
+      if (outcome == null || !mounted) return;
+      if (outcome == UnlockOutcome.declined) profile = profile.within(app.unlocks);
+    }
     setState(() => _saving = true);
-    final ok = await app.saveProfile(_built);
+    final ok = await app.saveProfile(profile);
     if (!mounted) return;
     setState(() => _saving = false);
     if (ok) {
@@ -138,8 +151,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     final tabContent = switch (_tab) {
       0 => _identityTab(app, me),
-      1 => _avatarTab(me),
-      2 => _cardTab(),
+      1 => _avatarTab(me, app.unlocks),
+      2 => _cardTab(app.unlocks),
       3 => _showcaseTab(app, me),
       _ => _accountsTab(),
     };
@@ -217,6 +230,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Text(app.flowError!, style: bodyFont(size: 13, weight: FontWeight.w600, color: Colors.red)),
                     ),
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 260),
+                    curve: Curves.easeOutCubic,
+                    alignment: Alignment.bottomCenter,
+                    child: switch (_built.lockedFor(app.unlocks)) {
+                      final locked when locked.isNotEmpty => _plusHint(locked),
+                      _ => const SizedBox(width: double.infinity),
+                    },
+                  ),
                   PrimaryButton(label: 'Enregistrer', loading: _saving, onPressed: _dirty && _name.text.trim().isNotEmpty ? () => _save(app) : null),
                 ],
               ),
@@ -313,7 +335,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     ]);
   }
 
-  Widget _avatarTab(AppUser me) {
+  Widget _avatarTab(AppUser me, Unlocks unlocks) {
     return _section([
       _label('Avatar'),
       Wrap(
@@ -359,6 +381,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               selected: _draft.avatarFrame == f.id,
               onTap: () => _edit((d) => d.copyWith(avatarFrame: () => f.id)),
               label: f.label,
+              plus: f.id != null && unlocks.marks(ShopItem(ShopKind.frame, f.id!)),
               child: FramedAvatar(
                 frameId: f.id,
                 size: 38,
@@ -370,7 +393,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     ]);
   }
 
-  Widget _cardTab() {
+  Widget _cardTab(Unlocks unlocks) {
     final themes = kBannerThemes.where((b) => b.category == _bannerCategory).toList();
     return _section([
       _label('Bannière'),
@@ -412,6 +435,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       children: [
                         // The chosen one plays live; the others hold a still frame.
                         Positioned.fill(child: ProfileBannerBackground(themeId: b.id, phase: _draft.banner == b.id ? null : 0.35)),
+                        if (unlocks.marks(ShopItem(ShopKind.banner, b.id))) const Positioned(top: 7, right: 7, child: PlusMark(size: 17)),
                         Positioned(
                           left: 10,
                           bottom: 8,
@@ -449,6 +473,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               selected: _draft.nameFont == f.id,
               onTap: () => _edit((d) => d.copyWith(nameFont: () => f.id)),
               caption: f.label,
+              plus: f.id != null && unlocks.marks(ShopItem(ShopKind.nameFont, f.id!)),
               child: StyledName(text: _preview.displayName, fontId: f.id, size: 17, accent: Color(_draft.color)),
             ),
         ],
@@ -464,6 +489,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               selected: _draft.nameEffect == e.id,
               onTap: () => _edit((d) => d.copyWith(nameEffect: () => e.id)),
               caption: e.label,
+              plus: e.id != null && unlocks.marks(ShopItem(ShopKind.nameEffect, e.id!)),
               child: StyledName(text: _preview.displayName, fontId: _draft.nameFont, effectId: e.id, size: 17, accent: Color(_draft.color)),
             ),
         ],
@@ -504,6 +530,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 setState(() => _effectReplay++);
               },
               label: e.label,
+              plus: e.id != null && unlocks.marks(ShopItem(ShopKind.profileEffect, e.id!)),
               child: Text(e.emoji, style: const TextStyle(fontSize: 24)),
             ),
         ],
@@ -623,6 +650,28 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   // ============================== bits ==============================
 
+  /// Over the save button while the draft wears paid cosmetics the player
+  /// hasn't unlocked.
+  Widget _plusHint(List<ShopItem> locked) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: PlusHint(
+          text: locked.length > 1 ? '${locked.length} options de votre carte sont à débloquer.' : 'Une option de votre carte est à débloquer.',
+          action: 'Débloquer',
+          onTap: () => _unlock(locked),
+        ),
+      );
+
+  /// Opens the sheet unlocking [locked] — what the draft wears that the
+  /// player doesn't have — with jetons or Podium+.
+  Future<UnlockOutcome?> _unlock(List<ShopItem> locked, {String? declineLabel}) => showUnlockSheet(
+        context,
+        items: locked,
+        title: locked.length > 1 ? 'Débloquer vos choix' : 'Débloquer « ${shopItemLabel(locked.single)} »',
+        message: 'À vous pour toujours avec des jetons — ou tout le catalogue avec Podium+.',
+        plusPreview: _preview,
+        declineLabel: declineLabel,
+      );
+
   Widget _section(List<Widget> children) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children);
 
   Widget _label(String text) => Padding(
@@ -671,58 +720,72 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  /// A selectable square tile with a visual on top and a caption.
-  Widget _tile({required bool selected, required VoidCallback onTap, required String label, required Widget child}) {
+  /// A selectable square tile with a visual on top and a caption — and
+  /// the Podium+ mark in its corner when [plus].
+  Widget _tile({required bool selected, required VoidCallback onTap, required String label, required Widget child, bool plus = false}) {
     return Pressable(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: AppColors.motion.change,
-        curve: AppColors.motion.changeCurve,
-        padding: const EdgeInsets.fromLTRB(4, 8, 4, 6),
-        decoration: cardDecoration(
-          radius: AppRadius.lg,
-          fill: selected ? AppColors.accentSoft : null,
-          border: selected ? AppColors.accent : null,
-          borderWidth: 1.5,
-          selected: selected,
-        ),
-        child: Column(
-          children: [
-            Expanded(child: Center(child: child)),
-            const SizedBox(height: 4),
-            Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: bodyFont(size: 11.5, weight: FontWeight.w800, color: selected ? AppColors.accent : AppColors.ink2)),
-          ],
-        ),
+      child: Stack(
+        fit: StackFit.passthrough,
+        children: [
+          AnimatedContainer(
+            duration: AppColors.motion.change,
+            curve: AppColors.motion.changeCurve,
+            padding: const EdgeInsets.fromLTRB(4, 8, 4, 6),
+            decoration: cardDecoration(
+              radius: AppRadius.lg,
+              fill: selected ? AppColors.accentSoft : null,
+              border: selected ? AppColors.accent : null,
+              borderWidth: 1.5,
+              selected: selected,
+            ),
+            child: Column(
+              children: [
+                Expanded(child: Center(child: child)),
+                const SizedBox(height: 4),
+                Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: bodyFont(size: 11.5, weight: FontWeight.w800, color: selected ? AppColors.accent : AppColors.ink2)),
+              ],
+            ),
+          ),
+          if (plus) const Positioned(top: 5, right: 5, child: PlusMark(size: 15)),
+        ],
       ),
     );
   }
 
-  /// A dark swatch previewing a name style, as it'll look on a banner.
-  Widget _darkTile({required bool selected, required VoidCallback onTap, required String caption, required Widget child}) {
+  /// A dark swatch previewing a name style, as it'll look on a banner —
+  /// with the Podium+ mark in its corner when [plus].
+  Widget _darkTile({required bool selected, required VoidCallback onTap, required String caption, required Widget child, bool plus = false}) {
     return Pressable(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 148,
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(colors: bannerThemeById(_draft.banner).colors),
-          border: Border.all(color: selected ? AppColors.accent : Colors.transparent, width: 2.5),
-          borderRadius: BorderRadius.circular(AppRadius.md),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(height: 30, child: Align(alignment: Alignment.centerLeft, child: child)),
-            const SizedBox(height: 4),
-            Row(
+      child: Stack(
+        fit: StackFit.passthrough,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: 148,
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: bannerThemeById(_draft.banner).colors),
+              border: Border.all(color: selected ? AppColors.accent : Colors.transparent, width: 2.5),
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(child: Text(caption, style: bodyFont(size: 11.5, weight: FontWeight.w800, color: Colors.white.withValues(alpha: 0.8)))),
-                if (selected) const Icon(Icons.check_circle_rounded, size: 15, color: Colors.white),
+                SizedBox(height: 30, child: Align(alignment: Alignment.centerLeft, child: child)),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Expanded(child: Text(caption, style: bodyFont(size: 11.5, weight: FontWeight.w800, color: Colors.white.withValues(alpha: 0.8)))),
+                    if (selected) const Icon(Icons.check_circle_rounded, size: 15, color: Colors.white),
+                  ],
+                ),
               ],
             ),
-          ],
-        ),
+          ),
+          if (plus) const Positioned(top: 6, right: 6, child: PlusMark(size: 15)),
+        ],
       ),
     );
   }

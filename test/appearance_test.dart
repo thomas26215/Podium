@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:podium/models/app_user.dart';
 import 'package:podium/models/group.dart';
 import 'package:podium/models/match.dart';
+import 'package:podium/models/plus_membership.dart';
 import 'package:podium/repositories/fakes.dart';
 import 'package:podium/repositories/game_library_repository.dart';
 import 'package:podium/repositories/games_repository.dart';
@@ -27,7 +28,9 @@ import 'package:podium/widgets/appearance_preview.dart';
 import 'package:podium/widgets/appearance_scope.dart';
 import 'package:podium/widgets/common.dart';
 
-const _lea = AppUser(uid: 'lea', email: 'lea@test.fr', displayName: 'Léa', color: 0xFFFF5B34);
+// Léa has Podium++, so every look is hers to pick — what anyone else can
+// pick is in plus_test.dart.
+final _lea = AppUser(uid: 'lea', email: 'lea@test.fr', displayName: 'Léa', color: 0xFFFF5B34, plus: PlusMembership(tier: PlusTier.plusPlus, plan: PlusPlan.yearly, since: DateTime(2026)));
 const _tom = AppUser(uid: 'tom', email: 'tom@test.fr', displayName: 'Tom', color: 0xFF5B4BE8);
 
 ({AppState state, FakeAuthRepository auth}) _seed() {

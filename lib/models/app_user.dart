@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'plus_membership.dart';
+
 /// Palette a new account is assigned from, deterministically, so avatars
 /// stay stable across sessions without needing a color picker at signup.
 const List<int> kAvatarPalette = [
@@ -102,6 +104,20 @@ class AppUser {
   /// id: `{'steam': 'lea_42', 'switch': 'SW-1234-5678-9012'}`.
   final Map<String, String> gameAccounts;
 
+  /// Their Podium+ membership, if they have one — what lets their card
+  /// show every paid cosmetic (see lib/logic/plus.dart). Never written by
+  /// a profile save: see UsersRepository.setPlus.
+  final PlusMembership? plus;
+
+  /// What they bought in the Boutique, for good — ShopItem keys like
+  /// 'banner:aurora'. Public, so other players' apps show it on their card.
+  /// Never written by a profile save: see UsersRepository.setWallet.
+  final List<String> ownedItems;
+
+  /// Their jetons, to spend in the Boutique — from the owner-only private
+  /// doc, so 0 for anyone else's account.
+  final int coins;
+
   const AppUser({
     required this.uid,
     required this.email,
@@ -125,7 +141,12 @@ class AppUser {
     this.nameEffect,
     this.profileEffect,
     this.gameAccounts = const {},
+    this.plus,
+    this.ownedItems = const [],
+    this.coins = 0,
   });
+
+  bool get isPlus => plus != null;
 
   /// What the avatar shows: the chosen emoji, else the name's first letter.
   String get initial => avatarEmoji ?? letter;
@@ -153,6 +174,9 @@ class AppUser {
     String? Function()? nameEffect,
     String? Function()? profileEffect,
     Map<String, String>? gameAccounts,
+    PlusMembership? Function()? plus,
+    List<String>? ownedItems,
+    int? coins,
   }) {
     return AppUser(
       uid: uid,
@@ -177,6 +201,9 @@ class AppUser {
       nameEffect: nameEffect != null ? nameEffect() : this.nameEffect,
       profileEffect: profileEffect != null ? profileEffect() : this.profileEffect,
       gameAccounts: gameAccounts ?? this.gameAccounts,
+      plus: plus != null ? plus() : this.plus,
+      ownedItems: ownedItems ?? this.ownedItems,
+      coins: coins ?? this.coins,
     );
   }
 
@@ -249,6 +276,9 @@ class AppUser {
         for (final e in ((data['gameAccounts'] as Map?) ?? const {}).entries)
           if (e.key is String && e.value is String && (e.value as String).trim().isNotEmpty) e.key as String: e.value as String,
       },
+      plus: PlusMembership.fromMap(data['plus']),
+      ownedItems: List<String>.from((data['ownedItems'] as List?)?.whereType<String>() ?? const []),
+      coins: (p['coins'] as num?)?.toInt() ?? 0,
     );
   }
 

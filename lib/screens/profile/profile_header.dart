@@ -8,6 +8,7 @@ import '../../widgets/ambient_loop.dart';
 import '../../widgets/avatar.dart';
 import '../../widgets/badge_widgets.dart';
 import '../../widgets/fx_kit.dart';
+import '../../widgets/plus_mark.dart';
 import '../../widgets/profile_banners.dart';
 import '../../widgets/profile_style.dart';
 
@@ -22,9 +23,12 @@ class ProfileHeaderCard extends StatelessWidget {
   final VoidCallback? onEdit;
   final void Function(BadgeDef badge)? onTapBadge;
 
+  /// Tapping the Podium+ mark next to a member's name.
+  final VoidCallback? onTapPlus;
+
   /// Changing it replays the profile effect (the editor's "Rejouer").
   final Object? effectReplayToken;
-  const ProfileHeaderCard({super.key, required this.user, this.subtitle, this.favoriteGame, this.onEdit, this.onTapBadge, this.effectReplayToken});
+  const ProfileHeaderCard({super.key, required this.user, this.subtitle, this.favoriteGame, this.onEdit, this.onTapBadge, this.onTapPlus, this.effectReplayToken});
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +86,15 @@ class ProfileHeaderCard extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            StyledName(text: user.displayName, fontId: user.nameFont, effectId: user.nameEffect, accent: Color(user.color)),
+                            Row(
+                              children: [
+                                Flexible(child: StyledName(text: user.displayName, fontId: user.nameFont, effectId: user.nameEffect, accent: Color(user.color))),
+                                if (user.plus case final membership?) ...[
+                                  const SizedBox(width: 8),
+                                  GestureDetector(onTap: onTapPlus, child: PlusMark(size: 20, tier: membership.tier)),
+                                ],
+                              ],
+                            ),
                             if (title != null) ...[
                               const SizedBox(height: 2),
                               Text(

@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/app_user.dart';
+import '../models/plus_membership.dart';
 
 abstract class UsersRepository {
   Future<AppUser?> getByEmail(String email);
@@ -35,6 +36,16 @@ abstract class UsersRepository {
 
   /// Adds `badgeIds` to `uid`'s unlocked badges — never removes any.
   Future<void> unlockBadges({required String uid, required List<String> badgeIds});
+
+  /// Sets `uid`'s Podium+ membership — null ends it. SIMULATION: the app
+  /// calls it itself for now (see PlusMembership).
+  Future<void> setPlus({required String uid, PlusMembership? membership});
+
+  /// Sets `uid`'s jetons (on the private doc) and what they own from the
+  /// Boutique (on the public one), together. SIMULATION: the app calls it
+  /// itself for now; with real purchases only the server will, once the
+  /// store has confirmed a payment or the balance covers a price.
+  Future<void> setWallet({required String uid, required int coins, required List<String> ownedItems});
 }
 
 class FirebaseUsersRepository implements UsersRepository {
@@ -176,6 +187,19 @@ class FirebaseUsersRepository implements UsersRepository {
     if (badgeIds.isEmpty) return;
     await _public(uid).set({'badges': FieldValue.arrayUnion(badgeIds)}, SetOptions(merge: true));
   }
+
+  @override
+  Future<void> setPlus({required String uid, PlusMembership? membership}) async {
+    await _public(uid).set({'plus': membership?.toMap() ?? FieldValue.delete()}, SetOptions(merge: true));
+  }
+
+  @override
+  Future<void> setWallet({required String uid, required int coins, required List<String> ownedItems}) async {
+    final batch = _db.batch()
+      ..set(_private(uid), {'coins': coins}, SetOptions(merge: true))
+      ..set(_public(uid), {'ownedItems': ownedItems}, SetOptions(merge: true));
+    await batch.commit();
+  }
 }
 
 class FakeUsersRepository implements UsersRepository {
@@ -236,8 +260,8 @@ class FakeUsersRepository implements UsersRepository {
     final u = users[user.uid];
     if (u == null) return;
     // Everything customizable comes from `user`; what updateProfile never
-    // writes (badges, friends) stays as stored.
-    users[user.uid] = user.copyWith(badges: u.badges, friendIds: u.friendIds);
+    // writes (badges, friends, Podium+, the Boutique wallet) stays as stored.
+    users[user.uid] = user.copyWith(badges: u.badges, friendIds: u.friendIds, plus: () => u.plus, ownedItems: u.ownedItems, coins: u.coins);
     _ctrl(user.uid).add(users[user.uid]);
   }
 
@@ -246,6 +270,22 @@ class FakeUsersRepository implements UsersRepository {
     final u = users[uid];
     if (u == null) return;
     users[uid] = u.copyWith(badges: {...u.badges, ...badgeIds}.toList());
+    _ctrl(uid).add(users[uid]);
+  }
+
+  @override
+  Future<void> setPlus({required String uid, PlusMembership? membership}) async {
+    final u = users[uid];
+    if (u == null) return;
+    users[uid] = u.copyWith(plus: () => membership);
+    _ctrl(uid).add(users[uid]);
+  }
+
+  @override
+  Future<void> setWallet({required String uid, required int coins, required List<String> ownedItems}) async {
+    final u = users[uid];
+    if (u == null) return;
+    users[uid] = u.copyWith(coins: coins, ownedItems: ownedItems);
     _ctrl(uid).add(users[uid]);
   }
 }

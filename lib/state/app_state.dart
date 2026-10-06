@@ -17,10 +17,12 @@ import '../logic/game_sort.dart';
 import '../logic/badges.dart';
 import '../logic/elo.dart';
 import '../logic/personal_records.dart';
+import '../logic/plus.dart';
 import '../logic/text_search.dart';
 import '../logic/tournament_bracket.dart';
 import '../models/match.dart';
 import '../models/message.dart';
+import '../models/plus_membership.dart';
 import '../models/salon.dart';
 import '../models/saved_account.dart';
 import '../models/scheduled_event.dart';
@@ -179,6 +181,7 @@ class AppState extends ChangeNotifier {
         dashboardStyle = DashboardStyle.values.firstWhere((d) => d.name == dashboardStyleStr, orElse: () => DashboardStyle.complete);
       }
       _applyTheme();
+      _keepLookWithinPlan();
       notifyListeners();
     } catch (_) {
       // No persisted preference yet (or platform without shared_preferences
@@ -271,6 +274,11 @@ class AppState extends ChangeNotifier {
   // any other Firestore-backed profile field) stays fresh — authStateChanges()
   // itself only fires on sign-in/out, not on later doc edits.
   StreamSubscription<AppUser?>? _currentUserSub;
+
+  /// Whether [_currentUserSub] has delivered the account's doc since
+  /// signing in — only from then on is [currentUser] sure to say whether
+  /// they have Podium+.
+  bool _accountDocIn = false;
   List<AppUser> friends = [];
 
   // ---- groups ----
@@ -542,6 +550,7 @@ class AppState extends ChangeNotifier {
 
   void _onAuthChanged(AppUser? user) {
     currentUser = user;
+    _accountDocIn = false;
     authLoading = false;
     _groupsSub?.cancel();
     _serversSub?.cancel();
@@ -600,7 +609,9 @@ class AppState extends ChangeNotifier {
   void _onCurrentUserDocChanged(AppUser? fresh) {
     if (fresh == null) return;
     currentUser = fresh;
+    _accountDocIn = true;
     _memberCache[fresh.uid] = fresh;
+    _keepLookWithinPlan();
     unawaited(_resolveFriends(fresh.friendIds));
     _scheduleBadgeCheck();
     notifyListeners();
@@ -2857,6 +2868,9 @@ class AppState extends ChangeNotifier {
       // Never written from here — see UsersRepository.updateProfile.
       badges: me.badges,
       friendIds: me.friendIds,
+      plus: () => me.plus,
+      ownedItems: me.ownedItems,
+      coins: me.coins,
     );
     return _writeProfile(me, next);
   }
@@ -2881,6 +2895,134 @@ class AppState extends ChangeNotifier {
       notifyListeners();
       return false;
     }
+  }
+
+  // ============================== PODIUM+ & BOUTIQUE ==============================
+
+  /// Whether the signed-in player has Podium+ or Podium++ (see
+  /// lib/logic/plus.dart).
+  bool get isPlus => currentUser?.isPlus ?? false;
+
+  /// Their membership's tier — null without one.
+  PlusTier? get plusTier => currentUser?.plus?.tier;
+
+  /// What the signed-in player may use beyond the free catalog.
+  Unlocks get unlocks => Unlocks.of(currentUser);
+
+  /// The signed-in player's jetons.
+  int get coins => currentUser?.coins ?? 0;
+
+  /// "Buys" [pack] of jetons for real money. SIMULATION: no payment is
+  /// taken, the jetons go straight onto the balance.
+  Future<bool> simulateBuyCoins(CoinPack pack) async {
+    final me = currentUser;
+    if (me == null) return false;
+    return _writeWallet(me, coins: me.coins + pack.total, ownedItems: me.ownedItems);
+  }
+
+  /// Buys [items] with jetons, for [price] (a pack's, or theirs added up) —
+  /// false, with [flowError] set, when the balance doesn't cover it. Items
+  /// already owned are kept as they are.
+  Future<bool> buyWithCoins(List<ShopItem> items, {required int price}) async {
+    final me = currentUser;
+    if (me == null) return false;
+    if (me.coins < price) {
+      flowError = 'Il vous manque ${coinsLabel(price - me.coins)}.';
+      notifyListeners();
+      return false;
+    }
+    return _writeWallet(me, coins: me.coins - price, ownedItems: [...me.ownedItems, for (final i in items) if (!me.ownedItems.contains(i.key)) i.key]);
+  }
+
+  /// Puts [item] on the signed-in player's card — or, for a part of the
+  /// interface, on the app's look.
+  Future<bool> equipItem(ShopItem item) async {
+    final me = currentUser;
+    if (me == null) return false;
+    switch (item.kind) {
+      case ShopKind.surface || ShopKind.appFont || ShopKind.backdrop || ShopKind.accent:
+        final part = itemPart(item);
+        if (part == null) return false;
+        await setAppearance(appearance.withPart(part));
+        return true;
+      case ShopKind.banner:
+        return saveProfile(me.copyWith(banner: item.id));
+      case ShopKind.frame:
+        return saveProfile(me.copyWith(avatarFrame: () => item.id));
+      case ShopKind.nameFont:
+        return saveProfile(me.copyWith(nameFont: () => item.id));
+      case ShopKind.nameEffect:
+        return saveProfile(me.copyWith(nameEffect: () => item.id));
+      case ShopKind.profileEffect:
+        return saveProfile(me.copyWith(profileEffect: () => item.id));
+    }
+  }
+
+  Future<bool> _writeWallet(AppUser me, {required int coins, required List<String> ownedItems}) async {
+    final next = me.copyWith(coins: coins, ownedItems: ownedItems);
+    // Shown right away; the account stream confirms it a moment later.
+    currentUser = next;
+    _memberCache[me.uid] = next;
+    flowError = null;
+    notifyListeners();
+    try {
+      await usersRepo.setWallet(uid: me.uid, coins: coins, ownedItems: ownedItems);
+      return true;
+    } catch (e) {
+      currentUser = me;
+      _memberCache[me.uid] = me;
+      flowError = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// "Buys" [plan] of [tier] for the signed-in player — moving up from
+  /// Podium+ to Podium++ replaces the membership. SIMULATION: no payment
+  /// is taken, the membership goes straight onto their profile; a yearly
+  /// plan opens on its free week, as the real one will — but for a member
+  /// moving up, whose trial was the first one.
+  Future<bool> simulatePlusPurchase(PlusTier tier, PlusPlan plan) {
+    final now = DateTime.now();
+    final trial = plan == PlusPlan.yearly && !isPlus;
+    return _writePlus(PlusMembership(tier: tier, plan: plan, since: now, trialEndsAt: trial ? now.add(const Duration(days: 7)) : null));
+  }
+
+  /// Ends the signed-in player's Podium+ at once. SIMULATION: a real one
+  /// would run on to the end of the period already paid for.
+  Future<bool> simulatePlusCancel() => _writePlus(null);
+
+  Future<bool> _writePlus(PlusMembership? membership) async {
+    final me = currentUser;
+    if (me == null) return false;
+    final next = me.copyWith(plus: () => membership);
+    // Shown right away; the account stream confirms it a moment later.
+    currentUser = next;
+    _memberCache[me.uid] = next;
+    flowError = null;
+    _keepLookWithinPlan();
+    notifyListeners();
+    try {
+      await usersRepo.setPlus(uid: me.uid, membership: membership);
+      return true;
+    } catch (e) {
+      currentUser = me;
+      _memberCache[me.uid] = me;
+      flowError = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// The app's look keeps only the paid parts the player has unlocked: each
+  /// other one goes back to a free one (see PlusLook.within). Only once the
+  /// account's doc is in — signing in starts without it.
+  void _keepLookWithinPlan() {
+    final me = currentUser;
+    if (!_accountDocIn || me == null) return;
+    final unlocked = Unlocks.of(me);
+    if (appearance.allowedBy(unlocked)) return;
+    unawaited(setAppearance(appearance.within(unlocked)));
   }
 
   /// Adds `libraryGameId` to the signed-in player's collection, or removes
