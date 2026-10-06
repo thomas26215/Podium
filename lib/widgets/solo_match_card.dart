@@ -38,10 +38,10 @@ class SoloMatchCard extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          border: Border.all(color: a?.gapToBest == 0 ? AppColors.green : AppColors.line, width: a?.gapToBest == 0 ? 1.5 : 1),
-          borderRadius: BorderRadius.circular(AppRadius.xl),
+        decoration: cardDecoration(
+          radius: AppRadius.xl,
+          border: a?.gapToBest == 0 ? AppColors.green : null,
+          borderWidth: a?.gapToBest == 0 ? 1.5 : 1,
         ),
         child: Row(
           children: [
@@ -49,7 +49,7 @@ class SoloMatchCard extends StatelessWidget {
               width: 44,
               height: 44,
               alignment: Alignment.center,
-              decoration: BoxDecoration(color: AppColors.bg, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(13)),
+              decoration: wellDecoration(radius: AppRadius.scaled(13), bordered: true),
               child: Text(game.emoji, style: const TextStyle(fontSize: 22)),
             ),
             const SizedBox(width: 12),

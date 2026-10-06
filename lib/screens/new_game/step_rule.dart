@@ -21,11 +21,14 @@ class StepRule extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (final rule in game.rules) ...[
-          _RuleOption(
-            rule: rule,
-            selected: app.draft.ruleId == rule.id,
-            onTap: () => app.pickRule(rule.id),
+        for (final (i, rule) in game.rules.indexed) ...[
+          FadeSlideIn(
+            delay: staggerDelay(i, stepMs: 45),
+            child: _RuleOption(
+              rule: rule,
+              selected: app.draft.ruleId == rule.id,
+              onTap: () => app.pickRule(rule.id),
+            ),
           ),
           const SizedBox(height: 8),
         ],
@@ -39,7 +42,7 @@ class StepRule extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 12),
             alignment: Alignment.center,
-            decoration: BoxDecoration(border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.md)),
+            decoration: cardDecoration(radius: AppRadius.md, fill: Colors.transparent, border: AppColors.line, borderWidth: 1.5),
             child: Text('+ Ajouter une règle', style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.ink2)),
           ),
         ),
@@ -75,12 +78,15 @@ class _RuleOption extends StatelessWidget {
     return Pressable(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
+        duration: AppColors.motion.change,
+        curve: AppColors.motion.changeCurve,
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.accentSoft : AppColors.card,
-          border: Border.all(color: selected ? AppColors.accent : AppColors.line, width: 1.5),
-          borderRadius: BorderRadius.circular(AppRadius.lg),
+        decoration: cardDecoration(
+          radius: AppRadius.lg,
+          fill: selected ? AppColors.accentSoft : null,
+          border: selected ? AppColors.accent : null,
+          borderWidth: 1.5,
+          selected: selected,
         ),
         child: Row(
           children: [

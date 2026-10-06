@@ -14,6 +14,7 @@ import 'services/notifications_service.dart';
 import 'state/app_state.dart';
 import 'state/session_manager.dart';
 import 'theme/app_theme.dart';
+import 'widgets/appearance_scope.dart';
 
 /// Hides the status bar and the phone's navigation buttons. "Sticky": a
 /// swipe from the screen edge brings them back for a moment, then they hide
@@ -80,8 +81,8 @@ class PodiumApp extends StatelessWidget {
   }
 }
 
-/// Rebuilds [MaterialApp]'s theme whenever the theme mode/accent changes
-/// (AppState.setThemeMode/setAccentPreset), and also when the OS-level
+/// Rebuilds [MaterialApp]'s theme whenever the theme mode/appearance
+/// changes (AppState.setThemeMode/setAppearance), and also when the OS-level
 /// light/dark setting flips while following "Système".
 class _ThemedMaterialApp extends StatefulWidget {
   const _ThemedMaterialApp();
@@ -130,6 +131,7 @@ class _ThemedMaterialAppState extends State<_ThemedMaterialApp> with WidgetsBind
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: const [Locale('fr')],
+      builder: (context, child) => AppearanceScope(child: child!),
       home: const InviteLinkHandler(child: AuthGate()),
     );
   }
@@ -146,7 +148,7 @@ class _FirebaseSetupNeededApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
       home: Scaffold(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.canvas,
         body: SafeArea(
           child: Center(
             child: Padding(

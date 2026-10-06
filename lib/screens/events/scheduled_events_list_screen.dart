@@ -28,9 +28,9 @@ class ScheduledEventsListScreen extends StatelessWidget {
     final canManage = server != null && app.canManageEvents(server);
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.canvas,
       appBar: AppBar(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.canvas,
         elevation: 0,
         foregroundColor: AppColors.ink,
         title: Text('Évènements', style: bodyFont(size: 17, weight: FontWeight.w800, color: AppColors.ink)),
@@ -85,14 +85,14 @@ class _EventRow extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.xl)),
+        decoration: cardDecoration(radius: AppRadius.xl, borderWidth: 1.5),
         child: Row(
           children: [
             Container(
               width: 46,
               height: 46,
               alignment: Alignment.center,
-              decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(14)),
+              decoration: wellDecoration(radius: AppRadius.scaled(14)),
               child: Text(game?.emoji ?? '📅', style: const TextStyle(fontSize: 22)),
             ),
             const SizedBox(width: 12),

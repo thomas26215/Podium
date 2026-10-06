@@ -72,9 +72,9 @@ class LiveMatchScreen extends StatelessWidget {
     final session = app.liveSessions.where((s) => s.id == sessionId).firstOrNull;
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.canvas,
       appBar: AppBar(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.canvas,
         elevation: 0,
         foregroundColor: AppColors.ink,
         title: Row(
@@ -119,7 +119,7 @@ class _LiveMatchBody extends StatelessWidget {
               width: 52,
               height: 52,
               alignment: Alignment.center,
-              decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(16)),
+              decoration: cardDecoration(radius: AppRadius.scaled(16)),
               child: Text(game?.emoji ?? '🎲', style: const TextStyle(fontSize: 26)),
             ),
             const SizedBox(width: 14),
@@ -138,7 +138,7 @@ class _LiveMatchBody extends StatelessWidget {
           const SizedBox(height: 14),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.lg)),
+            decoration: cardDecoration(radius: AppRadius.lg),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -179,10 +179,11 @@ class _LiveMatchBody extends StatelessWidget {
                 duration: const Duration(milliseconds: 350),
                 margin: const EdgeInsets.only(bottom: 9),
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: isLead ? AppColors.greenSoft : AppColors.card,
-                  border: Border.all(color: isLead ? AppColors.green : AppColors.line, width: 1.5),
-                  borderRadius: BorderRadius.circular(AppRadius.lg),
+                decoration: cardDecoration(
+                  radius: AppRadius.lg,
+                  fill: isLead ? AppColors.greenSoft : null,
+                  border: isLead ? AppColors.green : null,
+                  borderWidth: 1.5,
                 ),
                 child: Row(
                   children: [
@@ -228,7 +229,7 @@ class _LiveMatchBody extends StatelessWidget {
       const SizedBox(height: 9),
       Container(
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+        decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
         child: Column(
           children: [
             for (final (i, round) in rounds.indexed)
@@ -260,7 +261,7 @@ class _LiveMatchBody extends StatelessWidget {
       const SizedBox(height: 9),
       Container(
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+        decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
         child: ScoreEvolutionChart(timeline: session.timeline, appState: app),
       ),
     ];
@@ -276,7 +277,7 @@ class _LiveMatchBody extends StatelessWidget {
       Container(
         constraints: const BoxConstraints(maxHeight: 220),
         padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+        decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
         child: ListView(
           shrinkWrap: true,
           reverse: true,
@@ -309,7 +310,7 @@ class _LiveMatchBody extends StatelessWidget {
       const SizedBox(height: 9),
       Container(
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+        decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
         child: ScoreEvolutionChart(timeline: session.timeline, appState: app),
       ),
     ];

@@ -103,6 +103,7 @@ class RankingScreen extends StatelessWidget {
                   onClear: app.clearRankingPlayerFilter,
                   onTap: () => showModalBottomSheet(
                     context: context,
+                    sheetAnimationStyle: appSheetAnimation,
                     backgroundColor: Colors.transparent,
                     isScrollControlled: true,
                     builder: (_) => ChangeNotifierProvider.value(value: app, child: const _PlayerFilterSheet()),
@@ -155,7 +156,7 @@ class RankingScreen extends StatelessWidget {
                 delay: const Duration(milliseconds: 80),
                 child: Container(
                   padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
+                  decoration: cardDecoration(radius: AppRadius.xl),
                   child: Column(
                     children: [
                       for (var i = 0; i < rest.length; i++)
@@ -197,10 +198,12 @@ class _FilterPill extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-        decoration: BoxDecoration(
-          color: active ? AppColors.accentSoft : AppColors.card,
-          border: Border.all(color: active ? AppColors.accent : AppColors.line, width: 1.5),
-          borderRadius: BorderRadius.circular(12),
+        decoration: chipDecoration(
+          radius: AppRadius.scaled(12),
+          fill: active ? AppColors.accentSoft : null,
+          border: active ? AppColors.accent : null,
+          borderWidth: 1.5,
+          selected: active,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -231,12 +234,14 @@ class _FilterChip extends StatelessWidget {
     return Pressable(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
+        duration: AppColors.motion.change,
+        curve: AppColors.motion.changeCurve,
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.ink : AppColors.card,
-          border: Border.all(color: selected ? AppColors.ink : AppColors.line),
-          borderRadius: BorderRadius.circular(12),
+        decoration: chipDecoration(
+          radius: AppRadius.scaled(12),
+          fill: selected ? AppColors.ink : null,
+          border: selected ? AppColors.ink : null,
+          selected: selected,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -309,12 +314,15 @@ class _PlayerFilterSheet extends StatelessWidget {
                         child: Pressable(
                           onTap: () => app.toggleRankingPlayerFilter(p.uid),
                           child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 150),
+                            duration: AppColors.motion.change,
+                            curve: AppColors.motion.changeCurve,
                             padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: selected ? AppColors.accentSoft : AppColors.card,
-                              border: Border.all(color: selected ? AppColors.accent : AppColors.line, width: 1.5),
-                              borderRadius: BorderRadius.circular(AppRadius.lg),
+                            decoration: cardDecoration(
+                              radius: AppRadius.lg,
+                              fill: selected ? AppColors.accentSoft : null,
+                              border: selected ? AppColors.accent : null,
+                              borderWidth: 1.5,
+                              selected: selected,
                             ),
                             child: Row(
                               children: [

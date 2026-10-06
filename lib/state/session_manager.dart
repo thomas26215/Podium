@@ -182,7 +182,9 @@ class SessionManager extends ChangeNotifier {
   /// call, no password, just changing which [AppState] is exposed.
   void switchTo(String uid) {
     if (_activeUid == uid || !_sessions.containsKey(uid)) return;
+    final previous = active;
     _activeUid = uid;
+    active.adoptDisplaySettings(previous);
     _syncPushRegistration();
     notifyListeners();
   }

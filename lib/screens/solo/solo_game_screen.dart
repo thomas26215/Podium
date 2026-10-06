@@ -54,7 +54,7 @@ class _SoloGameScreenState extends State<SoloGameScreen> {
     final app = context.watch<AppState>();
     final game = app.gameById(widget.gameId);
     if (game == null) {
-      return Scaffold(backgroundColor: AppColors.bg, appBar: AppBar(backgroundColor: AppColors.bg, elevation: 0), body: const SizedBox.shrink());
+      return Scaffold(backgroundColor: AppColors.canvas, appBar: AppBar(backgroundColor: AppColors.canvas, elevation: 0), body: const SizedBox.shrink());
     }
     final rule = game.resolveRule(_ruleId);
     final uid = app.currentUser?.uid;
@@ -75,9 +75,9 @@ class _SoloGameScreenState extends State<SoloGameScreen> {
     final wins = matches.where((m) => m.winnerIds().contains(uid) && (m.entries.firstOrNull?.points ?? 0) > 0).length;
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.canvas,
       appBar: AppBar(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.canvas,
         elevation: 0,
         foregroundColor: AppColors.ink,
         title: Text(game.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: bodyFont(size: 17, weight: FontWeight.w800, color: AppColors.ink)),
@@ -151,7 +151,7 @@ class _SoloGameScreenState extends State<SoloGameScreen> {
                     SectionHeader(title: 'Progression'),
                     Container(
                       padding: const EdgeInsets.fromLTRB(8, 16, 16, 12),
-                      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
+                      decoration: cardDecoration(radius: AppRadius.xl),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -173,7 +173,7 @@ class _SoloGameScreenState extends State<SoloGameScreen> {
                     SectionHeader(title: 'Toutes les parties'),
                     Container(
                       padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
-                      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
+                      decoration: cardDecoration(radius: AppRadius.xl),
                       child: Column(
                         children: [
                           for (final m in matches.reversed)
@@ -240,6 +240,7 @@ Future<String?> _choosePick(BuildContext context, Game game, List<String> played
   var query = '';
   return showModalBottomSheet<String>(
     context: context,
+    sheetAnimationStyle: appSheetAnimation,
     isScrollControlled: true,
     backgroundColor: AppColors.bg,
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl))),
@@ -308,7 +309,7 @@ class _PickSelector extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+        decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
         child: Row(
           children: [
             Text('$label : ', style: bodyFont(size: 13.5, weight: FontWeight.w700, color: AppColors.mut)),
@@ -335,7 +336,7 @@ class _RecordHero extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(AppRadius.xxl)),
+      decoration: heroDecoration(radius: AppRadius.xxl),
       child: Stack(
         clipBehavior: Clip.none,
         children: [

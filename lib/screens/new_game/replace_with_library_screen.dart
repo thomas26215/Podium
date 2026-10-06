@@ -90,9 +90,9 @@ class _ReplaceWithLibraryScreenState extends State<ReplaceWithLibraryScreen> {
     final results = app.contextLibrary.where((g) => g.id != widget.target.libraryId && gameMatchesQuery(g, query)).take(60).toList();
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.canvas,
       appBar: AppBar(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.canvas,
         elevation: 0,
         foregroundColor: AppColors.ink,
         title: Text('Remplacer par la bibliothèque', style: bodyFont(size: 17, weight: FontWeight.w800, color: AppColors.ink)),

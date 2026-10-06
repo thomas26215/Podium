@@ -80,7 +80,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
           if (mounted && Navigator.of(context).canPop()) Navigator.of(context).pop();
         });
       }
-      return Scaffold(backgroundColor: AppColors.bg);
+      return Scaffold(backgroundColor: AppColors.canvas);
     }
     final isOwner = app.canCloseGroup(group);
     final closed = group.closed;
@@ -88,9 +88,9 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
     final members = app.getGroupMemberIds(group.id).length;
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.canvas,
       appBar: AppBar(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.canvas,
         elevation: 0,
         iconTheme: IconThemeData(color: AppColors.ink),
         title: Text('Paramètres du groupe', style: dispFont(size: 17, weight: FontWeight.w700, color: AppColors.ink)),
@@ -110,7 +110,8 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 6, 20, 32),
-          children: [
+          // The page cascades in, section by section.
+          children: staggered(stepMs: 45, [
             _Hero(emoji: _emoji, emojiBg: _emoji == group.emoji ? group.emojiBg : groupEmojiBg(_emoji), name: group.name, subtitle: '$members joueurs', closed: closed, temporary: group.temporary),
             if (isOwner) ...[
               const _Label("VUE D'ENSEMBLE"),
@@ -196,7 +197,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                   ),
               ],
             ),
-          ],
+          ]),
         ),
       ),
     );
@@ -276,7 +277,7 @@ class _Panel extends StatelessWidget {
     return Container(
       padding: padding,
       clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+      decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -352,7 +353,7 @@ class _UnsavedBar extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
         padding: const EdgeInsets.fromLTRB(16, 10, 10, 10),
-        decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(AppRadius.lg)),
+        decoration: heroDecoration(radius: AppRadius.lg, depth: 0.6),
         child: Row(
           children: [
             Expanded(

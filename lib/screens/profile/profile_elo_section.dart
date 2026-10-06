@@ -50,7 +50,7 @@ class _ProfileEloSectionState extends State<ProfileEloSection> {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
+      decoration: cardDecoration(radius: AppRadius.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

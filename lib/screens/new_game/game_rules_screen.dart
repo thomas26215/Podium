@@ -73,9 +73,9 @@ class _GameRulesScreenState extends State<GameRulesScreen> {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.canvas,
       appBar: AppBar(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.canvas,
         elevation: 0,
         foregroundColor: AppColors.ink,
         title: Text('Règles — ${widget.game.name}', style: bodyFont(size: 17, weight: FontWeight.w800, color: AppColors.ink)),
@@ -150,7 +150,7 @@ class _SectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+      decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

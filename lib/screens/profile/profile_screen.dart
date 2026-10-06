@@ -37,9 +37,9 @@ class ProfileScreen extends StatelessWidget {
 
     if (profileId == null || profile == null) {
       return Scaffold(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.canvas,
         appBar: AppBar(
-          backgroundColor: AppColors.bg,
+          backgroundColor: AppColors.canvas,
           elevation: 0,
           foregroundColor: AppColors.ink,
           title: Text('Profil', style: bodyFont(size: 17, weight: FontWeight.w800, color: AppColors.ink)),
@@ -64,11 +64,13 @@ class ProfileScreen extends StatelessWidget {
     final eloRow = mine.firstOrNull;
     final isMe = profileId == app.currentUser?.uid;
     // Discord-style profile theme: the screen picks up a wash of the
-    // player's banner colour at the top.
-    final tint = Color.alphaBlend(bannerThemeById(profile.banner).colors.first.withValues(alpha: AppColors.isDark ? 0.45 : 0.16), AppColors.bg);
+    // player's banner colour at the top — see-through over a backdrop.
+    final wash = bannerThemeById(profile.banner).colors.first.withValues(alpha: AppColors.isDark ? 0.45 : 0.16);
+    final overBackdrop = AppColors.canvas.a == 0;
+    final tint = overBackdrop ? wash : Color.alphaBlend(wash, AppColors.bg);
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.canvas,
       appBar: AppBar(
         backgroundColor: tint,
         surfaceTintColor: Colors.transparent,
@@ -85,7 +87,7 @@ class ProfileScreen extends StatelessWidget {
             height: 380,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 450),
-              decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [tint, AppColors.bg])),
+              decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [tint, overBackdrop ? wash.withValues(alpha: 0) : AppColors.bg])),
             ),
           ),
           SafeArea(
@@ -107,10 +109,11 @@ class ProfileScreen extends StatelessWidget {
                                 onTap: () => app.openProfile(p.uid),
                                 child: Container(
                                   padding: const EdgeInsets.fromLTRB(6, 6, 12, 6),
-                                  decoration: BoxDecoration(
-                                    color: p.uid == profileId ? AppColors.ink : AppColors.card,
-                                    border: Border.all(color: p.uid == profileId ? AppColors.ink : AppColors.line),
-                                    borderRadius: BorderRadius.circular(30),
+                                  decoration: chipDecoration(
+                                    radius: AppRadius.scaled(30),
+                                    fill: p.uid == profileId ? AppColors.ink : null,
+                                    border: p.uid == profileId ? AppColors.ink : null,
+                                    selected: p.uid == profileId,
                                   ),
                                   child: Row(mainAxisSize: MainAxisSize.min, children: [
                                     Avatar(initial: p.initial, color: Color(p.color), size: 26, fontSize: 11),
@@ -187,7 +190,7 @@ class ProfileScreen extends StatelessWidget {
                         onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FriendsScreen())),
                         child: Container(
                           padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.lg)),
+                          decoration: cardDecoration(radius: AppRadius.lg),
                           child: Row(
                             children: [
                               Container(
@@ -217,7 +220,7 @@ class ProfileScreen extends StatelessWidget {
                         onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
                         child: Container(
                           padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.lg)),
+                          decoration: cardDecoration(radius: AppRadius.lg),
                           child: Row(
                             children: [
                               Container(
@@ -311,7 +314,7 @@ class ProfileScreen extends StatelessWidget {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-        decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.lg)),
+        decoration: cardDecoration(radius: AppRadius.lg),
         child: Column(
           children: [
             FittedBox(fit: BoxFit.scaleDown, child: Text(value, style: dispFont(size: 26, weight: FontWeight.w700, color: color))),
@@ -487,10 +490,10 @@ class _SwitchAccountDialogState extends State<_SwitchAccountDialog> {
               },
         child: Container(
           padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: isActive ? AppColors.accentSoft : AppColors.card,
-            border: Border.all(color: AppColors.line),
-            borderRadius: BorderRadius.circular(AppRadius.md),
+          decoration: cardDecoration(
+            radius: AppRadius.md,
+            fill: isActive ? AppColors.accentSoft : null,
+            selected: isActive,
           ),
           child: Row(
             children: [
@@ -564,7 +567,7 @@ class _BadgeShelf extends StatelessWidget {
     if (shown.isEmpty) return const SizedBox.shrink();
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
-      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
+      decoration: cardDecoration(radius: AppRadius.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -648,7 +651,7 @@ class _CollectionShelfState extends State<_CollectionShelf> {
         onTap: widget.isMe ? open : null,
         child: Container(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
+          decoration: cardDecoration(radius: AppRadius.xl),
           child: Row(
             children: [
               const Text('📦', style: TextStyle(fontSize: 26)),
@@ -692,10 +695,10 @@ class _CollectionShelfState extends State<_CollectionShelf> {
               child: Container(
                 width: 88,
                 padding: const EdgeInsets.fromLTRB(8, 10, 8, 8),
-                decoration: BoxDecoration(
-                  color: AppColors.card,
-                  border: Border.all(color: fav ? AppColors.accent : AppColors.line, width: 1.5),
-                  borderRadius: BorderRadius.circular(AppRadius.lg),
+                decoration: cardDecoration(
+                  radius: AppRadius.lg,
+                  border: fav ? AppColors.accent : null,
+                  borderWidth: 1.5,
                 ),
                 child: Stack(
                   clipBehavior: Clip.none,
@@ -749,7 +752,7 @@ class _GameAccounts extends StatelessWidget {
                 },
                 child: Container(
                   padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.lg)),
+                  decoration: cardDecoration(radius: AppRadius.lg),
                   child: Row(
                     children: [
                       PlatformLogo(platform: e.platform, size: 34),

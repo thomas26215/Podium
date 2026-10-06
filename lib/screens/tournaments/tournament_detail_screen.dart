@@ -60,16 +60,16 @@ class TournamentDetailScreen extends StatelessWidget {
 
     if (!app.isOnline) {
       return Scaffold(
-        backgroundColor: AppColors.bg,
-        appBar: AppBar(backgroundColor: AppColors.bg, elevation: 0, foregroundColor: AppColors.ink),
+        backgroundColor: AppColors.canvas,
+        appBar: AppBar(backgroundColor: AppColors.canvas, elevation: 0, foregroundColor: AppColors.ink),
         body: const TournamentsOfflineNotice(),
       );
     }
 
     if (tournament == null) {
       return Scaffold(
-        backgroundColor: AppColors.bg,
-        appBar: AppBar(backgroundColor: AppColors.bg, elevation: 0, foregroundColor: AppColors.ink),
+        backgroundColor: AppColors.canvas,
+        appBar: AppBar(backgroundColor: AppColors.canvas, elevation: 0, foregroundColor: AppColors.ink),
         body: Center(child: EmptyState(emoji: '🏆', message: 'Ce tournoi n\'existe plus.')),
       );
     }
@@ -101,9 +101,9 @@ class TournamentDetailScreen extends StatelessWidget {
     }
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.canvas,
       appBar: AppBar(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.canvas,
         elevation: 0,
         foregroundColor: AppColors.ink,
         title: Text(tournament.name, style: bodyFont(size: 17, weight: FontWeight.w800, color: AppColors.ink)),
@@ -127,7 +127,7 @@ class TournamentDetailScreen extends StatelessWidget {
                 width: 44,
                 height: 44,
                 alignment: Alignment.center,
-                decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(13)),
+                decoration: cardDecoration(radius: AppRadius.scaled(13), borderless: true),
                 child: Text(game?.emoji ?? '🎲', style: const TextStyle(fontSize: 22)),
               ),
               const SizedBox(width: 12),
@@ -239,10 +239,10 @@ class _StatusBadge extends StatelessWidget {
     final completed = tournament.isCompleted;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: completed ? AppColors.accentSoft : AppColors.card,
-        border: Border.all(color: AppColors.line),
-        borderRadius: BorderRadius.circular(10),
+      decoration: chipDecoration(
+        radius: AppRadius.scaled(10),
+        fill: completed ? AppColors.accentSoft : null,
+        selected: completed,
       ),
       child: Text(
         tournamentStatusLabel(tournament),
@@ -261,7 +261,7 @@ class _ChampionBanner extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(AppRadius.xl)),
+      decoration: heroDecoration(radius: AppRadius.xl),
       child: Row(
         children: [
           Icon(Icons.emoji_events, color: AppColors.gold, size: 30),
@@ -296,7 +296,7 @@ class _GroupSection extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.lg)),
+      decoration: cardDecoration(radius: AppRadius.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -527,10 +527,10 @@ class _MatchCard extends StatelessWidget {
         child: Container(
           width: wide ? double.infinity : null,
           padding: EdgeInsets.symmetric(horizontal: 12, vertical: compact ? 8 : 10),
-          decoration: BoxDecoration(
-            color: AppColors.card,
-            border: Border.all(color: match.isReady ? AppColors.accent : AppColors.line, width: 1.5),
-            borderRadius: BorderRadius.circular(AppRadius.md),
+          decoration: cardDecoration(
+            radius: AppRadius.md,
+            border: match.isReady ? AppColors.accent : null,
+            borderWidth: 1.5,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,

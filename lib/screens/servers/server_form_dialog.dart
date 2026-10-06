@@ -77,10 +77,12 @@ class _ServerFormDialogState extends State<ServerFormDialog> {
                       width: 44,
                       height: 44,
                       alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: _emoji == e ? AppColors.accentSoft : AppColors.card,
-                        border: Border.all(color: _emoji == e ? AppColors.accent : AppColors.line, width: 1.5),
-                        borderRadius: BorderRadius.circular(12),
+                      decoration: chipDecoration(
+                        radius: AppRadius.scaled(12),
+                        fill: _emoji == e ? AppColors.accentSoft : null,
+                        border: _emoji == e ? AppColors.accent : null,
+                        borderWidth: 1.5,
+                        selected: _emoji == e,
                       ),
                       child: Text(e, style: const TextStyle(fontSize: 22)),
                     ),

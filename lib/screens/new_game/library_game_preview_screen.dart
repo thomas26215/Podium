@@ -23,9 +23,9 @@ class LibraryGamePreviewScreen extends StatelessWidget {
     final copy = app.libraryCopyOf(game);
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.canvas,
       appBar: AppBar(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.canvas,
         elevation: 0,
         foregroundColor: AppColors.ink,
         actions: [

@@ -62,7 +62,7 @@ class HomeScreen extends StatelessWidget {
                           width: 38,
                           height: 38,
                           alignment: Alignment.center,
-                          decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(12)),
+                          decoration: heroDecoration(radius: AppRadius.scaled(12), depth: 0.4),
                           child: Text(headerEmoji, style: const TextStyle(fontSize: 19)),
                         ),
                         const SizedBox(width: 8),
@@ -105,7 +105,7 @@ class HomeScreen extends StatelessWidget {
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.lg)),
+                    decoration: cardDecoration(radius: AppRadius.lg),
                     child: Row(
                       children: [
                         Icon(Icons.lock_outline_rounded, size: 16, color: AppColors.mut),
@@ -380,7 +380,7 @@ List<Widget> _completeSections(BuildContext context, AppState app, Map<String, i
       child: Container(
         margin: const EdgeInsets.only(bottom: 14),
         padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
+        decoration: cardDecoration(radius: AppRadius.xl),
         child: winRows.isEmpty
             ? const Padding(padding: EdgeInsets.symmetric(vertical: 20), child: EmptyState(emoji: '🏆', message: 'Aucune partie enregistrée pour l\'instant.'))
             : Column(
@@ -429,14 +429,14 @@ class _PendingDraftBanner extends StatelessWidget {
     final group = app.groupById(pending.groupId);
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.xl)),
+      decoration: cardDecoration(radius: AppRadius.xl, borderWidth: 1.5),
       child: Row(
         children: [
           Container(
             width: 44,
             height: 44,
             alignment: Alignment.center,
-            decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(13)),
+            decoration: wellDecoration(radius: AppRadius.scaled(13)),
             child: Text(game?.emoji ?? '🎲', style: const TextStyle(fontSize: 22)),
           ),
           const SizedBox(width: 12),
@@ -462,7 +462,7 @@ class _PendingDraftBanner extends StatelessWidget {
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(color: AppColors.accent, borderRadius: BorderRadius.circular(12)),
+              decoration: accentDecoration(radius: AppRadius.scaled(12), glow: false),
               child: Text('Reprendre', style: bodyFont(size: 13, weight: FontWeight.w800, color: Colors.white)),
             ),
           ),
@@ -481,7 +481,7 @@ class _LeaderHero extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(AppRadius.xxl)),
+      decoration: heroDecoration(radius: AppRadius.xxl),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -580,7 +580,7 @@ class _NoDataHero extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(AppRadius.xxl)),
+      decoration: heroDecoration(radius: AppRadius.xxl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -605,7 +605,7 @@ class _SimpleLeaderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
+      decoration: cardDecoration(radius: AppRadius.xl),
       child: Row(
         children: [
           Avatar(initial: row.player.initial, color: Color(row.player.color), size: 48, fontSize: 19),
@@ -637,7 +637,7 @@ class _SimpleNoDataCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
+      decoration: cardDecoration(radius: AppRadius.xl),
       child: Text('Enregistrez votre première partie pour lancer le classement.', style: bodyFont(size: 13.5, weight: FontWeight.w600, color: AppColors.mut)),
     );
   }
@@ -659,7 +659,7 @@ class _TournamentCard extends StatelessWidget {
       child: Container(
         width: 150,
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.xl)),
+        decoration: cardDecoration(radius: AppRadius.xl, borderWidth: 1.5),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -693,7 +693,7 @@ class _EventCard extends StatelessWidget {
       child: Container(
         width: 150,
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.xl)),
+        decoration: cardDecoration(radius: AppRadius.xl, borderWidth: 1.5),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

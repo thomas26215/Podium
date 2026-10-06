@@ -75,9 +75,9 @@ class BadgesScreen extends StatelessWidget {
         );
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.canvas,
       appBar: AppBar(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.canvas,
         elevation: 0,
         foregroundColor: AppColors.ink,
         title: Text(isMe ? 'Mes badges' : 'Badges de ${user?.displayName ?? 'ce joueur'}', style: bodyFont(size: 17, weight: FontWeight.w800, color: AppColors.ink)),
@@ -124,7 +124,7 @@ class _ProgressSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
+      decoration: cardDecoration(radius: AppRadius.xl),
       child: Row(
         children: [
           Text('🏅', style: const TextStyle(fontSize: 30)),

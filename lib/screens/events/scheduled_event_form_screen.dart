@@ -65,16 +65,17 @@ class _ScheduledEventFormScreenState extends State<ScheduledEventFormScreen> {
     final games = app.games;
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.canvas,
       appBar: AppBar(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.canvas,
         elevation: 0,
         foregroundColor: AppColors.ink,
         title: Text('Planifier un évènement', style: bodyFont(size: 17, weight: FontWeight.w800, color: AppColors.ink)),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-        children: [
+        // The form cascades in.
+        children: staggered(stepMs: 35, [
           _label('Jeu'),
           const SizedBox(height: 9),
           GridView.count(
@@ -167,7 +168,7 @@ class _ScheduledEventFormScreenState extends State<ScheduledEventFormScreen> {
           ),
           const SizedBox(height: 24),
           PrimaryButton(label: 'Planifier', onPressed: _gameId == null ? null : () => _submit(app), loading: _saving),
-        ],
+        ]),
       ),
     );
   }
@@ -183,12 +184,15 @@ class _GameTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
+      duration: AppColors.motion.change,
+      curve: AppColors.motion.changeCurve,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: selected ? AppColors.accentSoft : AppColors.card,
-        border: Border.all(color: selected ? AppColors.accent : AppColors.line, width: 1.5),
-        borderRadius: BorderRadius.circular(AppRadius.lg),
+      decoration: cardDecoration(
+        radius: AppRadius.lg,
+        fill: selected ? AppColors.accentSoft : null,
+        border: selected ? AppColors.accent : null,
+        borderWidth: 1.5,
+        selected: selected,
       ),
       child: Row(
         children: [
@@ -212,13 +216,16 @@ class _KindCard extends StatelessWidget {
     return Pressable(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
+        duration: AppColors.motion.change,
+        curve: AppColors.motion.changeCurve,
         padding: const EdgeInsets.symmetric(vertical: 14),
         alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: selected ? AppColors.ink : AppColors.card,
-          border: Border.all(color: selected ? AppColors.ink : AppColors.line, width: 1.5),
-          borderRadius: BorderRadius.circular(AppRadius.lg),
+        decoration: cardDecoration(
+          radius: AppRadius.lg,
+          fill: selected ? AppColors.ink : null,
+          border: selected ? AppColors.ink : null,
+          borderWidth: 1.5,
+          selected: selected,
         ),
         child: Text(label, style: bodyFont(size: 14, weight: FontWeight.w800, color: selected ? AppColors.onInk : AppColors.ink)),
       ),
@@ -235,7 +242,7 @@ class _PickerField extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.md)),
+      decoration: cardDecoration(radius: AppRadius.md, borderWidth: 1.5),
       child: Row(
         children: [
           Icon(icon, size: 18, color: AppColors.accent),

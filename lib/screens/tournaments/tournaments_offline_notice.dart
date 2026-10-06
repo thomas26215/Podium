@@ -16,7 +16,7 @@ class TournamentsOfflineNotice extends StatelessWidget {
     final banner = Container(
       width: compact ? double.infinity : null,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.md)),
+      decoration: cardDecoration(radius: AppRadius.md),
       child: Row(
         mainAxisSize: compact ? MainAxisSize.max : MainAxisSize.min,
         children: [

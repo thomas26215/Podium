@@ -58,6 +58,7 @@ class _ReassignMemberDialogState extends State<ReassignMemberDialog> {
             const SizedBox(height: 16),
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 220),
+              transitionBuilder: appStepTransition,
               child: oldUid == null
                   ? Column(
                       key: const ValueKey('pick'),
@@ -79,7 +80,7 @@ class _ReassignMemberDialogState extends State<ReassignMemberDialog> {
                                     onTap: () => setState(() => _oldUid = uid),
                                     child: Container(
                                       padding: const EdgeInsets.all(12),
-                                      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+                                      decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
                                       child: Row(
                                         children: [
                                           Avatar(initial: p?.initial ?? '?', color: p != null ? Color(p.color) : AppColors.mut, size: 32, fontSize: 13),

@@ -186,7 +186,7 @@ class _GroupedMatchCardState extends State<_GroupedMatchCard> {
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
+        decoration: cardDecoration(radius: AppRadius.xl),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -282,7 +282,7 @@ class _TournamentMatchCardState extends State<_TournamentMatchCard> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.accent, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.xl)),
+      decoration: cardDecoration(radius: AppRadius.xl, border: AppColors.accent, borderWidth: 1.5),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -300,7 +300,7 @@ class _TournamentMatchCardState extends State<_TournamentMatchCard> {
                   width: 44,
                   height: 44,
                   alignment: Alignment.center,
-                  decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(13)),
+                  decoration: wellDecoration(radius: AppRadius.scaled(13)),
                   child: const Text('🏆', style: TextStyle(fontSize: 20)),
                 ),
                 const SizedBox(width: 12),

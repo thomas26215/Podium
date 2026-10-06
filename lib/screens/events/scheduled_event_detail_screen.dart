@@ -56,8 +56,8 @@ class ScheduledEventDetailScreen extends StatelessWidget {
 
     if (event == null) {
       return Scaffold(
-        backgroundColor: AppColors.bg,
-        appBar: AppBar(backgroundColor: AppColors.bg, elevation: 0, foregroundColor: AppColors.ink),
+        backgroundColor: AppColors.canvas,
+        appBar: AppBar(backgroundColor: AppColors.canvas, elevation: 0, foregroundColor: AppColors.ink),
         body: Center(child: EmptyState(emoji: '📅', message: "Cet évènement n'existe plus.")),
       );
     }
@@ -69,9 +69,9 @@ class ScheduledEventDetailScreen extends StatelessWidget {
     final isSignedUp = uid != null && event.signups.contains(uid);
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.canvas,
       appBar: AppBar(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.canvas,
         elevation: 0,
         foregroundColor: AppColors.ink,
         title: Text(event.name, style: bodyFont(size: 17, weight: FontWeight.w800, color: AppColors.ink)),
@@ -88,7 +88,7 @@ class ScheduledEventDetailScreen extends StatelessWidget {
                 width: 56,
                 height: 56,
                 alignment: Alignment.center,
-                decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(16)),
+                decoration: cardDecoration(radius: AppRadius.scaled(16)),
                 child: Text(game?.emoji ?? '📅', style: const TextStyle(fontSize: 28)),
               ),
               const SizedBox(width: 14),

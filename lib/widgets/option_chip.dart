@@ -16,12 +16,17 @@ class OptionChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final chip = AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
+      // Picked at the pace of the surface style: pressed in slowly in
+      // neumorphism, snapped in neo-brutalism.
+      duration: AppColors.motion.change,
+      curve: AppColors.motion.changeCurve,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-      decoration: BoxDecoration(
-        color: selected ? AppColors.accentSoft : AppColors.card,
-        border: Border.all(color: selected ? AppColors.accent : AppColors.line, width: 1.5),
-        borderRadius: BorderRadius.circular(12),
+      decoration: chipDecoration(
+        radius: AppRadius.scaled(12),
+        fill: selected ? AppColors.accentSoft : null,
+        border: selected ? AppColors.accent : null,
+        borderWidth: 1.5,
+        selected: selected,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

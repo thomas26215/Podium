@@ -41,7 +41,7 @@ class _ProfileStatsCardState extends State<ProfileStatsCard> {
 
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
-      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
+      decoration: cardDecoration(radius: AppRadius.xl),
       child: games.isEmpty
           ? const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: EmptyState(emoji: '🎮', message: 'Pas encore de partie jouée.'))
           : Column(
@@ -57,7 +57,7 @@ class _ProfileStatsCardState extends State<ProfileStatsCard> {
                   alignment: Alignment.topCenter,
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 220),
-                    transitionBuilder: (child, a) => FadeTransition(opacity: a, child: child),
+                    transitionBuilder: appSwitchTransition,
                     layoutBuilder: (current, previous) => Stack(alignment: Alignment.topCenter, children: [...previous, ?current]),
                     child: Column(
                       key: ValueKey(tab),
@@ -119,9 +119,9 @@ class _ProfileStatsScreenState extends State<ProfileStatsScreen> {
     final themes = _themesFor(app, widget.uid);
     final tab = themes.isEmpty ? 0 : _tab;
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.canvas,
       appBar: AppBar(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.canvas,
         elevation: 0,
         foregroundColor: AppColors.ink,
         title: Text(
@@ -143,9 +143,10 @@ class _ProfileStatsScreenState extends State<ProfileStatsScreen> {
           ],
           Container(
             padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
-            decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
+            decoration: cardDecoration(radius: AppRadius.xl),
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 220),
+              transitionBuilder: appSwitchTransition,
               child: Column(
                 key: ValueKey(tab),
                 children: [
@@ -184,7 +185,7 @@ class GameStatRow extends StatelessWidget {
             width: 38,
             height: 38,
             alignment: Alignment.center,
-            decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(11)),
+            decoration: wellDecoration(radius: AppRadius.scaled(11)),
             child: Text(stat.game.emoji, style: const TextStyle(fontSize: 19)),
           ),
           const SizedBox(width: 12),

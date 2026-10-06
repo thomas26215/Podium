@@ -47,7 +47,7 @@ class SoloHomeScreen extends StatelessWidget {
                     width: 38,
                     height: 38,
                     alignment: Alignment.center,
-                    decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(12)),
+                    decoration: heroDecoration(radius: AppRadius.scaled(12), depth: 0.4),
                     child: const Text('⏱️', style: TextStyle(fontSize: 19)),
                   ),
                   const SizedBox(width: 8),
@@ -140,7 +140,7 @@ class _ReplayCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(AppRadius.xxl)),
+      decoration: heroDecoration(radius: AppRadius.xxl),
       child: Row(
         children: [
           Text(game.emoji, style: const TextStyle(fontSize: 34)),
@@ -161,7 +161,7 @@ class _ReplayCard extends StatelessWidget {
             onTap: onReplay,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(color: AppColors.accent, borderRadius: BorderRadius.circular(AppRadius.md)),
+              decoration: accentDecoration(radius: AppRadius.md, glow: false),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -186,7 +186,7 @@ class _WelcomeCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(AppRadius.xxl)),
+      decoration: heroDecoration(radius: AppRadius.xxl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -1,19 +1,36 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 
 import '../theme/app_theme.dart';
+import 'motion_paint.dart';
 
-/// Wraps a `GestureDetector`-driven tap target (custom cards, icon buttons
-/// that don't already get Material ripple/elevation feedback) with a
-/// subtle scale-down-on-press, so every tap in the app feels responsive
-/// instead of just snapping to its result.
+export 'motion_paint.dart' show Reveal;
+
+/// Every tap target that isn't a Material button — cards, chips, rows,
+/// icon buttons — pressed in the player's surface style (see
+/// [AppMotion.press]): it sinks into the surface in neumorphism, lands on
+/// its hard shadow in neo-brutalism, squashes and wobbles like clay,
+/// flares like neon, just shrinks a little in the original style… The
+/// surface that fills it takes the press itself (see [SurfaceMotion]), so
+/// a card only has to be inside one.
+///
+/// A quick tap still plays the whole press before it springs back.
 class Pressable extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+
+  /// How far it shrinks held down in the original style — and so how
+  /// pronounced its press is in every style: 0.98 for a big card, 0.9 for
+  /// a small icon button.
   final double pressedScale;
 
-  /// Also dims the child slightly while held — for full-width rows/cards,
-  /// where a 2% scale alone is too subtle to notice under a thumb.
+  /// For full-width rows inside a card, which have no surface of their
+  /// own: the press shows as the style's highlight behind them (a hollow
+  /// in neumorphism, a lit frame in neon…), where a 2% scale alone would
+  /// be too subtle to notice under a thumb.
   final bool dimOnPress;
 
   /// [HitTestBehavior.opaque] for rows whose padding/gaps should be
@@ -25,35 +42,86 @@ class Pressable extends StatefulWidget {
   State<Pressable> createState() => _PressableState();
 }
 
-class _PressableState extends State<Pressable> {
-  bool _pressed = false;
+class _PressableState extends State<Pressable> with SingleTickerProviderStateMixin {
+  /// 0 at rest → 1 held, unbounded so a release can spring past its rest.
+  late final AnimationController _press = AnimationController.unbounded(vsync: this);
+  Offset _touch = const Offset(0.5, 0.5);
+  bool _held = false;
 
-  void _setPressed(bool v) {
-    if (widget.onTap == null && widget.onLongPress == null) return;
-    if (_pressed == v) return;
-    setState(() => _pressed = v);
+  /// Let go before it was all the way in: it comes back up once it is.
+  bool _releaseOnceIn = false;
+
+  bool get _enabled => widget.onTap != null || widget.onLongPress != null;
+  bool get _still => MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+
+  @override
+  void dispose() {
+    _press.dispose();
+    super.dispose();
+  }
+
+  void _down(TapDownDetails details) {
+    if (!_enabled) return;
+    final size = context.size;
+    if (size != null && !size.isEmpty) {
+      setState(() => _touch = Offset((details.localPosition.dx / size.width).clamp(0.0, 1.0), (details.localPosition.dy / size.height).clamp(0.0, 1.0)));
+    }
+    _held = true;
+    _releaseOnceIn = false;
+    if (_still) {
+      _press.value = 1;
+      return;
+    }
+    final motion = AppColors.motion;
+    _press.animateTo(1, duration: motion.pressIn, curve: motion.pressInCurve).whenCompleteOrCancel(() {
+      if (_releaseOnceIn && mounted) _release();
+    });
+  }
+
+  void _up() {
+    if (!_held) return;
+    _held = false;
+    if (_press.isAnimating && _press.value < 1) {
+      _releaseOnceIn = true;
+      return;
+    }
+    _release();
+  }
+
+  void _release() {
+    _releaseOnceIn = false;
+    if (_still) {
+      _press.value = 0;
+      return;
+    }
+    final motion = AppColors.motion;
+    final spring = motion.releaseSpring;
+    if (spring != null) {
+      _press.animateWith(SpringSimulation(spring, _press.value, 0, _press.velocity));
+    } else {
+      _press.animateBack(0, duration: motion.pressOut, curve: motion.pressOutCurve);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Quick to sink in, a touch springy on release.
-    Widget child = AnimatedScale(
-      scale: _pressed ? widget.pressedScale : 1.0,
-      duration: Duration(milliseconds: _pressed ? 90 : 220),
-      curve: _pressed ? Curves.easeOut : Curves.easeOutBack,
-      child: widget.child,
-    );
-    if (widget.dimOnPress) {
-      child = AnimatedOpacity(opacity: _pressed ? 0.7 : 1.0, duration: const Duration(milliseconds: 120), child: child);
-    }
+    final tokens = AppColors.tokens;
     return GestureDetector(
       behavior: widget.behavior,
       onTap: widget.onTap,
       onLongPress: widget.onLongPress,
-      onTapDown: (_) => _setPressed(true),
-      onTapUp: (_) => _setPressed(false),
-      onTapCancel: () => _setPressed(false),
-      child: child,
+      onTapDown: _down,
+      onTapUp: (_) => _up(),
+      onTapCancel: _up,
+      child: PressPaint(
+        press: _press,
+        motion: tokens.motion,
+        intensity: ((1 - widget.pressedScale) / 0.04).clamp(0.25, 3.0),
+        touch: _touch,
+        tint: tokens.accent,
+        highlight: widget.dimOnPress ? tokens.pressHighlight(radius: AppRadius.md) : null,
+        child: widget.child,
+      ),
     );
   }
 }
@@ -74,13 +142,19 @@ List<Widget> staggered(List<Widget> children, {int baseMs = 0, int stepMs = 50, 
   ];
 }
 
-/// Fades + slides a child down from just above its final position on first
-/// build. Give list items an increasing `delay` (e.g. `index * 40ms`) for a
-/// staggered entrance instead of everything popping in at once.
-class FadeSlideIn extends StatelessWidget {
+/// Brings a child in on first build, in the player's surface style (see
+/// [AppMotion.reveal]): it fades in sliding down into place in the original
+/// style, extrudes out of the surface in neumorphism, comes into focus in
+/// glass, pops on a jelly spring in clay, strikes on like a tube in neon…
+/// Give list items an increasing `delay` (e.g. `index * 40ms`, or see
+/// [staggered]) for a cascade instead of everything popping in at once.
+class FadeSlideIn extends StatefulWidget {
   final Widget child;
   final Duration delay;
   final Duration duration;
+
+  /// Where the original slide starts from, vertically (−16: just above).
+  /// The other styles only keep how far that is.
   final double offsetY;
 
   const FadeSlideIn({
@@ -92,25 +166,55 @@ class FadeSlideIn extends StatelessWidget {
   });
 
   @override
+  State<FadeSlideIn> createState() => _FadeSlideInState();
+}
+
+class _FadeSlideInState extends State<FadeSlideIn> with SingleTickerProviderStateMixin {
+  AnimationController? _controller;
+  CurvedAnimation? _progress;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_controller != null || (MediaQuery.maybeDisableAnimationsOf(context) ?? false)) return;
+    final motion = AppColors.motion;
+    final delay = widget.delay * motion.stagger;
+    final total = delay + motion.entrance(widget.duration);
+    if (total <= Duration.zero) return;
+    final controller = _controller = AnimationController(vsync: this, duration: total)..forward();
+    // Linear after the delay: the style shapes it.
+    _progress = CurvedAnimation(parent: controller, curve: Interval(delay.inMicroseconds / total.inMicroseconds, 1));
+  }
+
+  @override
+  void dispose() {
+    _progress?.dispose();
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: 1),
-      duration: duration + delay,
-      curve: Interval(
-        (delay.inMilliseconds / (duration + delay).inMilliseconds).clamp(0.0, 1.0),
-        1.0,
-        curve: Curves.easeOutCubic,
-      ),
-      builder: (context, t, child) {
-        return Opacity(
-          opacity: t,
-          child: Transform.translate(offset: Offset(0, offsetY * (1 - t)), child: child),
-        );
-      },
-      child: child,
-    );
+    final progress = _progress;
+    if (progress == null || (MediaQuery.maybeDisableAnimationsOf(context) ?? false)) return widget.child;
+    return Reveal(animation: progress, motion: AppColors.motion, travel: widget.offsetY, child: widget.child);
   }
 }
+
+/// The transition of an [AnimatedSwitcher] swapping content in place, in
+/// the player's surface style: what comes in plays a toned-down entrance,
+/// what goes drops away.
+Widget appSwitchTransition(Widget child, Animation<double> animation) => Reveal(animation: animation, motion: AppColors.motion, travel: -8, amplitude: 0.6, anchor: Alignment.center, child: child);
+
+/// The transition of an [AnimatedSwitcher] moving on to the next step or
+/// tab of a screen, in the player's surface style — sliding in from the
+/// right in the original one.
+Widget appStepTransition(Widget child, Animation<double> animation) =>
+    Reveal(animation: animation, motion: AppColors.motion, travel: 15, sideways: true, amplitude: 0.5, anchor: Alignment.topCenter, child: child);
+
+/// How a bottom sheet slides up in the player's surface style — pass it
+/// as `sheetAnimationStyle` to `showModalBottomSheet`.
+AnimationStyle? get appSheetAnimation => AppColors.motion.sheet;
 
 /// Custom ease-out, much more front-loaded than any named `Curves` constant
 /// (even `easeOutExpo`, which is already the steepest standard one — and
@@ -141,6 +245,7 @@ class AnimatedCounter extends StatelessWidget {
     // TweenAnimationBuilder itself takes care of animating from whatever is
     // currently on screen to the new `end` on every later rebuild where
     // `value` changed, never jumping back to 0 on an update.
+    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) return Text('$value', style: style, textAlign: textAlign);
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: value.toDouble()),
       duration: duration,
@@ -161,11 +266,7 @@ class StatChip extends StatelessWidget {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 14),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          border: Border.all(color: AppColors.line),
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-        ),
+        decoration: cardDecoration(radius: AppRadius.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -242,28 +343,33 @@ class EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final badge = Container(
+      width: 76,
+      height: 76,
+      alignment: Alignment.center,
+      decoration: cardDecoration(shape: BoxShape.circle),
+      child: Text(emoji, style: const TextStyle(fontSize: 36)),
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 40),
       child: Column(
         children: [
           // One-shot springy pop with a little tilt, then rests — never a
           // looping bob (that would keep `pumpAndSettle()` from settling).
-          TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: 1),
-            duration: const Duration(milliseconds: 700),
-            curve: Curves.elasticOut,
-            builder: (context, t, child) => Transform.rotate(
-              angle: 0.25 * (1 - t),
-              child: Transform.scale(scale: 0.4 + 0.6 * t, child: child),
+          // The other styles bring it in their own way.
+          if (AppColors.motion.style != SurfaceStyle.flat)
+            FadeSlideIn(duration: const Duration(milliseconds: 460), child: badge)
+          else
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: (MediaQuery.maybeDisableAnimationsOf(context) ?? false) ? 1 : 0, end: 1),
+              duration: const Duration(milliseconds: 700),
+              curve: Curves.elasticOut,
+              builder: (context, t, child) => Transform.rotate(
+                angle: 0.25 * (1 - t),
+                child: Transform.scale(scale: 0.4 + 0.6 * t, child: child),
+              ),
+              child: badge,
             ),
-            child: Container(
-              width: 76,
-              height: 76,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(color: AppColors.card, shape: BoxShape.circle, border: Border.all(color: AppColors.line)),
-              child: Text(emoji, style: const TextStyle(fontSize: 36)),
-            ),
-          ),
           const SizedBox(height: 14),
           FadeSlideIn(
             delay: const Duration(milliseconds: 120),
@@ -348,9 +454,11 @@ class _PodiumLoaderState extends State<PodiumLoader> with SingleTickerProviderSt
   }
 }
 
-/// `showDialog` with the app's own entrance: the dialog springs up from
-/// slightly smaller while the barrier fades in, instead of Material's flat
-/// fade — use it for every dialog so they all open the same way.
+/// `showDialog` with the app's own entrance, in the player's surface style:
+/// in the original one the dialog springs up from slightly smaller while
+/// the barrier fades in; it pops like jelly in clay, drops in hard in
+/// neo-brutalism, strikes on in neon, comes into focus over a frosted app
+/// in glass… — use it for every dialog so they all open the same way.
 Future<T?> showAppDialog<T>({required BuildContext context, required WidgetBuilder builder, bool barrierDismissible = true}) {
   final themes = InheritedTheme.capture(from: context, to: Navigator.of(context, rootNavigator: true).context);
   return showGeneralDialog<T>(
@@ -358,17 +466,60 @@ Future<T?> showAppDialog<T>({required BuildContext context, required WidgetBuild
     barrierDismissible: barrierDismissible,
     barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
     barrierColor: Colors.black.withValues(alpha: AppColors.isDark ? 0.6 : 0.42),
-    transitionDuration: const Duration(milliseconds: 320),
+    transitionDuration: AppColors.motion.dialog,
     pageBuilder: (dialogContext, _, _) => themes.wrap(SafeArea(child: Builder(builder: builder))),
-    transitionBuilder: (context, animation, _, child) {
-      final scale = CurvedAnimation(parent: animation, curve: Curves.easeOutBack, reverseCurve: Curves.easeInCubic);
-      final fade = CurvedAnimation(parent: animation, curve: Curves.easeOut, reverseCurve: Curves.easeIn);
-      return FadeTransition(
-        opacity: fade,
-        child: ScaleTransition(scale: Tween<double>(begin: 0.9, end: 1).animate(scale), child: child),
-      );
-    },
+    transitionBuilder: (context, animation, _, child) => _DialogTransition(animation: animation, child: child),
   );
+}
+
+class _DialogTransition extends StatefulWidget {
+  final Animation<double> animation;
+  final Widget child;
+  const _DialogTransition({required this.animation, required this.child});
+
+  @override
+  State<_DialogTransition> createState() => _DialogTransitionState();
+}
+
+class _DialogTransitionState extends State<_DialogTransition> {
+  // Built once: the route rebuilds its transition on every tick.
+  late final _scale = CurvedAnimation(parent: widget.animation, curve: Curves.easeOutBack, reverseCurve: Curves.easeInCubic);
+  late final _fade = CurvedAnimation(parent: widget.animation, curve: Curves.easeOut, reverseCurve: Curves.easeIn);
+
+  @override
+  void dispose() {
+    _scale.dispose();
+    _fade.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final motion = AppColors.motion;
+    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) return FadeTransition(opacity: widget.animation, child: widget.child);
+    if (motion.style == SurfaceStyle.flat) {
+      return FadeTransition(
+        opacity: _fade,
+        child: ScaleTransition(scale: Tween<double>(begin: 0.9, end: 1).animate(_scale), child: widget.child),
+      );
+    }
+    final dialog = Reveal(animation: widget.animation, motion: motion, travel: 28, amplitude: 0.6, anchor: Alignment.center, child: widget.child);
+    if (motion.style != SurfaceStyle.glass) return dialog;
+    // Glass: the app frosts over behind it.
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        AnimatedBuilder(
+          animation: widget.animation,
+          builder: (context, _) {
+            final sigma = 9 * Curves.easeOut.transform(widget.animation.value);
+            return BackdropFilter(enabled: sigma > 0.05, filter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma), child: const SizedBox.expand());
+          },
+        ),
+        dialog,
+      ],
+    );
+  }
 }
 
 /// The app's one recurring `TextField`/`TextFormField` look: filled card
@@ -383,17 +534,18 @@ InputDecoration appFieldDecoration({
   Color? focusColor,
   Color? fillColor,
 }) {
-  final border = OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: AppColors.line, width: 1.5));
+  final field = AppColors.tokens.field;
+  final border = OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: field.border, width: field.width));
   return InputDecoration(
     hintText: hintText,
     filled: true,
-    fillColor: fillColor ?? AppColors.card,
+    fillColor: fillColor ?? field.fill,
     contentPadding: contentPadding,
     prefixIcon: prefixIcon,
     suffixIcon: suffixIcon,
     border: border,
     enabledBorder: border,
-    focusedBorder: border.copyWith(borderSide: BorderSide(color: focusColor ?? AppColors.accent, width: 1.5)),
+    focusedBorder: border.copyWith(borderSide: BorderSide(color: focusColor ?? AppColors.accent, width: field.width)),
   );
 }
 
@@ -419,14 +571,14 @@ class GameTileRow extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+        decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
         child: Row(
           children: [
             Container(
               width: 44,
               height: 44,
               alignment: Alignment.center,
-              decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(13)),
+              decoration: wellDecoration(radius: AppRadius.scaled(13)),
               child: Text(emoji, style: const TextStyle(fontSize: 22)),
             ),
             const SizedBox(width: 12),
@@ -453,32 +605,32 @@ class PrimaryButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onPressed != null && !loading;
-    // A soft accent glow under the button only while it's actionable —
-    // fades out as it disables, so "you can go now" reads at a glance.
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOut,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        boxShadow: [BoxShadow(color: AppColors.accent.withValues(alpha: enabled ? 0.28 : 0), blurRadius: 18, offset: const Offset(0, 8))],
-      ),
-      child: ElevatedButton(
-        onPressed: enabled ? onPressed : null,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.accent,
-          disabledBackgroundColor: AppColors.accent.withValues(alpha: 0.35),
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-          elevation: 0,
-        ),
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 200),
-          transitionBuilder: (child, a) => FadeTransition(opacity: a, child: ScaleTransition(scale: Tween<double>(begin: 0.8, end: 1).animate(a), child: child)),
-          child: loading
-              ? const SizedBox(key: ValueKey('loading'), width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : Text(label, key: const ValueKey('label'), style: bodyFont(size: 16, weight: FontWeight.w800, color: Colors.white)),
+    final motion = AppColors.motion;
+    // The fill and a soft accent glow, in the player's surface style — the
+    // glow only while it's actionable, fading out as it disables, so "you
+    // can go now" reads at a glance. Pressed like any surface of the style:
+    // sunk in, landed on its shadow, flared…
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      child: Pressable(
+        onTap: enabled ? onPressed : null,
+        pressedScale: 0.97,
+        child: AnimatedContainer(
+          duration: motion.change,
+          curve: motion.changeCurve,
+          width: double.infinity,
+          constraints: const BoxConstraints(minHeight: 52),
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          decoration: accentDecoration(radius: AppRadius.lg, enabled: enabled),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            transitionBuilder: (child, a) => FadeTransition(opacity: a, child: ScaleTransition(scale: Tween<double>(begin: 0.8, end: 1).animate(a), child: child)),
+            child: loading
+                ? const SizedBox(key: ValueKey('loading'), width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : Text(label, key: const ValueKey('label'), textAlign: TextAlign.center, style: bodyFont(size: 16, weight: FontWeight.w800, color: Colors.white)),
+          ),
         ),
       ),
     );

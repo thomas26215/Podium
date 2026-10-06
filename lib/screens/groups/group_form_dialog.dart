@@ -123,14 +123,15 @@ class _GroupFormDialogState extends State<GroupFormDialog> {
             const SizedBox(height: 9),
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 200),
+              transitionBuilder: appSwitchTransition,
               child: _nameless
                   ? Container(
                       key: const ValueKey('auto'),
                       width: double.infinity,
                       padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: AppColors.card,
-                        borderRadius: BorderRadius.circular(AppRadius.md),
+                      decoration: cardDecoration(
+                        radius: AppRadius.md,
+                        borderless: true,
                       ),
                       child: Text(
                         'Nommé automatiquement : « $_autoName »',
@@ -235,14 +236,17 @@ class GroupEmojiPicker extends StatelessWidget {
           Pressable(
             onTap: () => onChanged(e),
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
+              duration: AppColors.motion.change,
+              curve: AppColors.motion.changeCurve,
               width: 44,
               height: 44,
               alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: selected == e ? AppColors.accentSoft : AppColors.card,
-                border: Border.all(color: selected == e ? AppColors.accent : AppColors.line, width: 1.5),
-                borderRadius: BorderRadius.circular(12),
+              decoration: chipDecoration(
+                radius: AppRadius.scaled(12),
+                fill: selected == e ? AppColors.accentSoft : null,
+                border: selected == e ? AppColors.accent : null,
+                borderWidth: 1.5,
+                selected: selected == e,
               ),
               child: Text(e, style: const TextStyle(fontSize: 22)),
             ),
@@ -269,15 +273,15 @@ class _LifespanCard extends StatelessWidget {
     return Pressable(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
+        duration: AppColors.motion.change,
+        curve: AppColors.motion.changeCurve,
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.ink : AppColors.card,
-          border: Border.all(
-            color: selected ? AppColors.ink : AppColors.line,
-            width: 1.5,
-          ),
-          borderRadius: BorderRadius.circular(AppRadius.lg),
+        decoration: cardDecoration(
+          radius: AppRadius.lg,
+          fill: selected ? AppColors.ink : null,
+          border: selected ? AppColors.ink : null,
+          borderWidth: 1.5,
+          selected: selected,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

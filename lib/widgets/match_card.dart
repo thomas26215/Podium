@@ -204,7 +204,7 @@ class _CardShell extends StatelessWidget {
     final card = Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
+      decoration: cardDecoration(radius: AppRadius.xl),
       child: child,
     );
     if (onTap == null) return card;
@@ -219,7 +219,7 @@ Widget matchHeader(Game game, String subtitle, DateTime createdAt) {
         width: 44,
         height: 44,
         alignment: Alignment.center,
-        decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(13)),
+        decoration: wellDecoration(radius: AppRadius.scaled(13)),
         child: Text(game.emoji, style: const TextStyle(fontSize: 22)),
       ),
       const SizedBox(width: 12),
@@ -303,7 +303,7 @@ class MatchCard extends StatelessWidget {
                 if (match.tournamentId != null)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(999)),
+                    decoration: chipDecoration(radius: 999),
                     child: Text('🏆 Tournoi', style: bodyFont(size: 11.5, weight: FontWeight.w800, color: AppColors.ink2)),
                   ),
                 if (match.hasScoreBreakdown)

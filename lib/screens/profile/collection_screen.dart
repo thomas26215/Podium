@@ -48,9 +48,9 @@ class _CollectionScreenState extends State<CollectionScreen> {
     final owned = ownedIds.map(app.libraryGameById).whereType<Game>().where((g) => g.collectible).toList()..sort((a, b) => foldText(a.name).compareTo(foldText(b.name)));
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.canvas,
       appBar: AppBar(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.canvas,
         elevation: 0,
         foregroundColor: AppColors.ink,
         title: Text(isMe ? 'Ma collection' : 'Collection de ${user?.displayName ?? 'ce joueur'}', style: bodyFont(size: 17, weight: FontWeight.w800, color: AppColors.ink)),
@@ -70,10 +70,7 @@ class _CollectionScreenState extends State<CollectionScreen> {
           Expanded(
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 260),
-              transitionBuilder: (child, a) => FadeTransition(
-                opacity: a,
-                child: SlideTransition(position: Tween<Offset>(begin: const Offset(0.03, 0), end: Offset.zero).animate(a), child: child),
-              ),
+              transitionBuilder: appStepTransition,
               child: app.libraryLoading && app.gameLibrary.isEmpty
                   ? const Center(key: ValueKey('loading'), child: PodiumLoader())
                   : (_tab == 0 || !isMe)
@@ -240,10 +237,11 @@ class _CollectionScreenState extends State<CollectionScreen> {
   Future<void> _ownedActions(BuildContext context, AppState app, Game g, bool isFavorite) async {
     final action = await showModalBottomSheet<String>(
       context: context,
+      sheetAnimationStyle: appSheetAnimation,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) => Container(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
-        decoration: BoxDecoration(color: AppColors.bg, borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.sheet))),
+        decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.sheet))),
         child: SafeArea(
           top: false,
           child: Column(
@@ -318,10 +316,10 @@ class _GameCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.fromLTRB(8, 12, 8, 10),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          border: Border.all(color: favorite ? AppColors.accent : AppColors.line, width: 1.5),
-          borderRadius: BorderRadius.circular(AppRadius.lg),
+        decoration: cardDecoration(
+          radius: AppRadius.lg,
+          border: favorite ? AppColors.accent : null,
+          borderWidth: 1.5,
         ),
         child: Stack(
           clipBehavior: Clip.none,
@@ -332,7 +330,7 @@ class _GameCard extends StatelessWidget {
                   child: Container(
                     width: double.infinity,
                     alignment: Alignment.center,
-                    decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(12)),
+                    decoration: wellDecoration(radius: AppRadius.scaled(12)),
                     child: Text(game.emoji, style: const TextStyle(fontSize: 30)),
                   ),
                 ),
@@ -405,7 +403,7 @@ class _PlayedSection extends StatelessWidget {
                           onTap: () => app.addOwnedGames(missing),
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(color: AppColors.accent, borderRadius: BorderRadius.circular(12)),
+                            decoration: accentDecoration(radius: AppRadius.scaled(12), glow: false),
                             child: Text('Tout ajouter (${missing.length})', style: bodyFont(size: 12.5, weight: FontWeight.w800, color: Colors.white)),
                           ),
                         ),

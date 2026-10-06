@@ -85,7 +85,7 @@ class _InviteDialogState extends State<InviteDialog> {
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(AppRadius.lg)),
+              decoration: cardDecoration(radius: AppRadius.lg, borderless: true),
               child: Row(
                 children: [
                   Expanded(child: _ModeTab(label: 'E-mail', selected: _mode == _InviteMode.email, onTap: () => _selectMode(_InviteMode.email, app))),
@@ -97,6 +97,7 @@ class _InviteDialogState extends State<InviteDialog> {
             const SizedBox(height: 18),
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 220),
+              transitionBuilder: appStepTransition,
               child: switch (_mode) {
                 _InviteMode.email => Column(
                     key: const ValueKey(_InviteMode.email),
@@ -122,7 +123,7 @@ class _InviteDialogState extends State<InviteDialog> {
                                       onTap: app.busy ? null : () => _addExisting(app, f),
                                       child: Container(
                                         padding: const EdgeInsets.fromLTRB(6, 6, 12, 6),
-                                        decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(30)),
+                                        decoration: chipDecoration(radius: AppRadius.scaled(30), borderWidth: 1.5),
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
@@ -187,7 +188,7 @@ class _InviteDialogState extends State<InviteDialog> {
                                           onTap: app.busy ? null : () => _addExisting(app, g),
                                           child: Container(
                                             padding: const EdgeInsets.fromLTRB(6, 6, 12, 6),
-                                            decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(30)),
+                                            decoration: chipDecoration(radius: AppRadius.scaled(30), borderWidth: 1.5),
                                             child: Row(
                                               mainAxisSize: MainAxisSize.min,
                                               children: [

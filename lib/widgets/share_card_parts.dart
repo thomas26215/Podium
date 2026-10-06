@@ -24,8 +24,16 @@ class SharePalette {
   static const green = Color(0xFF1F9D57);
 
   /// The sharer's accent color (kept, since it's their own choice).
-  static Color get accent => accentPreviewColor(AppColors.accentPreset);
+  static Color get accent => AppColors.accent;
 }
+
+/// The share cards' fonts: always Podium's own, whatever font the sharer
+/// picked for the app (see [SharePalette]).
+TextStyle shareBodyFont({double? size, FontWeight? weight, double? height, Color? color, double? letterSpacing}) =>
+    pairBodyFont(FontPair.podium, size: size, weight: weight, height: height, color: color, letterSpacing: letterSpacing);
+
+TextStyle shareDispFont({double? size, FontWeight? weight, double? height, Color? color, double? letterSpacing}) =>
+    pairDisplayFont(FontPair.podium, size: size, weight: weight, height: height, color: color, letterSpacing: letterSpacing);
 
 /// "12 pts", "1 pt".
 String sharePts(int n) => n.abs() <= 1 ? '$n pt' : '$n pts';
@@ -79,18 +87,18 @@ class ShareCardHeader extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: Text(title,
-                  maxLines: 2, overflow: TextOverflow.ellipsis, style: dispFont(size: 22, weight: FontWeight.w800, color: SharePalette.ink, letterSpacing: -0.3)),
+                  maxLines: 2, overflow: TextOverflow.ellipsis, style: shareDispFont(size: 22, weight: FontWeight.w800, color: SharePalette.ink, letterSpacing: -0.3)),
             ),
           ],
         ),
         const SizedBox(height: 4),
-        Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis, style: bodyFont(size: 12.5, weight: FontWeight.w700, color: SharePalette.mut)),
+        Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis, style: shareBodyFont(size: 12.5, weight: FontWeight.w700, color: SharePalette.mut)),
         if (pill != null && pill!.isNotEmpty) ...[
           const SizedBox(height: 6),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
             decoration: BoxDecoration(color: SharePalette.accent.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
-            child: Text(pill!, maxLines: 2, overflow: TextOverflow.ellipsis, style: bodyFont(size: 11.5, weight: FontWeight.w800, color: SharePalette.accent)),
+            child: Text(pill!, maxLines: 2, overflow: TextOverflow.ellipsis, style: shareBodyFont(size: 11.5, weight: FontWeight.w800, color: SharePalette.accent)),
           ),
         ],
       ],
@@ -113,7 +121,7 @@ class ShareSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(title, style: bodyFont(size: 10.5, weight: FontWeight.w800, color: SharePalette.mut, letterSpacing: 0.6)),
+          Text(title, style: shareBodyFont(size: 10.5, weight: FontWeight.w800, color: SharePalette.mut, letterSpacing: 0.6)),
           const SizedBox(height: 8),
           child,
         ],
@@ -137,11 +145,11 @@ class _Footer extends StatelessWidget {
           child: const Icon(Icons.emoji_events_rounded, size: 14, color: Colors.white),
         ),
         const SizedBox(width: 7),
-        Text('Podium', style: dispFont(size: 15, weight: FontWeight.w800, color: SharePalette.ink)),
+        Text('Podium', style: shareDispFont(size: 15, weight: FontWeight.w800, color: SharePalette.ink)),
         const SizedBox(width: 12),
         Expanded(
           child: Text('Disponible sur Google Play',
-              textAlign: TextAlign.end, maxLines: 1, overflow: TextOverflow.ellipsis, style: bodyFont(size: 10.5, weight: FontWeight.w700, color: SharePalette.mut)),
+              textAlign: TextAlign.end, maxLines: 1, overflow: TextOverflow.ellipsis, style: shareBodyFont(size: 10.5, weight: FontWeight.w700, color: SharePalette.mut)),
         ),
       ],
     );

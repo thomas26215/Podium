@@ -132,7 +132,7 @@ class _CompactHeader extends StatelessWidget {
           width: 56,
           height: 56,
           alignment: Alignment.center,
-          decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(16)),
+          decoration: cardDecoration(radius: AppRadius.scaled(16)),
           child: Text(game.emoji, style: const TextStyle(fontSize: 28)),
         ),
         const SizedBox(width: 14),
@@ -243,7 +243,7 @@ class _Card extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+        decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
         child: child,
       );
 }
@@ -255,7 +255,7 @@ class _Pill extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(999)),
+        decoration: chipDecoration(radius: 999),
         child: Text(label, style: bodyFont(size: 11.5, weight: FontWeight.w700, color: AppColors.ink2)),
       );
 }

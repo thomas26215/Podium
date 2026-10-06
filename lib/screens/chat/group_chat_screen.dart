@@ -181,6 +181,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     final myUid = app.currentUser?.uid;
     await showModalBottomSheet(
       context: context,
+      sheetAnimationStyle: appSheetAnimation,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) => Container(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
@@ -204,10 +205,12 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                       width: 42,
                       height: 42,
                       alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: message.reactions[myUid] == emoji ? AppColors.accentSoft : AppColors.card,
+                      decoration: chipDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(color: message.reactions[myUid] == emoji ? AppColors.accent : AppColors.line, width: 1.5),
+                        fill: message.reactions[myUid] == emoji ? AppColors.accentSoft : null,
+                        border: message.reactions[myUid] == emoji ? AppColors.accent : null,
+                        borderWidth: 1.5,
+                        selected: message.reactions[myUid] == emoji,
                       ),
                       child: Text(emoji, style: const TextStyle(fontSize: 20)),
                     ),
@@ -268,6 +271,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     }
     final picked = await showModalBottomSheet<AppUser>(
       context: context,
+      sheetAnimationStyle: appSheetAnimation,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) => Container(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
@@ -363,7 +367,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                     width: 46,
                     height: 46,
                     alignment: Alignment.center,
-                    decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.md)),
+                    decoration: cardDecoration(radius: AppRadius.md, borderWidth: 1.5),
                     child: Icon(Icons.how_to_vote_rounded, color: AppColors.ink2, size: 22),
                   ),
                 ),
@@ -374,7 +378,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                     width: 46,
                     height: 46,
                     alignment: Alignment.center,
-                    decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.md)),
+                    decoration: cardDecoration(radius: AppRadius.md, borderWidth: 1.5),
                     child: Icon(Icons.alternate_email_rounded, color: AppColors.ink2, size: 22),
                   ),
                 ),
@@ -398,7 +402,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                     width: 46,
                     height: 46,
                     alignment: Alignment.center,
-                    decoration: BoxDecoration(color: AppColors.accent, borderRadius: BorderRadius.circular(AppRadius.md)),
+                    decoration: accentDecoration(radius: AppRadius.md, glow: false),
                     child: Icon(_editing != null ? Icons.check_rounded : Icons.arrow_upward_rounded, color: Colors.white, size: 22),
                   ),
                 ),
@@ -527,20 +531,17 @@ class _MessageBubble extends StatelessWidget {
     final quoteColor = isMine ? Colors.white : AppColors.ink;
     final textStyle = bodyFont(size: 14.5, weight: FontWeight.w600, color: isMine ? Colors.white : AppColors.ink);
     final mentionStyle = textStyle.copyWith(fontWeight: FontWeight.w800, color: isMine ? Colors.white : AppColors.accent, backgroundColor: (isMine ? Colors.white : AppColors.accent).withValues(alpha: 0.16));
+    final corners = BorderRadius.only(
+      topLeft: Radius.circular(AppRadius.lg),
+      topRight: Radius.circular(AppRadius.lg),
+      bottomLeft: Radius.circular(isMine ? AppRadius.lg : AppRadius.scaled(4)),
+      bottomRight: Radius.circular(isMine ? AppRadius.scaled(4) : AppRadius.lg),
+    );
     final bubble = Pressable(
       onLongPress: onLongPress,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: isMine ? AppColors.accent : AppColors.card,
-          border: isMine ? null : Border.all(color: AppColors.line, width: 1.5),
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(16),
-            topRight: const Radius.circular(16),
-            bottomLeft: Radius.circular(isMine ? 16 : 4),
-            bottomRight: Radius.circular(isMine ? 4 : 16),
-          ),
-        ),
+        decoration: isMine ? BoxDecoration(color: AppColors.accent, borderRadius: corners) : chipDecoration(borderRadius: corners, borderWidth: 1.5),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -597,10 +598,12 @@ class _MessageBubble extends StatelessWidget {
                     onTap: onReact == null ? null : () => onReact!(entry.key),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: message.reactions[currentUid] == entry.key ? AppColors.accentSoft : AppColors.card,
-                        border: Border.all(color: message.reactions[currentUid] == entry.key ? AppColors.accent : AppColors.line, width: 1.2),
-                        borderRadius: BorderRadius.circular(999),
+                      decoration: chipDecoration(
+                        radius: 999,
+                        fill: message.reactions[currentUid] == entry.key ? AppColors.accentSoft : null,
+                        border: message.reactions[currentUid] == entry.key ? AppColors.accent : null,
+                        borderWidth: 1.2,
+                        selected: message.reactions[currentUid] == entry.key,
                       ),
                       child: Text('${entry.key} ${entry.value}', style: bodyFont(size: 11.5, weight: FontWeight.w700, color: AppColors.ink2)),
                     ),
@@ -654,7 +657,7 @@ class _PollBubble extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.xl)),
+      decoration: cardDecoration(radius: AppRadius.xl, borderWidth: 1.5),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -759,6 +762,7 @@ Future<void> showPollSheet(BuildContext context, AppState app) async {
   final filterable = hasFilterableData(app.games);
   await showModalBottomSheet(
     context: context,
+    sheetAnimationStyle: appSheetAnimation,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
     builder: (sheetContext) => StatefulBuilder(
@@ -805,12 +809,15 @@ Future<void> showPollSheet(BuildContext context, AppState app) async {
                       Pressable(
                         onTap: () => setState(() => selected.contains(g.id) ? selected.remove(g.id) : selected.add(g.id)),
                         child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
+                          duration: AppColors.motion.change,
+                          curve: AppColors.motion.changeCurve,
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                          decoration: BoxDecoration(
-                            color: selected.contains(g.id) ? AppColors.accentSoft : AppColors.card,
-                            border: Border.all(color: selected.contains(g.id) ? AppColors.accent : AppColors.line, width: 1.5),
-                            borderRadius: BorderRadius.circular(12),
+                          decoration: chipDecoration(
+                            radius: AppRadius.scaled(12),
+                            fill: selected.contains(g.id) ? AppColors.accentSoft : null,
+                            border: selected.contains(g.id) ? AppColors.accent : null,
+                            borderWidth: 1.5,
+                            selected: selected.contains(g.id),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -857,7 +864,7 @@ class _MessageAppear extends StatefulWidget {
 }
 
 class _MessageAppearState extends State<_MessageAppear> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 380), value: widget.animate ? 0 : 1);
+  late final AnimationController _c = AnimationController(vsync: this, duration: AppColors.motion.entrance(const Duration(milliseconds: 380)), value: widget.animate ? 0 : 1);
   late final Animation<double> _curve = CurvedAnimation(parent: _c, curve: Curves.easeOutBack);
 
   @override
@@ -874,17 +881,19 @@ class _MessageAppearState extends State<_MessageAppear> with SingleTickerProvide
 
   @override
   Widget build(BuildContext context) {
+    final motion = AppColors.motion;
+    final anchor = widget.fromRight ? Alignment.bottomRight : Alignment.bottomLeft;
+    if (motion.style != SurfaceStyle.flat) {
+      // In the surface style, growing out of its own side.
+      return Reveal(animation: _c, motion: motion, travel: 10, side: widget.fromRight ? 1 : -1, amplitude: 0.7, anchor: anchor, child: widget.child);
+    }
     return AnimatedBuilder(
       animation: _c,
       builder: (context, child) => Opacity(
         opacity: _c.value,
         child: Transform.translate(
           offset: Offset(0, 10 * (1 - _curve.value)),
-          child: Transform.scale(
-            scale: 0.85 + 0.15 * _curve.value,
-            alignment: widget.fromRight ? Alignment.bottomRight : Alignment.bottomLeft,
-            child: child,
-          ),
+          child: Transform.scale(scale: 0.85 + 0.15 * _curve.value, alignment: anchor, child: child),
         ),
       ),
       child: widget.child,

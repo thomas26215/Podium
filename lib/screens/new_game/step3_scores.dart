@@ -41,7 +41,7 @@ class _RanksScoreList extends StatelessWidget {
               curve: Curves.easeOutCubic,
               margin: const EdgeInsets.only(bottom: 9),
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+              decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
               child: Row(
                 children: [
                   Container(
@@ -119,7 +119,7 @@ class _RanksRoundsInput extends StatelessWidget {
             return Container(
               margin: const EdgeInsets.only(bottom: 9),
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+              decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
               child: Row(
                 children: [
                   Container(
@@ -164,7 +164,7 @@ class _RanksRoundsInput extends StatelessWidget {
           const SizedBox(height: 9),
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+            decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
             child: Column(
               children: [
                 for (final (i, round) in rounds.indexed)
@@ -196,7 +196,7 @@ class _RanksRoundsInput extends StatelessWidget {
           const SizedBox(height: 9),
           Container(
             padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+            decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
             child: ScoreEvolutionChart(timeline: d.timeline, appState: app),
           ),
         ],
@@ -216,7 +216,7 @@ class _WinLossToggle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(color: AppColors.bg, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(11)),
+      decoration: wellDecoration(radius: AppRadius.scaled(11), bordered: true),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -261,10 +261,11 @@ class _WinLossScoreList extends StatelessWidget {
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: isWin ? AppColors.greenSoft : AppColors.card,
-              border: Border.all(color: isWin ? AppColors.green : AppColors.line, width: 1.5),
-              borderRadius: BorderRadius.circular(AppRadius.lg),
+            decoration: cardDecoration(
+              radius: AppRadius.lg,
+              fill: isWin ? AppColors.greenSoft : null,
+              border: isWin ? AppColors.green : null,
+              borderWidth: 1.5,
             ),
             child: Row(
               children: [
@@ -292,10 +293,11 @@ class _WinLossScoreList extends StatelessWidget {
               duration: const Duration(milliseconds: 200),
               margin: const EdgeInsets.only(bottom: 9),
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isWin ? AppColors.greenSoft : AppColors.card,
-                border: Border.all(color: isWin ? AppColors.green : AppColors.line, width: 1.5),
-                borderRadius: BorderRadius.circular(AppRadius.lg),
+              decoration: cardDecoration(
+                radius: AppRadius.lg,
+                fill: isWin ? AppColors.greenSoft : null,
+                border: isWin ? AppColors.green : null,
+                borderWidth: 1.5,
               ),
               child: Row(
                 children: [
@@ -343,10 +345,11 @@ class _TimeScoreList extends StatelessWidget {
               duration: const Duration(milliseconds: 200),
               margin: const EdgeInsets.only(bottom: 9),
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isLead ? AppColors.greenSoft : AppColors.card,
-                border: Border.all(color: isLead ? AppColors.green : AppColors.line, width: 1.5),
-                borderRadius: BorderRadius.circular(AppRadius.lg),
+              decoration: cardDecoration(
+                radius: AppRadius.lg,
+                fill: isLead ? AppColors.greenSoft : null,
+                border: isLead ? AppColors.green : null,
+                borderWidth: 1.5,
               ),
               child: Row(
                 children: [
@@ -527,7 +530,7 @@ class _WinLossRoundsInputState extends State<_WinLossRoundsInput> {
           const SizedBox(height: 9),
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+            decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
             child: Column(
               children: [
                 for (final (i, round) in rounds.indexed)
@@ -559,7 +562,7 @@ class _WinLossRoundsInputState extends State<_WinLossRoundsInput> {
           const SizedBox(height: 9),
           Container(
             padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+            decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
             child: ScoreEvolutionChart(timeline: d.timeline, appState: app),
           ),
         ],
@@ -637,10 +640,9 @@ class _DetailedScoreInputState extends State<_DetailedScoreInput> {
               duration: const Duration(milliseconds: 200),
               margin: const EdgeInsets.only(bottom: 10),
               padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.card,
-                border: Border.all(color: AppColors.line, width: 1.5),
-                borderRadius: BorderRadius.circular(AppRadius.lg),
+              decoration: cardDecoration(
+                radius: AppRadius.lg,
+                borderWidth: 1.5,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -857,7 +859,7 @@ class _RoundsScoreInputState extends State<_RoundsScoreInput> {
           const SizedBox(height: 9),
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+            decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
             child: Column(
               children: [
                 for (final (i, round) in rounds.indexed)
@@ -889,7 +891,7 @@ class _RoundsScoreInputState extends State<_RoundsScoreInput> {
           const SizedBox(height: 9),
           Container(
             padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+            decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
             child: ScoreEvolutionChart(timeline: d.timeline, appState: app),
           ),
         ],
@@ -912,7 +914,7 @@ class _SeriesProgressBanner extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.accent, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+      decoration: cardDecoration(radius: AppRadius.lg, border: AppColors.accent, borderWidth: 1.5),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1091,103 +1093,112 @@ class Step3Scores extends StatelessWidget {
         else if (d.inputMode == 'quick' && d.mode == 'coop')
           _coopQuickRow(context, app)
         else if (d.inputMode == 'quick')
-          for (final uid in d.playerIds)
+          for (final (i, uid) in d.playerIds.indexed)
             Builder(builder: (_) {
               final p = app.playerById(uid);
               if (p == null) return const SizedBox.shrink();
               final isLead = leaderIds.contains(uid);
               final low = d.unit == 'wins' ? false : (rule?.lowWins ?? false);
               final label = isLead ? (low ? '▼ EN TÊTE' : '▲ EN TÊTE') : (d.mode == 'team' ? 'Équipe ${d.team[uid] ?? 'A'}' : '');
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                margin: const EdgeInsets.only(bottom: 9),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: isLead ? AppColors.greenSoft : AppColors.card,
-                  border: Border.all(color: isLead ? AppColors.green : AppColors.line, width: 1.5),
-                  borderRadius: BorderRadius.circular(AppRadius.lg),
-                ),
-                child: Row(
-                  children: [
-                    Avatar(initial: p.initial, color: Color(p.color), size: 40, fontSize: 15),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(p.displayName, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
-                          if (label.isNotEmpty) Text(label, style: bodyFont(size: 11, weight: FontWeight.w800, color: AppColors.green, letterSpacing: 0.3)),
-                        ],
+              return FadeSlideIn(
+                key: ValueKey(uid),
+                delay: staggerDelay(i, stepMs: 45),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.only(bottom: 9),
+                  padding: const EdgeInsets.all(12),
+                  decoration: cardDecoration(
+                    radius: AppRadius.lg,
+                    fill: isLead ? AppColors.greenSoft : null,
+                    border: isLead ? AppColors.green : null,
+                    borderWidth: 1.5,
+                  ),
+                  child: Row(
+                    children: [
+                      Avatar(initial: p.initial, color: Color(p.color), size: 40, fontSize: 15),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(p.displayName, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
+                            if (label.isNotEmpty) Text(label, style: bodyFont(size: 11, weight: FontWeight.w800, color: AppColors.green, letterSpacing: 0.3)),
+                          ],
+                        ),
                       ),
-                    ),
-                    _stepperButton(Icons.remove, () => app.bump(uid, -1)),
-                    Pressable(
-                      onTap: () => _showEditScoreDialog(context, app, uid, p.displayName, d.points[uid] ?? 0, onSubmit: (v) => app.setPoints(uid, v)),
-                      child: SizedBox(
-                        width: 40,
-                        child: AnimatedCounter(value: d.points[uid] ?? 0, textAlign: TextAlign.center, style: dispFont(size: 20, weight: FontWeight.w700, color: AppColors.ink)),
+                      _stepperButton(Icons.remove, () => app.bump(uid, -1)),
+                      Pressable(
+                        onTap: () => _showEditScoreDialog(context, app, uid, p.displayName, d.points[uid] ?? 0, onSubmit: (v) => app.setPoints(uid, v)),
+                        child: SizedBox(
+                          width: 40,
+                          child: AnimatedCounter(value: d.points[uid] ?? 0, textAlign: TextAlign.center, style: dispFont(size: 20, weight: FontWeight.w700, color: AppColors.ink)),
+                        ),
                       ),
-                    ),
-                    _stepperButton(Icons.add, () => app.bump(uid, 1)),
-                  ],
+                      _stepperButton(Icons.add, () => app.bump(uid, 1)),
+                    ],
+                  ),
                 ),
               );
             })
         else ...[
-          for (final uid in d.playerIds)
+          for (final (i, uid) in d.playerIds.indexed)
             Builder(builder: (_) {
               final p = app.playerById(uid);
               if (p == null) return const SizedBox.shrink();
-              return Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
-                child: Row(
-                  children: [
-                    Avatar(initial: p.initial, color: Color(p.color), size: 42, fontSize: 16),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(p.displayName, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
-                          Pressable(
-                            onTap: () => _showEditScoreDialog(
-                              context,
-                              app,
-                              uid,
-                              p.displayName,
-                              d.points[uid] ?? 0,
-                              onSubmit: (v) => app.addPoints(uid, v - (d.points[uid] ?? 0)),
+              return FadeSlideIn(
+                key: ValueKey(uid),
+                delay: staggerDelay(i, stepMs: 45),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(14),
+                  decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
+                  child: Row(
+                    children: [
+                      Avatar(initial: p.initial, color: Color(p.color), size: 42, fontSize: 16),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(p.displayName, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
+                            Pressable(
+                              onTap: () => _showEditScoreDialog(
+                                context,
+                                app,
+                                uid,
+                                p.displayName,
+                                d.points[uid] ?? 0,
+                                onSubmit: (v) => app.addPoints(uid, v - (d.points[uid] ?? 0)),
+                              ),
+                              child: AnimatedCounter(value: d.points[uid] ?? 0, style: dispFont(size: 28, weight: FontWeight.w700, color: AppColors.ink)),
                             ),
-                            child: AnimatedCounter(value: d.points[uid] ?? 0, style: dispFont(size: 28, weight: FontWeight.w700, color: AppColors.ink)),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    Pressable(
-                      onTap: () => app.addPoints(uid, 1),
-                      onLongPress: () => _showAddPointsSheet(context, app, uid, p.displayName),
-                      child: Container(
-                        width: 56,
-                        height: 56,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(color: AppColors.accent, borderRadius: BorderRadius.circular(14)),
-                        child: Text('+1', style: bodyFont(size: 20, weight: FontWeight.w700, color: Colors.white)),
+                      Pressable(
+                        onTap: () => app.addPoints(uid, 1),
+                        onLongPress: () => _showAddPointsSheet(context, app, uid, p.displayName),
+                        child: Container(
+                          width: 56,
+                          height: 56,
+                          alignment: Alignment.center,
+                          decoration: accentDecoration(radius: AppRadius.scaled(14), glow: false),
+                          child: Text('+1', style: bodyFont(size: 20, weight: FontWeight.w700, color: Colors.white)),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Pressable(
-                      onTap: () => _showAddPointsSheet(context, app, uid, p.displayName),
-                      child: Container(
-                        width: 44,
-                        height: 56,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(color: AppColors.bg, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(14)),
-                        child: Icon(Icons.tune_rounded, size: 20, color: AppColors.ink2),
+                      const SizedBox(width: 8),
+                      Pressable(
+                        onTap: () => _showAddPointsSheet(context, app, uid, p.displayName),
+                        child: Container(
+                          width: 44,
+                          height: 56,
+                          alignment: Alignment.center,
+                          decoration: wellDecoration(radius: AppRadius.scaled(14), bordered: true),
+                          child: Icon(Icons.tune_rounded, size: 20, color: AppColors.ink2),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               );
             }),
@@ -1195,7 +1206,7 @@ class Step3Scores extends StatelessWidget {
             margin: const EdgeInsets.only(bottom: 16),
             constraints: const BoxConstraints(maxHeight: 160),
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+            decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
             child: d.timeline.isEmpty
                 ? Center(child: Text('Les points marqués apparaîtront ici.', style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)))
                 : ListView(
@@ -1267,10 +1278,11 @@ class Step3Scores extends StatelessWidget {
             duration: const Duration(milliseconds: 200),
             margin: const EdgeInsets.only(bottom: 9),
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: isLead ? AppColors.greenSoft : AppColors.card,
-              border: Border.all(color: isLead ? AppColors.green : AppColors.line, width: 1.5),
-              borderRadius: BorderRadius.circular(AppRadius.lg),
+            decoration: cardDecoration(
+              radius: AppRadius.lg,
+              fill: isLead ? AppColors.greenSoft : null,
+              border: isLead ? AppColors.green : null,
+              borderWidth: 1.5,
             ),
             child: Row(
               children: [
@@ -1317,7 +1329,7 @@ class Step3Scores extends StatelessWidget {
       duration: const Duration(milliseconds: 200),
       margin: const EdgeInsets.only(bottom: 9),
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+      decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
       child: Row(
         children: [
           AvatarCluster(avatars: [for (final p in members.take(4)) (initial: p.initial, color: Color(p.color))]),
@@ -1358,7 +1370,7 @@ class Step3Scores extends StatelessWidget {
         height: 34,
         margin: const EdgeInsets.symmetric(horizontal: 2),
         alignment: Alignment.center,
-        decoration: BoxDecoration(color: AppColors.bg, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(11)),
+        decoration: wellDecoration(radius: AppRadius.scaled(11), bordered: true),
         child: Icon(icon, size: 18, color: AppColors.ink),
       ),
     );
@@ -1423,6 +1435,7 @@ Future<void> _showAddPointsSheet(BuildContext context, AppState app, String uid,
   final ctrl = TextEditingController();
   await showModalBottomSheet(
     context: context,
+    sheetAnimationStyle: appSheetAnimation,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
     builder: (sheetContext) {
@@ -1449,7 +1462,7 @@ Future<void> _showAddPointsSheet(BuildContext context, AppState app, String uid,
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(12)),
+                        decoration: chipDecoration(radius: AppRadius.scaled(12), borderWidth: 1.5),
                         child: Text(d > 0 ? '+$d' : '$d', style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink)),
                       ),
                     ),

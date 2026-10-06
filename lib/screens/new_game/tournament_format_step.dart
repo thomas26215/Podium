@@ -20,26 +20,17 @@ class TournamentFormatStep extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _FormatCard(
-          label: 'Élimination simple',
-          sub: 'Une défaite élimine',
-          selected: format == TournamentFormat.singleElimination,
-          onTap: () => app.setTournamentFormat(TournamentFormat.singleElimination),
-        ),
-        const SizedBox(height: 8),
-        _FormatCard(
-          label: 'Élimination double',
-          sub: 'Deux défaites éliminent',
-          selected: format == TournamentFormat.doubleElimination,
-          onTap: () => app.setTournamentFormat(TournamentFormat.doubleElimination),
-        ),
-        const SizedBox(height: 8),
-        _FormatCard(
-          label: 'Poules puis élimination',
-          sub: 'Phase de groupes, puis bracket',
-          selected: format == TournamentFormat.groupsThenElimination,
-          onTap: () => app.setTournamentFormat(TournamentFormat.groupsThenElimination),
-        ),
+        for (final (i, f) in const [
+          (TournamentFormat.singleElimination, 'Élimination simple', 'Une défaite élimine'),
+          (TournamentFormat.doubleElimination, 'Élimination double', 'Deux défaites éliminent'),
+          (TournamentFormat.groupsThenElimination, 'Poules puis élimination', 'Phase de groupes, puis bracket'),
+        ].indexed) ...[
+          if (i > 0) const SizedBox(height: 8),
+          FadeSlideIn(
+            delay: staggerDelay(i, stepMs: 50),
+            child: _FormatCard(label: f.$2, sub: f.$3, selected: format == f.$1, onTap: () => app.setTournamentFormat(f.$1)),
+          ),
+        ],
         if (format == TournamentFormat.groupsThenElimination) ...[
           const SizedBox(height: 20),
           Text('Nombre de poules', style: bodyFont(size: 13.5, weight: FontWeight.w800, color: AppColors.ink2)),
@@ -81,10 +72,12 @@ class _FormatCard extends StatelessWidget {
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.ink : AppColors.card,
-          border: Border.all(color: selected ? AppColors.ink : AppColors.line, width: 1.5),
-          borderRadius: BorderRadius.circular(AppRadius.lg),
+        decoration: cardDecoration(
+          radius: AppRadius.lg,
+          fill: selected ? AppColors.ink : null,
+          border: selected ? AppColors.ink : null,
+          borderWidth: 1.5,
+          selected: selected,
         ),
         child: Row(
           children: [
@@ -120,10 +113,12 @@ class _NumberChip extends StatelessWidget {
         width: 40,
         padding: const EdgeInsets.symmetric(vertical: 9),
         alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: selected ? AppColors.ink : AppColors.card,
-          border: Border.all(color: selected ? AppColors.ink : AppColors.line, width: 1.5),
-          borderRadius: BorderRadius.circular(10),
+        decoration: chipDecoration(
+          radius: AppRadius.scaled(10),
+          fill: selected ? AppColors.ink : null,
+          border: selected ? AppColors.ink : null,
+          borderWidth: 1.5,
+          selected: selected,
         ),
         child: Text('$value', style: bodyFont(size: 13.5, weight: FontWeight.w800, color: selected ? AppColors.onInk : AppColors.ink)),
       ),

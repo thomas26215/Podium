@@ -145,9 +145,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     };
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.canvas,
       appBar: AppBar(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.canvas,
         elevation: 0,
         foregroundColor: AppColors.ink,
         title: Text('Modifier le profil', style: bodyFont(size: 17, weight: FontWeight.w800, color: AppColors.ink)),
@@ -200,10 +200,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 260),
                     switchInCurve: Curves.easeOutCubic,
-                    transitionBuilder: (child, a) => FadeTransition(
-                      opacity: a,
-                      child: SlideTransition(position: Tween<Offset>(begin: const Offset(0.04, 0), end: Offset.zero).animate(a), child: child),
-                    ),
+                    transitionBuilder: appStepTransition,
                     layoutBuilder: (current, previous) => Stack(alignment: Alignment.topCenter, children: [...previous, ?current]),
                     child: KeyedSubtree(key: ValueKey(_tab), child: tabContent),
                   ),
@@ -638,15 +635,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       onTap: onTap,
       pressedScale: 0.88,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutBack,
+        duration: AppColors.motion.change,
+        curve: AppColors.motion.changeCurve,
         width: size,
         height: size,
         alignment: Alignment.center,
-        decoration: BoxDecoration(
+        decoration: chipDecoration(
           shape: BoxShape.circle,
-          color: fill ?? (selected ? AppColors.accentSoft : AppColors.card),
-          border: Border.all(color: selected ? AppColors.accent : AppColors.line, width: selected ? 2.5 : 1.5),
+          fill: fill ?? (selected ? AppColors.accentSoft : null),
+          border: selected ? AppColors.accent : null,
+          borderWidth: selected ? 2.5 : 1.5,
+          selected: selected,
         ),
         child: AnimatedScale(scale: selected ? 1.12 : 1, duration: const Duration(milliseconds: 220), curve: Curves.easeOutBack, child: child),
       ),
@@ -657,12 +656,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return Pressable(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
+        duration: AppColors.motion.change,
+        curve: AppColors.motion.changeCurve,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.accentSoft : (locked ? AppColors.bg : AppColors.card),
-          border: Border.all(color: selected ? AppColors.accent : AppColors.line, width: 1.5),
-          borderRadius: BorderRadius.circular(12),
+        decoration: chipDecoration(
+          radius: AppRadius.scaled(12),
+          fill: selected ? AppColors.accentSoft : (locked ? AppColors.bg : null),
+          border: selected ? AppColors.accent : null,
+          borderWidth: 1.5,
+          selected: selected,
         ),
         child: Text(label, style: bodyFont(size: 13, weight: FontWeight.w700, color: selected ? AppColors.accent : (locked ? AppColors.mut : AppColors.ink2))),
       ),
@@ -674,12 +676,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return Pressable(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: AppColors.motion.change,
+        curve: AppColors.motion.changeCurve,
         padding: const EdgeInsets.fromLTRB(4, 8, 4, 6),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.accentSoft : AppColors.card,
-          border: Border.all(color: selected ? AppColors.accent : AppColors.line, width: 1.5),
-          borderRadius: BorderRadius.circular(AppRadius.lg),
+        decoration: cardDecoration(
+          radius: AppRadius.lg,
+          fill: selected ? AppColors.accentSoft : null,
+          border: selected ? AppColors.accent : null,
+          borderWidth: 1.5,
+          selected: selected,
         ),
         child: Column(
           children: [

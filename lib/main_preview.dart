@@ -19,6 +19,7 @@ import 'screens/auth/auth_gate.dart';
 import 'state/app_state.dart';
 import 'state/session_manager.dart';
 import 'theme/app_theme.dart';
+import 'widgets/appearance_scope.dart';
 
 const _lea = AppUser(uid: 'lea', email: 'lea@podium.dev', displayName: 'Léa', color: 0xFFFF5B34);
 const _tom = AppUser(uid: 'tom', email: 'tom@podium.dev', displayName: 'Tom', color: 0xFF5B4BE8);
@@ -124,25 +125,30 @@ void main() {
       // seeded account, so it's a no-op stand-in (see SessionManager.single).
       ChangeNotifierProvider<SessionManager>.value(value: sessionManager),
     ],
-    child: MaterialApp(
-      title: 'Podium (preview)',
-      debugShowCheckedModeBanner: false,
-      theme: buildAppTheme(),
-      locale: const Locale('fr'),
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [Locale('fr')],
-      home: const AuthGate(),
-      builder: (context, child) {
-        // Auto sign-in as Tom so the preview lands straight on the app.
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (state.currentUser == null) auth.debugSignIn(_tom);
-        });
-        return child!;
-      },
+    // Rebuilt on every state change, like the real app's, so appearance
+    // changes reach the theme.
+    child: ListenableBuilder(
+      listenable: state,
+      builder: (context, _) => MaterialApp(
+        title: 'Podium (preview)',
+        debugShowCheckedModeBanner: false,
+        theme: buildAppTheme(),
+        locale: const Locale('fr'),
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [Locale('fr')],
+        home: const AuthGate(),
+        builder: (context, child) {
+          // Auto sign-in as Tom so the preview lands straight on the app.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (state.currentUser == null) auth.debugSignIn(_tom);
+          });
+          return AppearanceScope(child: child!);
+        },
+      ),
     ),
   ));
 }

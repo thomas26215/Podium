@@ -46,9 +46,9 @@ class _GroupsPageState extends State<GroupsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.canvas,
       appBar: AppBar(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.canvas,
         elevation: 0,
         iconTheme: IconThemeData(color: AppColors.ink),
       ),
@@ -77,6 +77,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
   Future<void> _chooseCreateKind(BuildContext context, AppState app) async {
     final kind = await showModalBottomSheet<String>(
       context: context,
+      sheetAnimationStyle: appSheetAnimation,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) => Container(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
@@ -185,7 +186,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                   onTap: () => _chooseCreateKind(context, app),
                   child: Container(
                     padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(border: Border.all(color: AppColors.line, width: 2), borderRadius: BorderRadius.circular(AppRadius.lg)),
+                    decoration: cardDecoration(radius: AppRadius.lg, fill: Colors.transparent, border: AppColors.line, borderWidth: 2),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -203,7 +204,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                   onTap: () => showAppDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: const JoinByLinkDialog())),
                   child: Container(
                     padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(border: Border.all(color: AppColors.line, width: 2), borderRadius: BorderRadius.circular(AppRadius.lg)),
+                    decoration: cardDecoration(radius: AppRadius.lg, fill: Colors.transparent, border: AppColors.line, borderWidth: 2),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -241,10 +242,10 @@ class _PersonalSpaceCard extends StatelessWidget {
       },
       child: Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          border: Border.all(color: active ? AppColors.accent : AppColors.line, width: 1.5),
-          borderRadius: BorderRadius.circular(AppRadius.lg),
+        decoration: cardDecoration(
+          radius: AppRadius.lg,
+          border: active ? AppColors.accent : null,
+          borderWidth: 1.5,
         ),
         child: Row(
           children: [
@@ -325,7 +326,7 @@ class _ArchivedSection extends StatelessWidget {
                 const SizedBox(width: 6),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                  decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(20)),
+                  decoration: cardDecoration(radius: AppRadius.scaled(20)),
                   child: Text('$count', style: bodyFont(size: 10.5, weight: FontWeight.w800, color: AppColors.mut)),
                 ),
               ],
@@ -355,14 +356,14 @@ class _CreateKindTile extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+        decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
         child: Row(
           children: [
             Container(
               width: 44,
               height: 44,
               alignment: Alignment.center,
-              decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(12)),
+              decoration: wellDecoration(radius: AppRadius.scaled(12)),
               child: Text(emoji, style: const TextStyle(fontSize: 22)),
             ),
             const SizedBox(width: 12),
@@ -397,7 +398,7 @@ class _RootGroupCard extends StatelessWidget {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+      decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
@@ -433,7 +434,7 @@ class _RootGroupCard extends StatelessWidget {
                                 const SizedBox(width: 8),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                                  decoration: BoxDecoration(color: AppColors.bg, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(6)),
+                                  decoration: wellDecoration(radius: AppRadius.scaled(6), bordered: true),
                                   child: Text('CLOS', style: bodyFont(size: 10, weight: FontWeight.w800, color: AppColors.mut, letterSpacing: 0.4)),
                                 ),
                               ] else if (group.temporary) ...[
@@ -488,7 +489,7 @@ class ServerCard extends StatelessWidget {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+      decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
       child: Pressable(
         behavior: HitTestBehavior.opaque,
         dimOnPress: true,
@@ -520,7 +521,7 @@ class ServerCard extends StatelessWidget {
                           const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                            decoration: BoxDecoration(color: AppColors.bg, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(6)),
+                            decoration: wellDecoration(radius: AppRadius.scaled(6), bordered: true),
                             child: Text('CLOS', style: bodyFont(size: 10, weight: FontWeight.w800, color: AppColors.mut, letterSpacing: 0.4)),
                           ),
                         ] else if (isOwner || isAdmin) ...[

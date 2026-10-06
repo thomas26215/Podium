@@ -20,7 +20,7 @@ class NoGroupScreen extends StatelessWidget {
     final email = app.currentUser?.email ?? '';
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.canvas,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
@@ -36,7 +36,7 @@ class NoGroupScreen extends StatelessWidget {
               FadeSlideIn(
                 child: Container(
                   padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(AppRadius.xxl)),
+                  decoration: heroDecoration(radius: AppRadius.xxl),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -58,7 +58,7 @@ class NoGroupScreen extends StatelessWidget {
                 delay: const Duration(milliseconds: 40),
                 child: Container(
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.lg)),
+                  decoration: cardDecoration(radius: AppRadius.lg),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -89,7 +89,7 @@ class NoGroupScreen extends StatelessWidget {
                 delay: const Duration(milliseconds: 80),
                 child: Container(
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.lg)),
+                  decoration: cardDecoration(radius: AppRadius.lg),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -118,7 +118,7 @@ class NoGroupScreen extends StatelessWidget {
                       const SizedBox(height: 10),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(AppRadius.md)),
+                        decoration: wellDecoration(radius: AppRadius.md),
                         child: Row(
                           children: [
                             Expanded(child: Text(email, style: bodyFont(size: 15, weight: FontWeight.w800, color: AppColors.ink))),

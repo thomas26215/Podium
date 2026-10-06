@@ -34,9 +34,9 @@ class MatchDetailScreen extends StatelessWidget {
     final isRoundSynced = match.resolvedInputMode == 'rounds';
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.canvas,
       appBar: AppBar(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.canvas,
         elevation: 0,
         iconTheme: IconThemeData(color: AppColors.ink),
         title: Text(
@@ -144,6 +144,7 @@ class MatchDetailScreen extends StatelessWidget {
     appState.resumeMatch(match, game);
     await showModalBottomSheet(
       context: context,
+      sheetAnimationStyle: appSheetAnimation,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: const Color(0x6B141318),
@@ -163,7 +164,7 @@ class MatchDetailScreen extends StatelessWidget {
     final resultLine = matchResultLine(game, match, appState);
     return Container(
       padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(AppRadius.xxl)),
+      decoration: heroDecoration(radius: AppRadius.xxl),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -206,7 +207,7 @@ class MatchDetailScreen extends StatelessWidget {
   Widget _sectionCard({required String title, required Widget child}) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
+      decoration: cardDecoration(radius: AppRadius.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -230,7 +231,7 @@ class MatchDetailScreen extends StatelessWidget {
     };
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.lg)),
+      decoration: cardDecoration(radius: AppRadius.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -304,7 +305,7 @@ class MatchDetailScreen extends StatelessWidget {
     final sorted = [...match.entries]..sort((a, b) => match.lowWins ? a.points.compareTo(b.points) : b.points.compareTo(a.points));
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
+      decoration: cardDecoration(radius: AppRadius.xl),
       child: Column(
         children: sorted.map((e) {
           final p = appState.playerById(e.playerId);
@@ -348,7 +349,7 @@ class MatchDetailScreen extends StatelessWidget {
     final sorted = [...match.entries]..sort((a, b) => match.lowWins ? a.points.compareTo(b.points) : b.points.compareTo(a.points));
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
+      decoration: cardDecoration(radius: AppRadius.xl),
       child: Column(
         children: [
           for (final entry in sorted)
@@ -420,10 +421,11 @@ class MatchDetailScreen extends StatelessWidget {
     final score = match.entries.firstOrNull?.points ?? 0;
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        border: Border.all(color: isWinLoss && isWin ? AppColors.green : AppColors.line, width: 1.5),
-        color: isWinLoss && isWin ? AppColors.greenSoft : AppColors.card,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
+      decoration: cardDecoration(
+        radius: AppRadius.lg,
+        fill: isWinLoss && isWin ? AppColors.greenSoft : null,
+        border: isWinLoss && isWin ? AppColors.green : null,
+        borderWidth: 1.5,
       ),
       child: Row(
         children: [
@@ -469,10 +471,11 @@ class MatchDetailScreen extends StatelessWidget {
         return Container(
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            border: Border.all(color: win ? AppColors.green : AppColors.line, width: 1.5),
-            color: win ? AppColors.greenSoft : AppColors.card,
-            borderRadius: BorderRadius.circular(AppRadius.lg),
+          decoration: cardDecoration(
+            radius: AppRadius.lg,
+            fill: win ? AppColors.greenSoft : null,
+            border: win ? AppColors.green : null,
+            borderWidth: 1.5,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

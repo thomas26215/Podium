@@ -135,7 +135,7 @@ class Step2Players extends StatelessWidget {
                 Flexible(child: Text('Format de la partie', maxLines: 1, overflow: TextOverflow.ellipsis, style: bodyFont(size: 13.5, weight: FontWeight.w800, color: AppColors.ink2))),
                 Container(
                   padding: const EdgeInsets.all(3),
-                  decoration: BoxDecoration(color: AppColors.bg, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(11)),
+                  decoration: wellDecoration(radius: AppRadius.scaled(11), bordered: true),
                   child: Row(
                     children: [
                       for (final n in [1, 3, 5, 7])
@@ -204,7 +204,7 @@ class Step2Players extends StatelessWidget {
                 Text("Nombre d'équipes", style: bodyFont(size: 13.5, weight: FontWeight.w800, color: AppColors.ink2)),
                 Container(
                   padding: const EdgeInsets.all(3),
-                  decoration: BoxDecoration(color: AppColors.bg, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(11)),
+                  decoration: wellDecoration(radius: AppRadius.scaled(11), bordered: true),
                   child: Row(
                     children: [
                       for (final n in [2, 3, 4])
@@ -255,10 +255,10 @@ class Step2Players extends StatelessWidget {
               duration: const Duration(milliseconds: 150),
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-              decoration: BoxDecoration(
-                color: AppColors.card,
-                border: Border.all(color: d.playerIds.contains(p.uid) ? AppColors.accent : AppColors.line, width: 1.5),
-                borderRadius: BorderRadius.circular(15),
+              decoration: cardDecoration(
+                radius: AppRadius.scaled(15),
+                border: d.playerIds.contains(p.uid) ? AppColors.accent : null,
+                borderWidth: 1.5,
               ),
               child: Column(
                 children: [
@@ -275,7 +275,7 @@ class Step2Players extends StatelessWidget {
                   if (d.playerIds.contains(p.uid) && d.mode == 'team')
                     Container(
                       padding: const EdgeInsets.all(3),
-                      decoration: BoxDecoration(color: AppColors.bg, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(11)),
+                      decoration: wellDecoration(radius: AppRadius.scaled(11), bordered: true),
                       child: Row(
                         children: [
                           for (var i = 0; i < d.teamCount; i++)
@@ -359,7 +359,7 @@ class _WinChances extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(top: 8),
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(15)),
+      decoration: cardDecoration(radius: AppRadius.scaled(15)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -512,6 +512,7 @@ Future<String?> _pickCharacter(BuildContext context, AppState app, String uid, S
   final multi = choice.count > 1;
   return showModalBottomSheet<String>(
     context: context,
+    sheetAnimationStyle: appSheetAnimation,
     backgroundColor: AppColors.bg,
     isScrollControlled: true,
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl))),
@@ -583,10 +584,12 @@ class _CharacterOption extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.accentSoft : AppColors.card,
-          border: Border.all(color: selected ? AppColors.accent : AppColors.line, width: 1.5),
-          borderRadius: BorderRadius.circular(AppRadius.lg),
+        decoration: cardDecoration(
+          radius: AppRadius.lg,
+          fill: selected ? AppColors.accentSoft : null,
+          border: selected ? AppColors.accent : null,
+          borderWidth: 1.5,
+          selected: selected,
         ),
         child: Row(
           children: [
@@ -623,11 +626,7 @@ class _CharacterPill extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: set ? AppColors.accentSoft : AppColors.bg,
-          border: Border.all(color: set ? AppColors.accent : AppColors.line, width: 1.2),
-          borderRadius: BorderRadius.circular(10),
-        ),
+        decoration: chipDecoration(radius: AppRadius.scaled(10), fill: set ? AppColors.accentSoft : AppColors.bg, border: set ? AppColors.accent : AppColors.line, borderWidth: 1.2, selected: set),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -656,12 +655,15 @@ class _DateChip extends StatelessWidget {
     return Pressable(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
+        duration: AppColors.motion.change,
+        curve: AppColors.motion.changeCurve,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.ink : AppColors.card,
-          border: Border.all(color: selected ? AppColors.ink : AppColors.line, width: 1.5),
-          borderRadius: BorderRadius.circular(10),
+        decoration: chipDecoration(
+          radius: AppRadius.scaled(10),
+          fill: selected ? AppColors.ink : null,
+          border: selected ? AppColors.ink : null,
+          borderWidth: 1.5,
+          selected: selected,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -688,13 +690,16 @@ class _ModeCard extends StatelessWidget {
     return Pressable(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
+        duration: AppColors.motion.change,
+        curve: AppColors.motion.changeCurve,
         padding: const EdgeInsets.all(14),
         alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: selected ? AppColors.ink : AppColors.card,
-          border: Border.all(color: selected ? AppColors.ink : AppColors.line, width: 1.5),
-          borderRadius: BorderRadius.circular(AppRadius.lg),
+        decoration: cardDecoration(
+          radius: AppRadius.lg,
+          fill: selected ? AppColors.ink : null,
+          border: selected ? AppColors.ink : null,
+          borderWidth: 1.5,
+          selected: selected,
         ),
         child: Column(
           children: [

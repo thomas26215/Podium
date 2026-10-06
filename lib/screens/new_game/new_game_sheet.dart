@@ -54,6 +54,7 @@ String _subtitleFor(AppState app, WizardStepKind kind) {
 Future<void> showNewGameSheet(BuildContext context, AppState app) async {
   await showModalBottomSheet(
     context: context,
+    sheetAnimationStyle: appSheetAnimation,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     barrierColor: const Color(0x6B141318),
@@ -177,7 +178,7 @@ class NewGameSheet extends StatelessWidget {
                         width: 38,
                         height: 38,
                         alignment: Alignment.center,
-                        decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(12)),
+                        decoration: chipDecoration(radius: AppRadius.scaled(12)),
                         child: Icon(showBack ? Icons.arrow_back : Icons.close, size: 18, color: AppColors.ink),
                       ),
                     ),
@@ -221,7 +222,7 @@ class NewGameSheet extends StatelessWidget {
                 Container(
                   margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(10)),
+                  decoration: chipDecoration(radius: AppRadius.scaled(10)),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -239,13 +240,7 @@ class NewGameSheet extends StatelessWidget {
                     duration: const Duration(milliseconds: 260),
                     switchInCurve: Curves.easeOutCubic,
                     switchOutCurve: Curves.easeInCubic,
-                    transitionBuilder: (child, animation) => FadeTransition(
-                      opacity: animation,
-                      child: SlideTransition(
-                        position: Tween<Offset>(begin: const Offset(0.04, 0), end: Offset.zero).animate(animation),
-                        child: child,
-                      ),
-                    ),
+                    transitionBuilder: appStepTransition,
                     child: KeyedSubtree(
                       key: ValueKey(
                         app.browsingLibrary

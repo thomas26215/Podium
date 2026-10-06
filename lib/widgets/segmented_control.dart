@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import 'common.dart';
 
 /// Pill-shaped segmented control — covers `.seg`/`.useg`/`.modeseg` from the
 /// prototype, which only differ in font size/padding, not structure.
@@ -21,33 +22,31 @@ class SegmentedControl extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final n = labels.length;
+    final motion = AppColors.motion;
     // -1…1 across the track; a lone segment just sits centred.
     final x = n <= 1 ? 0.0 : -1 + 2 * selectedIndex.clamp(0, n - 1) / (n - 1);
     return Container(
       padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(color: AppColors.segTrack, borderRadius: BorderRadius.circular(14)),
+      decoration: AppColors.tokens.track(radius: AppRadius.scaled(14)),
       child: Stack(
         children: [
-          // One white thumb that glides to the selected segment, instead of
-          // each segment fading its own background in and out.
+          // One thumb that glides to the selected segment, instead of each
+          // segment fading its own background in and out — at the pace of
+          // the surface style: snapping in neo-brutalism, wobbling into
+          // place in clay (stopped by the track's ends).
           if (selectedIndex >= 0 && selectedIndex < n)
             Positioned.fill(
-              child: AnimatedAlign(
-                alignment: Alignment(x, 0),
-                duration: const Duration(milliseconds: 280),
-                curve: Curves.easeOutCubic,
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(end: x),
+                duration: motion.move,
+                curve: motion.moveCurve,
+                builder: (context, x, child) => Align(alignment: Alignment(x.clamp(-1.0, 1.0), 0), child: child),
                 child: FractionallySizedBox(
                   widthFactor: 1 / n,
                   heightFactor: 1,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      // In dark mode `card` is barely off the track colour —
-                      // lift the thumb so the selection actually shows.
-                      color: AppColors.isDark ? const Color(0xFF3A3843) : AppColors.card,
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 3, offset: const Offset(0, 1))],
-                    ),
-                  ),
+                  // In the surface style — raised out of a hollowed track
+                  // in neumorphism, lifted off the track in dark mode.
+                  child: Container(decoration: AppColors.tokens.segmentThumb(radius: AppRadius.scaled(10))),
                 ),
               ),
             ),
@@ -55,13 +54,14 @@ class SegmentedControl extends StatelessWidget {
             children: [
               for (var i = 0; i < n; i++)
                 Expanded(
-                  child: GestureDetector(
+                  child: Pressable(
                     behavior: HitTestBehavior.opaque,
+                    pressedScale: 0.97,
                     onTap: () => onChanged(i),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
                       child: AnimatedDefaultTextStyle(
-                        duration: const Duration(milliseconds: 200),
+                        duration: motion.change,
                         style: bodyFont(
                           size: fontSize,
                           weight: FontWeight.w700,

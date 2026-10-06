@@ -108,10 +108,9 @@ class _TournamentSeedingEditorState extends State<TournamentSeedingEditor> {
               onTap: _shuffle,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppColors.card,
-                  border: Border.all(color: AppColors.line, width: 1.5),
-                  borderRadius: BorderRadius.circular(10),
+                decoration: chipDecoration(
+                  radius: AppRadius.scaled(10),
+                  borderWidth: 1.5,
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -161,7 +160,7 @@ class _Box extends StatelessWidget {
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.lg)),
+      decoration: cardDecoration(radius: AppRadius.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

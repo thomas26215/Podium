@@ -5,7 +5,6 @@ import '../models/game.dart';
 import '../models/match.dart';
 import '../models/tournament.dart';
 import '../state/app_state.dart';
-import '../theme/app_theme.dart';
 import 'match_card.dart';
 import 'share_card_parts.dart';
 
@@ -89,12 +88,12 @@ class TournamentShareCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('CHAMPION', style: bodyFont(size: 10.5, weight: FontWeight.w800, color: SharePalette.gold, letterSpacing: 0.8)),
+                  Text('CHAMPION', style: shareBodyFont(size: 10.5, weight: FontWeight.w800, color: SharePalette.gold, letterSpacing: 0.8)),
                   Text(_label(t.winnerEntrantId),
-                      maxLines: 2, overflow: TextOverflow.ellipsis, style: dispFont(size: 22, weight: FontWeight.w800, color: Colors.white)),
+                      maxLines: 2, overflow: TextOverflow.ellipsis, style: shareDispFont(size: 22, weight: FontWeight.w800, color: Colors.white)),
                   if (finalistId != null)
                     Text('Finaliste : ${_label(finalistId)}',
-                        maxLines: 1, overflow: TextOverflow.ellipsis, style: bodyFont(size: 12, weight: FontWeight.w700, color: Colors.white.withValues(alpha: 0.65))),
+                        maxLines: 1, overflow: TextOverflow.ellipsis, style: shareBodyFont(size: 12, weight: FontWeight.w700, color: Colors.white.withValues(alpha: 0.65))),
                 ],
               ),
             ),
@@ -109,7 +108,7 @@ class TournamentShareCard extends StatelessWidget {
       decoration: BoxDecoration(color: SharePalette.card, border: Border.all(color: SharePalette.line, width: 1.5), borderRadius: BorderRadius.circular(14)),
       child: Text(
         t.isPending ? 'En préparation' : 'En cours · $done/${playable.length} matchs joués',
-        style: bodyFont(size: 13.5, weight: FontWeight.w800, color: SharePalette.ink),
+        style: shareBodyFont(size: 13.5, weight: FontWeight.w800, color: SharePalette.ink),
       ),
     );
   }
@@ -124,18 +123,18 @@ class TournamentShareCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 2),
             child: Row(
               children: [
-                SizedBox(width: 18, child: Text('${i + 1}', style: bodyFont(size: 12, weight: FontWeight.w700, color: SharePalette.mut))),
+                SizedBox(width: 18, child: Text('${i + 1}', style: shareBodyFont(size: 12, weight: FontWeight.w700, color: SharePalette.mut))),
                 Expanded(
                   child: Text(_label(s.entrantId),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: bodyFont(size: 12.5, weight: i < qualifiers ? FontWeight.w800 : FontWeight.w700, color: i < qualifiers ? SharePalette.ink : SharePalette.ink2)),
+                      style: shareBodyFont(size: 12.5, weight: i < qualifiers ? FontWeight.w800 : FontWeight.w700, color: i < qualifiers ? SharePalette.ink : SharePalette.ink2)),
                 ),
-                Text('${s.wins} V', style: bodyFont(size: 12, weight: FontWeight.w700, color: SharePalette.ink2)),
+                Text('${s.wins} V', style: shareBodyFont(size: 12, weight: FontWeight.w700, color: SharePalette.ink2)),
                 const SizedBox(width: 10),
                 SizedBox(
                   width: 34,
-                  child: Text('${s.diff >= 0 ? '+' : ''}${s.diff}', textAlign: TextAlign.end, style: bodyFont(size: 12, weight: FontWeight.w600, color: SharePalette.mut)),
+                  child: Text('${s.diff >= 0 ? '+' : ''}${s.diff}', textAlign: TextAlign.end, style: shareBodyFont(size: 12, weight: FontWeight.w600, color: SharePalette.mut)),
                 ),
               ],
             ),
@@ -177,7 +176,7 @@ class TournamentShareCard extends StatelessWidget {
       out.add(Padding(
         padding: const EdgeInsets.only(top: 8),
         child: Text('+ $hiddenMatches match${hiddenMatches > 1 ? 's' : ''} des tours précédents',
-            textAlign: TextAlign.center, style: bodyFont(size: 11.5, weight: FontWeight.w700, color: SharePalette.mut)),
+            textAlign: TextAlign.center, style: shareBodyFont(size: 11.5, weight: FontWeight.w700, color: SharePalette.mut)),
       ));
     }
     if (losers.isNotEmpty) {
@@ -185,7 +184,7 @@ class TournamentShareCard extends StatelessWidget {
       out.add(Padding(
         padding: const EdgeInsets.only(top: 8),
         child: Text('Tableau des perdants : $played/${losers.length} matchs joués',
-            textAlign: TextAlign.center, style: bodyFont(size: 11.5, weight: FontWeight.w700, color: SharePalette.mut)),
+            textAlign: TextAlign.center, style: shareBodyFont(size: 11.5, weight: FontWeight.w700, color: SharePalette.mut)),
       ));
     }
     return out;
@@ -223,7 +222,7 @@ class TournamentShareCard extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: alignEnd ? TextAlign.end : TextAlign.start,
-                style: bodyFont(size: 12.5, weight: won ? FontWeight.w800 : FontWeight.w700, color: lost ? SharePalette.mut : SharePalette.ink),
+                style: shareBodyFont(size: 12.5, weight: won ? FontWeight.w800 : FontWeight.w700, color: lost ? SharePalette.mut : SharePalette.ink),
               ),
             ),
             if (won && alignEnd) ...[const SizedBox(width: 4), const Icon(Icons.emoji_events, color: SharePalette.gold, size: 14)],
@@ -242,7 +241,7 @@ class TournamentShareCard extends StatelessWidget {
             alignment: Alignment.center,
             child: Text(
               showScore ? '${_score(gm, m.entrantAId)} – ${_score(gm, m.entrantBId)}' : (m.isDone ? 'vs' : '–'),
-              style: dispFont(size: 13, weight: FontWeight.w700, color: SharePalette.ink2),
+              style: shareDispFont(size: 13, weight: FontWeight.w700, color: SharePalette.ink2),
             ),
           ),
           side(m.entrantBId, alignEnd: true),

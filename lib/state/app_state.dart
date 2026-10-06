@@ -134,11 +134,15 @@ class AppState extends ChangeNotifier {
 
   // ---- theme / personalization ----
   ThemeMode themeMode = ThemeMode.system;
-  AccentPreset accentPreset = AccentPreset.orange;
+  Appearance appearance = const Appearance();
   DashboardStyle dashboardStyle = DashboardStyle.complete;
 
   static const _themeModeKey = 'theme_mode';
-  static const _accentKey = 'accent_preset';
+  static const _appearanceKey = 'appearance_v1';
+
+  /// Where the accent was stored before appearances — read once to carry
+  /// it over.
+  static const _legacyAccentKey = 'accent_preset';
   static const _dashboardStyleKey = 'dashboard_style';
 
   bool get isDark => switch (themeMode) {
@@ -148,7 +152,7 @@ class AppState extends ChangeNotifier {
       };
 
   void _applyTheme() {
-    AppColors.configure(dark: isDark, accent: accentPreset);
+    AppColors.configure(dark: isDark, appearance: appearance);
   }
 
   Future<void> _loadThemePrefs() async {
@@ -158,9 +162,17 @@ class AppState extends ChangeNotifier {
       if (modeStr != null) {
         themeMode = ThemeMode.values.firstWhere((m) => m.name == modeStr, orElse: () => ThemeMode.system);
       }
-      final accentStr = prefs.getString(_accentKey);
-      if (accentStr != null) {
-        accentPreset = AccentPreset.values.firstWhere((a) => a.name == accentStr, orElse: () => AccentPreset.orange);
+      final appearanceStr = prefs.getString(_appearanceKey);
+      if (appearanceStr != null) {
+        try {
+          appearance = Appearance.fromJson(jsonDecode(appearanceStr) as Map<String, dynamic>);
+        } catch (_) {
+          // Unreadable — keep the default look.
+        }
+      } else {
+        final legacyAccent = prefs.getString(_legacyAccentKey);
+        final accent = AccentId.values.where((a) => a.name == legacyAccent && a != AccentId.custom).firstOrNull;
+        if (accent != null) appearance = appearance.copyWith(accent: accent);
       }
       final dashboardStyleStr = prefs.getString(_dashboardStyleKey);
       if (dashboardStyleStr != null) {
@@ -184,13 +196,37 @@ class AppState extends ChangeNotifier {
     } catch (_) {}
   }
 
-  Future<void> setAccentPreset(AccentPreset preset) async {
-    accentPreset = preset;
-    _applyTheme();
-    notifyListeners();
+  /// Applies [value] right away — every screen restyles on the next frame
+  /// (see AppearanceScope) — and keeps it on this device, unless [persist]
+  /// is off while a slider is still moving (it saves where it stops).
+  Future<void> setAppearance(Appearance value, {bool persist = true}) async {
+    if (value != appearance) {
+      appearance = value;
+      _applyTheme();
+      notifyListeners();
+    }
+    if (!persist) return;
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_accentKey, preset.name);
+      await prefs.setString(_appearanceKey, jsonEncode(value.toJson()));
+    } catch (_) {}
+  }
+
+  /// Switches to [preset]'s look, and to dark mode for a night theme.
+  Future<void> applyAppearancePreset(AppearancePreset preset) async {
+    final modeChanged = preset.mode != null && preset.mode != themeMode;
+    if (modeChanged) themeMode = preset.mode!;
+    final next = appearance.withLookOf(preset.look);
+    if (next != appearance) {
+      await setAppearance(next);
+    } else if (modeChanged) {
+      _applyTheme();
+      notifyListeners();
+    }
+    if (!modeChanged) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_themeModeKey, themeMode.name);
     } catch (_) {}
   }
 
@@ -201,6 +237,16 @@ class AppState extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_dashboardStyleKey, style.name);
     } catch (_) {}
+  }
+
+  /// Takes over [from]'s display settings when switching accounts: they
+  /// belong to the device, and [from] has the latest.
+  void adoptDisplaySettings(AppState from) {
+    if (identical(from, this)) return;
+    themeMode = from.themeMode;
+    appearance = from.appearance;
+    dashboardStyle = from.dashboardStyle;
+    _applyTheme();
   }
 
   /// Called when the OS-level light/dark setting changes while

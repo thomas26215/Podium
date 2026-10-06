@@ -17,9 +17,9 @@ class FriendsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.canvas,
       appBar: AppBar(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.canvas,
         elevation: 0,
         foregroundColor: AppColors.ink,
         title: Text('Mes amis', style: bodyFont(size: 17, weight: FontWeight.w800, color: AppColors.ink)),
@@ -39,7 +39,7 @@ class FriendsScreen extends StatelessWidget {
                 onTap: () => showAppDialog(context: context, builder: (_) => ChangeNotifierProvider.value(value: app, child: const _AddFriendDialog())),
                 child: Container(
                   padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(border: Border.all(color: AppColors.line, width: 2), borderRadius: BorderRadius.circular(AppRadius.lg)),
+                  decoration: cardDecoration(radius: AppRadius.lg, fill: Colors.transparent, border: AppColors.line, borderWidth: 2),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -73,7 +73,7 @@ class _FriendRow extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+      decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
       child: Row(
         children: [
           Avatar(initial: friend.initial, color: Color(friend.color), size: 42, fontSize: 16),

@@ -22,7 +22,7 @@ class AuthGate extends StatelessWidget {
     if (app.authLoading) {
       key = const ValueKey('authLoading');
       child = Scaffold(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.canvas,
         body: const Center(child: PodiumLoader(size: 40)),
       );
     } else if (app.currentUser == null) {
@@ -31,7 +31,7 @@ class AuthGate extends StatelessWidget {
     } else if (app.groupsLoading) {
       key = const ValueKey('groupsLoading');
       child = Scaffold(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.canvas,
         body: const Center(child: PodiumLoader(size: 40)),
       );
     } else if (app.groups.isEmpty && !app.isPersonalContext) {

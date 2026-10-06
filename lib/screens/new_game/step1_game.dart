@@ -78,25 +78,34 @@ class Step1Game extends StatelessWidget {
           // Taller cards leave room for the players/themes line.
           childAspectRatio: filterable ? 1.1 : 1.35,
           children: [
-            for (final g in shown)
+            // Cascading in — and a game a search brings back comes in too.
+            for (final (i, g) in shown.indexed)
               Builder(builder: (_) {
                 final baseSub = g.defaultRule.pointLimit != null ? '${g.category} · ${g.defaultRule.pointLimit} pts max' : g.category;
                 final selected = app.draft.gameId == g.id;
-                return _GameCard(
-                  emoji: g.emoji,
-                  name: g.name,
-                  sub: g.hasMultipleRules ? '$baseSub · ${g.rules.length} règles' : baseSub,
-                  detail: g.summaryLine(),
-                  selected: selected,
-                  // The wizard advances to a dedicated "Quelle règle ?" step
-                  // right after this one whenever the game has more than one
-                  // rule (see AppState.stepSequence) — nothing extra to do
-                  // here either way.
-                  onTap: () => app.pickGame(g.id),
-                  onLongPress: () => showGameActionsSheet(context, app, g),
+                return FadeSlideIn(
+                  key: ValueKey(g.id),
+                  delay: staggerDelay(i, stepMs: 30, maxMs: 300),
+                  child: _GameCard(
+                    emoji: g.emoji,
+                    name: g.name,
+                    sub: g.hasMultipleRules ? '$baseSub · ${g.rules.length} règles' : baseSub,
+                    detail: g.summaryLine(),
+                    selected: selected,
+                    // The wizard advances to a dedicated "Quelle règle ?" step
+                    // right after this one whenever the game has more than one
+                    // rule (see AppState.stepSequence) — nothing extra to do
+                    // here either way.
+                    onTap: () => app.pickGame(g.id),
+                    onLongPress: () => showGameActionsSheet(context, app, g),
+                  ),
                 );
               }),
-            _GameCard(emoji: '＋', name: 'Nouveau jeu', sub: 'Créer', selected: false, dashed: true, onTap: () => _showNewGameChooser(context, app)),
+            FadeSlideIn(
+              key: const ValueKey('new-game'),
+              delay: staggerDelay(shown.length, stepMs: 30, maxMs: 300),
+              child: _GameCard(emoji: '＋', name: 'Nouveau jeu', sub: 'Créer', selected: false, dashed: true, onTap: () => _showNewGameChooser(context, app)),
+            ),
           ],
         ),
         if ((app.gameGridFilter.isActive || app.gameSearch.trim().isNotEmpty) && shown.isEmpty) ...[
@@ -121,6 +130,7 @@ Future<void> _showNewGameChooser(BuildContext context, AppState app) async {
   final hasOtherGroups = app.activeContext == ActiveContextKind.group && !app.isPersonalContext && app.groups.any((g) => g.id != app.currentRootId);
   await showModalBottomSheet(
     context: context,
+    sheetAnimationStyle: appSheetAnimation,
     backgroundColor: Colors.transparent,
     builder: (sheetContext) => Container(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
@@ -186,13 +196,15 @@ class _GameCard extends StatelessWidget {
       onTap: onTap,
       onLongPress: onLongPress,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOutCubic,
+        duration: AppColors.motion.change,
+        curve: AppColors.motion.changeCurve,
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.accentSoft : (dashed ? Colors.transparent : AppColors.card),
-          border: Border.all(color: selected ? AppColors.accent : AppColors.line, width: 1.5),
-          borderRadius: BorderRadius.circular(AppRadius.xl),
+        decoration: cardDecoration(
+          radius: AppRadius.xl,
+          fill: selected ? AppColors.accentSoft : (dashed ? Colors.transparent : null),
+          border: selected ? AppColors.accent : null,
+          borderWidth: 1.5,
+          selected: selected,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

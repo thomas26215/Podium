@@ -22,21 +22,28 @@ class CreateGameForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    // The form cascades in, section by section.
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+      children: staggered(stepMs: 60, const [
         _IdentitySection(),
-        SizedBox(height: 28),
         _ParametersSection(),
-        SizedBox(height: 28),
         _CharacterChoiceSection(),
-        SizedBox(height: 28),
         _SetupChoiceSection(),
-        SizedBox(height: 28),
         _RulesSection(),
-      ],
+      ]).separatedBy(const SizedBox(height: 28)),
     );
   }
+}
+
+extension on List<Widget> {
+  /// The widgets with [gap] between each.
+  List<Widget> separatedBy(Widget gap) => [
+        for (final (i, w) in indexed) ...[
+          if (i > 0) gap,
+          w,
+        ],
+      ];
 }
 
 // ── Shared building blocks ─────────────────────────────────────────────────
@@ -74,7 +81,7 @@ class _FormCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: padding,
-      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+      decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
       child: child,
     );
   }
@@ -189,7 +196,7 @@ class _IdentitySection extends StatelessWidget {
                 width: 56,
                 height: 56,
                 alignment: Alignment.center,
-                decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.md)),
+                decoration: cardDecoration(radius: AppRadius.md, borderWidth: 1.5),
                 child: Text(f.emoji, style: const TextStyle(fontSize: 28)),
               ),
             ),
@@ -244,10 +251,12 @@ class _IdentitySection extends StatelessWidget {
                   width: 44,
                   height: 44,
                   alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: app.gameForm.emoji == e ? AppColors.accentSoft : AppColors.card,
-                    border: Border.all(color: app.gameForm.emoji == e ? AppColors.accent : AppColors.line, width: 1.5),
-                    borderRadius: BorderRadius.circular(12),
+                  decoration: chipDecoration(
+                    radius: AppRadius.scaled(12),
+                    fill: app.gameForm.emoji == e ? AppColors.accentSoft : null,
+                    border: app.gameForm.emoji == e ? AppColors.accent : null,
+                    borderWidth: 1.5,
+                    selected: app.gameForm.emoji == e,
                   ),
                   child: Text(e, style: const TextStyle(fontSize: 22)),
                 ),
@@ -628,7 +637,7 @@ class _SelectedTag extends StatelessWidget {
       onTap: onRemove,
       child: Container(
         padding: const EdgeInsets.only(left: 12, right: 8, top: 7, bottom: 7),
-        decoration: BoxDecoration(color: AppColors.accentSoft, border: Border.all(color: AppColors.accent, width: 1.5), borderRadius: BorderRadius.circular(12)),
+        decoration: chipDecoration(radius: AppRadius.scaled(12), fill: AppColors.accentSoft, border: AppColors.accent, borderWidth: 1.5, selected: true),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [

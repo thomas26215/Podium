@@ -38,8 +38,8 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
     final server = app.serverById(widget.serverId);
     if (server == null) {
       return Scaffold(
-        backgroundColor: AppColors.bg,
-        appBar: AppBar(backgroundColor: AppColors.bg, elevation: 0, iconTheme: IconThemeData(color: AppColors.ink)),
+        backgroundColor: AppColors.canvas,
+        appBar: AppBar(backgroundColor: AppColors.canvas, elevation: 0, iconTheme: IconThemeData(color: AppColors.ink)),
         body: const Center(child: PodiumLoader(size: 40)),
       );
     }
@@ -48,9 +48,9 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
     final salons = app.currentServerId == widget.serverId ? app.salons : const <Salon>[];
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.canvas,
       appBar: AppBar(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.canvas,
         elevation: 0,
         iconTheme: IconThemeData(color: AppColors.ink),
         title: Row(
@@ -94,7 +94,7 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
                 Container(
                   margin: const EdgeInsets.only(bottom: 16),
                   padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.lg)),
+                  decoration: cardDecoration(radius: AppRadius.lg),
                   child: Text(
                     "Ce serveur est clos — plus aucune nouvelle action n'est possible, mais l'historique reste visible.",
                     style: bodyFont(size: 13, weight: FontWeight.w600, color: AppColors.mut),
@@ -141,7 +141,7 @@ class _SalonRow extends StatelessWidget {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+      decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
       child: Pressable(
         behavior: HitTestBehavior.opaque,
         dimOnPress: true,

@@ -68,7 +68,7 @@ class LiveMatchCard extends StatelessWidget {
       child: Container(
         width: 190,
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
+        decoration: cardDecoration(radius: AppRadius.xl),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

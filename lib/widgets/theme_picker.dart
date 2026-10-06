@@ -18,6 +18,7 @@ Future<List<String>?> showThemePicker(
 }) {
   return showModalBottomSheet<List<String>>(
     context: context,
+    sheetAnimationStyle: appSheetAnimation,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (_) => _ThemePickerSheet(groups: groups, initial: selected, title: title),

@@ -8,7 +8,6 @@ import '../models/match.dart';
 import '../state/app_state.dart';
 import 'avatar.dart';
 import 'match_card.dart';
-import '../theme/app_theme.dart';
 import 'share_card_parts.dart';
 
 export 'share_card_parts.dart' show kShareCardWidth, kShareImageWidth;
@@ -163,9 +162,9 @@ class ResultShareCard extends StatelessWidget {
           const SizedBox(height: 2),
           Avatar(initial: r.initial, color: r.color, size: slot == 1 ? 50 : 42, fontSize: slot == 1 ? 20 : 17),
           const SizedBox(height: 5),
-          Text(r.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: bodyFont(size: 12.5, weight: FontWeight.w800, color: SharePalette.ink)),
+          Text(r.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: shareBodyFont(size: 12.5, weight: FontWeight.w800, color: SharePalette.ink)),
           Text(r.score.isEmpty ? ' ' : r.score,
-              maxLines: 1, overflow: TextOverflow.ellipsis, style: bodyFont(size: 11.5, weight: FontWeight.w700, color: SharePalette.mut)),
+              maxLines: 1, overflow: TextOverflow.ellipsis, style: shareBodyFont(size: 11.5, weight: FontWeight.w700, color: SharePalette.mut)),
           const SizedBox(height: 5),
           Container(
             width: 96,
@@ -173,7 +172,7 @@ class ResultShareCard extends StatelessWidget {
             alignment: Alignment.topCenter,
             padding: const EdgeInsets.only(top: 6),
             decoration: BoxDecoration(color: barColor, borderRadius: const BorderRadius.vertical(top: Radius.circular(12))),
-            child: Text('${r.place}', style: dispFont(size: 20, weight: FontWeight.w700, color: Colors.white)),
+            child: Text('${r.place}', style: shareDispFont(size: 20, weight: FontWeight.w700, color: Colors.white)),
           ),
         ],
       ),
@@ -189,7 +188,7 @@ class ResultShareCard extends StatelessWidget {
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
       textAlign: TextAlign.center,
-      style: bodyFont(size: 11.5, weight: FontWeight.w700, color: SharePalette.mut),
+      style: shareBodyFont(size: 11.5, weight: FontWeight.w700, color: SharePalette.mut),
     );
   }
 
@@ -229,14 +228,14 @@ class ResultShareCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Équipe $t', style: bodyFont(size: 13.5, weight: FontWeight.w800, color: SharePalette.ink)),
+                      Text('Équipe $t', style: shareBodyFont(size: 13.5, weight: FontWeight.w800, color: SharePalette.ink)),
                       Text(members[t]!.join(', '),
-                          maxLines: 2, overflow: TextOverflow.ellipsis, style: bodyFont(size: 11.5, weight: FontWeight.w700, color: SharePalette.mut)),
+                          maxLines: 2, overflow: TextOverflow.ellipsis, style: shareBodyFont(size: 11.5, weight: FontWeight.w700, color: SharePalette.mut)),
                     ],
                   ),
                 ),
                 if (showScores)
-                  Text(sharePts(totals[t]!), style: dispFont(size: 17, weight: FontWeight.w800, color: won(t) ? SharePalette.accent : SharePalette.ink)),
+                  Text(sharePts(totals[t]!), style: shareDispFont(size: 17, weight: FontWeight.w800, color: won(t) ? SharePalette.accent : SharePalette.ink)),
               ],
             ),
           ),
@@ -258,8 +257,8 @@ class ResultShareCard extends StatelessWidget {
           Text(won ? '🎉' : '😔', style: const TextStyle(fontSize: 40)),
           const SizedBox(height: 6),
           Text(won ? 'Victoire collective' : 'Défaite collective',
-              style: dispFont(size: 24, weight: FontWeight.w800, color: won ? SharePalette.accent : SharePalette.ink)),
-          if (showScore) Text('Score du groupe : ${sharePts(score)}', style: bodyFont(size: 13, weight: FontWeight.w700, color: SharePalette.mut)),
+              style: shareDispFont(size: 24, weight: FontWeight.w800, color: won ? SharePalette.accent : SharePalette.ink)),
+          if (showScore) Text('Score du groupe : ${sharePts(score)}', style: shareBodyFont(size: 13, weight: FontWeight.w700, color: SharePalette.mut)),
           const SizedBox(height: 14),
           Wrap(
             alignment: WrapAlignment.center,
@@ -270,7 +269,7 @@ class ResultShareCard extends StatelessWidget {
                 Avatar(initial: _player(e.playerId)?.initial ?? '?', color: _color(e.playerId), size: 34, fontSize: 14),
             ],
           ),
-          if (match.entries.length > 12) Text('+${match.entries.length - 12}', style: bodyFont(size: 11.5, weight: FontWeight.w700, color: SharePalette.mut)),
+          if (match.entries.length > 12) Text('+${match.entries.length - 12}', style: shareBodyFont(size: 11.5, weight: FontWeight.w700, color: SharePalette.mut)),
         ],
       ),
     );
@@ -295,7 +294,7 @@ class ResultShareCard extends StatelessWidget {
           child: Text(s,
               textAlign: TextAlign.center,
               maxLines: 1,
-              style: bodyFont(size: 11.5, weight: bold ? FontWeight.w800 : FontWeight.w700, color: bold ? SharePalette.ink : SharePalette.ink2)),
+              style: shareBodyFont(size: 11.5, weight: bold ? FontWeight.w800 : FontWeight.w700, color: bold ? SharePalette.ink : SharePalette.ink2)),
         );
     return Column(
       children: [
@@ -318,7 +317,7 @@ class ResultShareCard extends StatelessWidget {
                   const SizedBox(width: 6),
                 ],
                 Expanded(
-                  child: Text(row.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: bodyFont(size: 11.5, weight: FontWeight.w700, color: SharePalette.ink2)),
+                  child: Text(row.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: shareBodyFont(size: 11.5, weight: FontWeight.w700, color: SharePalette.ink2)),
                 ),
                 for (final r in ranked) cell('${byPlayer[r.playerId]?.scoreBreakdown?[row.id] ?? 0}'),
               ],
@@ -328,7 +327,7 @@ class ResultShareCard extends StatelessWidget {
         Row(
           children: [
             const SizedBox(width: 4),
-            Expanded(child: Text('Total', style: bodyFont(size: 12, weight: FontWeight.w800, color: SharePalette.ink))),
+            Expanded(child: Text('Total', style: shareBodyFont(size: 12, weight: FontWeight.w800, color: SharePalette.ink))),
             for (final r in ranked) cell('${byPlayer[r.playerId]?.points ?? 0}', bold: true),
           ],
         ),
@@ -394,7 +393,7 @@ class ResultShareCard extends StatelessWidget {
         ),
     ];
     final xInterval = maxX <= 12 ? 1.0 : (maxX / 6).ceilToDouble();
-    TextStyle axis() => bodyFont(size: 9.5, weight: FontWeight.w600, color: SharePalette.mut);
+    TextStyle axis() => shareBodyFont(size: 9.5, weight: FontWeight.w600, color: SharePalette.mut);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -437,7 +436,7 @@ class ResultShareCard extends StatelessWidget {
                 children: [
                   Container(width: 10, height: 3, color: colors[id]),
                   const SizedBox(width: 5),
-                  Text(_name(id), style: bodyFont(size: 11, weight: FontWeight.w700, color: SharePalette.ink2)),
+                  Text(_name(id), style: shareBodyFont(size: 11, weight: FontWeight.w700, color: SharePalette.ink2)),
                 ],
               ),
           ],
@@ -461,7 +460,7 @@ class ResultShareCard extends StatelessWidget {
     Widget cell(String s, {bool bold = false}) => Expanded(
           child: Text(s,
               textAlign: TextAlign.center,
-              style: bodyFont(size: 11.5, weight: bold ? FontWeight.w800 : FontWeight.w700, color: bold ? SharePalette.ink : SharePalette.ink2)),
+              style: shareBodyFont(size: 11.5, weight: bold ? FontWeight.w800 : FontWeight.w700, color: bold ? SharePalette.ink : SharePalette.ink2)),
         );
     return Column(
       children: [
@@ -479,7 +478,7 @@ class ResultShareCard extends StatelessWidget {
             decoration: BoxDecoration(color: i.isEven ? SharePalette.bg : null, borderRadius: BorderRadius.circular(6)),
             child: Row(
               children: [
-                SizedBox(width: 36, child: Text('M${i + 1}', style: bodyFont(size: 11, weight: FontWeight.w700, color: SharePalette.mut))),
+                SizedBox(width: 36, child: Text('M${i + 1}', style: shareBodyFont(size: 11, weight: FontWeight.w700, color: SharePalette.mut))),
                 for (final id in playerIds)
                   Builder(builder: (_) {
                     final t = round.where((e) => e.playerId == id);
@@ -492,7 +491,7 @@ class ResultShareCard extends StatelessWidget {
         const Divider(height: 12, color: SharePalette.line),
         Row(
           children: [
-            SizedBox(width: 36, child: Text('Total', style: bodyFont(size: 11, weight: FontWeight.w800, color: SharePalette.ink))),
+            SizedBox(width: 36, child: Text('Total', style: shareBodyFont(size: 11, weight: FontWeight.w800, color: SharePalette.ink))),
             for (final id in playerIds) cell('${match.entries.where((e) => e.playerId == id).firstOrNull?.points ?? 0}', bold: true),
           ],
         ),

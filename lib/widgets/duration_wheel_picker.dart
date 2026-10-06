@@ -165,6 +165,7 @@ Future<int?> showDurationPickerSheet(BuildContext context, {required String play
   String? error;
   return showModalBottomSheet<int>(
     context: context,
+    sheetAnimationStyle: appSheetAnimation,
     isScrollControlled: true,
     backgroundColor: AppColors.bg,
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl))),

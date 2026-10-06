@@ -39,9 +39,58 @@ class MainShell extends StatelessWidget {
     final app = context.watch<AppState>();
     final solo = app.isPersonalContext;
     final index = (solo ? _soloTabs : _tabs).indexOf(app.tab).clamp(0, 3);
+    final floating = app.appearance.navBar == NavBarStyle.floating;
+    final labels = app.appearance.navLabels;
+    final fabSize = floating ? 50.0 : 58.0;
+    final items = Row(
+      children: [
+        _NavItem(icon: Icons.home_rounded, label: 'Accueil', showLabel: labels, selected: app.tab == AppTab.home, onTap: () => app.setTab(AppTab.home)),
+        _NavItem(icon: Icons.emoji_events_rounded, label: solo ? 'Records' : 'Classement', showLabel: labels, selected: app.tab == AppTab.ranking, onTap: () => app.setTab(AppTab.ranking)),
+        SizedBox(
+          width: 64,
+          child: Center(
+            child: Pressable(
+              onTap: () => _openNewGameSheet(context, app),
+              pressedScale: 0.9,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 220),
+                opacity: app.activeContextClosed ? 0.4 : 1,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  width: fabSize,
+                  height: fabSize,
+                  decoration: accentDecoration(radius: AppRadius.scaled(floating ? 17 : 20), strong: !floating),
+                  // Springs in on first appearance (and whenever the
+                  // shell is rebuilt for another context).
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0, end: 1),
+                    duration: const Duration(milliseconds: 650),
+                    curve: Curves.elasticOut,
+                    builder: (context, t, child) => Transform.rotate(angle: -0.8 * (1 - t), child: Transform.scale(scale: t, child: child)),
+                    child: Icon(Icons.add, color: Colors.white, size: floating ? 26 : 28),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        _NavItem(icon: Icons.schedule_rounded, label: 'Parties', showLabel: labels, selected: app.tab == AppTab.history, onTap: () => app.setTab(AppTab.history)),
+        if (solo)
+          _NavItem(icon: Icons.sports_esports_rounded, label: 'Mes jeux', showLabel: labels, selected: app.tab == AppTab.soloGames, onTap: () => app.setTab(AppTab.soloGames))
+        else
+          _NavItem(
+            icon: Icons.forum_rounded,
+            label: 'Discussion',
+            showLabel: labels,
+            selected: app.tab == AppTab.games,
+            onTap: () => app.setTab(AppTab.games),
+            showBadge: app.tab != AppTab.games && app.hasUnreadDiscussionMessages,
+          ),
+      ],
+    );
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.canvas,
       body: SafeArea(
         bottom: false,
         child: Stack(
@@ -78,70 +127,33 @@ class MainShell extends StatelessWidget {
       ),
       bottomNavigationBar: SafeArea(
         top: false,
-        child: Container(
-          height: 78,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              // Fades from the *current* background, not a fixed light one —
-              // a transparent light beige would haze the dark theme.
-              colors: [AppColors.bg.withValues(alpha: 0), AppColors.bg],
-              stops: const [0, 0.4],
-            ),
-          ),
-          child: Row(
-            children: [
-              _NavItem(icon: Icons.home_rounded, label: 'Accueil', selected: app.tab == AppTab.home, onTap: () => app.setTab(AppTab.home)),
-              _NavItem(icon: Icons.emoji_events_rounded, label: solo ? 'Records' : 'Classement', selected: app.tab == AppTab.ranking, onTap: () => app.setTab(AppTab.ranking)),
-              SizedBox(
-                width: 64,
-                child: Center(
-                  child: Pressable(
-                    onTap: () => _openNewGameSheet(context, app),
-                    pressedScale: 0.9,
-                    child: AnimatedOpacity(
-                      duration: const Duration(milliseconds: 220),
-                      opacity: app.activeContextClosed ? 0.4 : 1,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        width: 58,
-                        height: 58,
-                        margin: const EdgeInsets.only(top: 0),
-                        decoration: BoxDecoration(
-                          color: AppColors.accent,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [BoxShadow(color: AppColors.accent.withValues(alpha: 0.4), blurRadius: 22, offset: const Offset(0, 10))],
-                        ),
-                        // Springs in on first appearance (and whenever the
-                        // shell is rebuilt for another context).
-                        child: TweenAnimationBuilder<double>(
-                          tween: Tween(begin: 0, end: 1),
-                          duration: const Duration(milliseconds: 650),
-                          curve: Curves.elasticOut,
-                          builder: (context, t, child) => Transform.rotate(angle: -0.8 * (1 - t), child: Transform.scale(scale: t, child: child)),
-                          child: const Icon(Icons.add, color: Colors.white, size: 28),
-                        ),
-                      ),
-                    ),
+        child: floating
+            // A pill in the surface style, floating off the bottom edge.
+            ? Padding(
+                padding: const EdgeInsets.fromLTRB(14, 2, 14, 10),
+                child: Container(
+                  height: labels ? 68 : 60,
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  decoration: AppColors.tokens.floatingBar(radius: AppRadius.scaled(26)),
+                  child: items,
+                ),
+              )
+            : Container(
+                height: labels ? 78 : 68,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    // Fades from the *current* background, not a fixed light
+                    // one — a transparent light beige would haze the dark
+                    // theme; and over a backdrop, there's nothing to fade.
+                    colors: [AppColors.canvas.withValues(alpha: 0), AppColors.canvas],
+                    stops: const [0, 0.4],
                   ),
                 ),
+                child: items,
               ),
-              _NavItem(icon: Icons.schedule_rounded, label: 'Parties', selected: app.tab == AppTab.history, onTap: () => app.setTab(AppTab.history)),
-              if (solo)
-                _NavItem(icon: Icons.sports_esports_rounded, label: 'Mes jeux', selected: app.tab == AppTab.soloGames, onTap: () => app.setTab(AppTab.soloGames))
-              else
-                _NavItem(
-                  icon: Icons.forum_rounded,
-                  label: 'Discussion',
-                  selected: app.tab == AppTab.games,
-                  onTap: () => app.setTab(AppTab.games),
-                  showBadge: app.tab != AppTab.games && app.hasUnreadDiscussionMessages,
-                ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -153,7 +165,8 @@ class _NavItem extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
   final bool showBadge;
-  const _NavItem({required this.icon, required this.label, required this.selected, required this.onTap, this.showBadge = false});
+  final bool showLabel;
+  const _NavItem({required this.icon, required this.label, required this.selected, required this.onTap, this.showBadge = false, this.showLabel = true});
 
   @override
   Widget build(BuildContext context) {
@@ -170,10 +183,12 @@ class _NavItem extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             AnimatedContainer(
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOutCubic,
+              duration: AppColors.motion.change,
+              curve: AppColors.motion.changeCurve,
               padding: const EdgeInsets.all(7),
-              decoration: BoxDecoration(color: selected ? AppColors.accentSoft : Colors.transparent, borderRadius: BorderRadius.circular(11)),
+              // In the surface style: hollowed into the bar in neumorphism,
+              // a glowing tube in neon…
+              decoration: selected ? AppColors.tokens.navIndicator(radius: AppRadius.scaled(11)) : BoxDecoration(color: Colors.transparent, borderRadius: BorderRadius.circular(AppRadius.scaled(11))),
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
@@ -200,12 +215,14 @@ class _NavItem extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 3),
-            AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 220),
-              style: bodyFont(size: 10.5, weight: FontWeight.w700, color: color),
-              child: Text(label),
-            ),
+            if (showLabel) ...[
+              const SizedBox(height: 3),
+              AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 220),
+                style: bodyFont(size: 10.5, weight: FontWeight.w700, color: color),
+                child: Text(label),
+              ),
+            ],
           ],
         ),
       ),
@@ -213,9 +230,10 @@ class _NavItem extends StatelessWidget {
   }
 }
 
-/// Slides/scales the toast in and out — and keeps showing the *last*
-/// message while it animates away, instead of the pill emptying out the
-/// instant `AppState.toast` is cleared.
+/// Brings the toast in and out — slid up and springing in the original
+/// style, dropped in hard in neo-brutalism, struck on in neon… — and keeps
+/// showing the *last* message while it goes away, instead of the pill
+/// emptying out the instant `AppState.toast` is cleared.
 class _ToastHost extends StatefulWidget {
   final String message;
   final bool error;
@@ -225,9 +243,10 @@ class _ToastHost extends StatefulWidget {
   State<_ToastHost> createState() => _ToastHostState();
 }
 
-class _ToastHostState extends State<_ToastHost> {
+class _ToastHostState extends State<_ToastHost> with SingleTickerProviderStateMixin {
   late String _shown = widget.message;
   late bool _shownError = widget.error;
+  late final AnimationController _c = AnimationController(vsync: this, value: widget.message.isEmpty ? 0 : 1);
 
   @override
   void didUpdateWidget(_ToastHost old) {
@@ -236,31 +255,51 @@ class _ToastHostState extends State<_ToastHost> {
       _shown = widget.message;
       _shownError = widget.error;
     }
+    final visible = widget.message.isNotEmpty;
+    if (visible != old.message.isNotEmpty) {
+      final motion = AppColors.motion;
+      if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) {
+        _c.value = visible ? 1 : 0;
+      } else if (visible) {
+        _c.animateTo(1, duration: motion.entrance(const Duration(milliseconds: 320)), curve: Curves.linear);
+      } else {
+        _c.animateBack(0, duration: const Duration(milliseconds: 260), curve: Curves.linear);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final visible = widget.message.isNotEmpty;
-    return AnimatedSlide(
-      duration: const Duration(milliseconds: 320),
-      curve: visible ? Curves.easeOutBack : Curves.easeInCubic,
-      offset: visible ? Offset.zero : const Offset(0, 0.5),
-      child: AnimatedScale(
-        duration: const Duration(milliseconds: 320),
-        curve: visible ? Curves.easeOutBack : Curves.easeInCubic,
-        scale: visible ? 1 : 0.92,
-        child: AnimatedOpacity(
-          duration: const Duration(milliseconds: 220),
-          opacity: visible ? 1 : 0,
-          // A new message while one is already up cross-fades in place.
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 200),
-            layoutBuilder: (current, previous) => Stack(alignment: Alignment.bottomCenter, children: [...previous, ?current]),
-            child: _Toast(key: ValueKey(_shown), message: _shown, error: _shownError),
-          ),
-        ),
-      ),
+    final motion = AppColors.motion;
+    final toast = AnimatedSwitcher(
+      duration: const Duration(milliseconds: 200),
+      // A new message while one is already up swaps in place.
+      transitionBuilder: appSwitchTransition,
+      layoutBuilder: (current, previous) => Stack(alignment: Alignment.bottomCenter, children: [...previous, ?current]),
+      child: _Toast(key: ValueKey(_shown), message: _shown, error: _shownError),
     );
+    if (motion.style == SurfaceStyle.flat) {
+      // The original: slid up from below, springing in.
+      return AnimatedBuilder(
+        animation: _c,
+        child: toast,
+        builder: (context, child) {
+          final visible = _c.status != AnimationStatus.reverse;
+          final e = (visible ? Curves.easeOutBack : Curves.easeInCubic).transform(_c.value);
+          return FractionalTranslation(
+            translation: Offset(0, 0.5 * (1 - e)),
+            child: Transform.scale(scale: 0.92 + 0.08 * e, child: Opacity(opacity: Curves.easeOut.transform(_c.value), child: child)),
+          );
+        },
+      );
+    }
+    return Reveal(animation: _c, motion: motion, travel: 24, anchor: Alignment.bottomCenter, child: toast);
   }
 }
 
@@ -271,11 +310,16 @@ class _Toast extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final flat = AppColors.tokens.style == SurfaceStyle.flat;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-      decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(16), boxShadow: [
-        BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 30, offset: const Offset(0, 12)),
-      ]),
+      // The always-dark pill: floating on its own shadow in the original
+      // style, in the surface style otherwise.
+      decoration: flat
+          ? BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(16), boxShadow: [
+              BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 30, offset: const Offset(0, 12)),
+            ])
+          : heroDecoration(radius: AppRadius.lg),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -294,9 +338,11 @@ class _Toast extends StatelessWidget {
   }
 }
 
-/// [IndexedStack] that fades (with a slight rise) into the newly selected
-/// tab instead of hard-cutting — while still keeping every tab alive, so
-/// scroll positions and in-progress input survive switching tabs.
+/// [IndexedStack] that brings the newly selected tab in instead of
+/// hard-cutting, in the player's surface style — a fade with a slight rise
+/// in the original one, from the side it's on for the styles that slide
+/// sideways, through a frost in glass… — while still keeping every tab
+/// alive, so scroll positions and in-progress input survive switching.
 class _FadeIndexedStack extends StatefulWidget {
   final int index;
   final List<Widget> children;
@@ -307,13 +353,21 @@ class _FadeIndexedStack extends StatefulWidget {
 }
 
 class _FadeIndexedStackState extends State<_FadeIndexedStack> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 260), value: 1);
-  late final Animation<double> _curved = CurvedAnimation(parent: _c, curve: Curves.easeOutCubic);
+  late final AnimationController _c = AnimationController(vsync: this, value: 1);
+
+  /// Where the tab being brought in sits relative to the last one.
+  double _side = 1;
 
   @override
   void didUpdateWidget(_FadeIndexedStack old) {
     super.didUpdateWidget(old);
-    if (old.index != widget.index) _c.forward(from: 0);
+    if (old.index != widget.index) {
+      _side = widget.index > old.index ? 1 : -1;
+      final motion = AppColors.motion;
+      final still = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+      _c.duration = still ? const Duration(milliseconds: 160) : (motion.style == SurfaceStyle.flat ? const Duration(milliseconds: 260) : motion.entrance(const Duration(milliseconds: 280)));
+      _c.forward(from: 0);
+    }
   }
 
   @override
@@ -324,12 +378,15 @@ class _FadeIndexedStackState extends State<_FadeIndexedStack> with SingleTickerP
 
   @override
   Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _curved,
-      child: SlideTransition(
-        position: Tween<Offset>(begin: const Offset(0, 0.015), end: Offset.zero).animate(_curved),
-        child: IndexedStack(index: widget.index, children: widget.children),
-      ),
+    // One shape whatever the style, so restyling never rebuilds the tabs.
+    return Reveal(
+      animation: _c,
+      motion: AppColors.motion,
+      travel: 12,
+      side: _side,
+      amplitude: 0.35,
+      anchor: Alignment.topCenter,
+      child: IndexedStack(index: widget.index, children: widget.children),
     );
   }
 }

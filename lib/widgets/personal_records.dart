@@ -46,14 +46,14 @@ class _RecordCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(AppRadius.xl)),
+      decoration: cardDecoration(radius: AppRadius.xl),
       child: Row(
         children: [
           Container(
             width: 44,
             height: 44,
             alignment: Alignment.center,
-            decoration: BoxDecoration(color: AppColors.bg, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(13)),
+            decoration: wellDecoration(radius: AppRadius.scaled(13), bordered: true),
             child: Text(r.game.emoji, style: const TextStyle(fontSize: 22)),
           ),
           const SizedBox(width: 12),

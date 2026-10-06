@@ -86,7 +86,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final sessionManager = _watchSessionManager(context);
     final savedAccounts = app.savedAccounts;
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.canvas,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -107,7 +107,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             width: 64,
                             height: 64,
                             alignment: Alignment.center,
-                            decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(18)),
+                            decoration: heroDecoration(radius: AppRadius.scaled(18), depth: 0.6),
                             child: Icon(Icons.emoji_events, color: AppColors.gold, size: 30),
                           ),
                           const SizedBox(height: 20),
@@ -167,10 +167,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                     onTap: _restoringUids.contains(account.uid) ? null : () => _tapSavedAccount(sessionManager, account),
                                     child: Container(
                                       padding: const EdgeInsets.fromLTRB(8, 8, 6, 8),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.card,
-                                        border: Border.all(color: AppColors.line),
-                                        borderRadius: BorderRadius.circular(999),
+                                      decoration: chipDecoration(
+                                        radius: 999,
                                       ),
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,

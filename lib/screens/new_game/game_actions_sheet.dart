@@ -36,7 +36,7 @@ class ChooserOption extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: AppColors.card, border: Border.all(color: AppColors.line, width: 1.5), borderRadius: BorderRadius.circular(AppRadius.lg)),
+        decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
         child: Row(
           children: [
             Container(
@@ -73,6 +73,7 @@ Future<void> showGameActionsSheet(BuildContext context, AppState app, Game game)
   final closed = app.activeContextClosed;
   await showModalBottomSheet(
     context: context,
+    sheetAnimationStyle: appSheetAnimation,
     backgroundColor: Colors.transparent,
     // Up to 90% of the screen and scrollable: the default sheet stops at
     // ~56%, which hid the last options (Supprimer) on a phone.
