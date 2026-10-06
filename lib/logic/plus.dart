@@ -151,6 +151,9 @@ class ShopPack {
   final int price;
   const ShopPack({required this.id, required this.label, required this.emoji, required this.description, required this.items, this.price = 400});
 
+  /// A theme, sold as its parts (see [themePack]).
+  bool get isTheme => id.startsWith('theme:');
+
   int get fullPrice => items.fold(0, (sum, i) => sum + i.price);
 
   /// What the items still missing for a player who [owned] some would cost
@@ -206,16 +209,21 @@ const kShopPacks = [
 /// The themes the Boutique sells — the presets whose look has a paid part.
 final List<AppearancePreset> kShopThemes = [for (final p in kAppearancePresets) if (p.look.paidParts.isNotEmpty) p];
 
-/// [theme] as a pack of its paid parts: buying it unlocks them all, to mix
-/// with anything else — and never costs more than the parts still missing.
-ShopPack themePack(AppearancePreset theme) => ShopPack(
-      id: 'theme:${theme.id}',
-      label: 'Thème ${theme.label}',
-      emoji: theme.emoji,
-      description: theme.description,
-      items: [for (final p in theme.look.paidParts) partItem(p)],
-      price: 200,
-    );
+/// [theme] as its paid parts: buying it buys each part still missing, at
+/// its own price — a theme costs what its parts cost, no more, no less, so
+/// a part alone is never dearer than in a theme — to keep and mix with
+/// anything else.
+ShopPack themePack(AppearancePreset theme) {
+  final items = [for (final p in theme.look.paidParts) partItem(p)];
+  return ShopPack(
+    id: 'theme:${theme.id}',
+    label: 'Thème ${theme.label}',
+    emoji: theme.emoji,
+    description: theme.description,
+    items: items,
+    price: items.fold(0, (sum, i) => sum + i.price),
+  );
+}
 
 // ============================== jetons ==============================
 

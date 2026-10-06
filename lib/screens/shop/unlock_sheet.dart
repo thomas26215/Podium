@@ -156,6 +156,11 @@ class _UnlockSheetState extends State<_UnlockSheet> {
     final offerTier = unlocks.tier == null || (needed == PlusTier.plusPlus && unlocks.tier == PlusTier.plus) ? needed : null;
     final showRows = widget.preview == null || all.length > 1;
 
+    const simulation = Padding(
+      padding: EdgeInsets.only(top: 6),
+      child: _SimulationNote(),
+    );
+
     final List<Widget> action;
     if (covered) {
       final ownsAll = toBuy.isEmpty;
@@ -175,7 +180,7 @@ class _UnlockSheetState extends State<_UnlockSheet> {
         const SizedBox(height: 14),
         PrimaryButton(label: widget.onUse != null ? 'Utiliser' : 'Continuer', loading: _busy, onPressed: widget.onUse != null ? _use : () => _close(UnlockOutcome.unlocked)),
         // A member may still buy it, to keep it without Podium+.
-        if (!ownsAll && price > 0)
+        if (!ownsAll && price > 0) ...[
           Center(
             child: TextButton(
               onPressed: _busy ? null : () => missing > 0 ? _topUp(app, missing) : _buy(app, toBuy, price),
@@ -186,13 +191,36 @@ class _UnlockSheetState extends State<_UnlockSheet> {
               ),
             ),
           ),
+          simulation,
+        ],
       ];
     } else {
       action = [
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.pack != null ? 'Prix du pack' : 'Prix', style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink2)),
-            const Spacer(),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    switch (widget.pack) {
+                      final pack? when pack.isTheme => 'Prix du thème',
+                      _? => 'Prix du pack',
+                      null => 'Prix',
+                    },
+                    style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink2),
+                  ),
+                  // A theme costs its parts: say so, as it's not a pack deal.
+                  if (widget.pack?.isTheme ?? false)
+                    Text(
+                      all.any(unlocks.owns) ? 'Ses éléments, sans ceux que vous avez' : 'La somme de ses éléments',
+                      style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
             if (fullPrice != null && fullPrice > price) ...[
               Text(groupDigits(fullPrice), style: dispFont(size: 14, weight: FontWeight.w600, color: AppColors.mut).copyWith(decoration: TextDecoration.lineThrough)),
               const SizedBox(width: 8),
@@ -223,6 +251,7 @@ class _UnlockSheetState extends State<_UnlockSheet> {
           loading: _busy,
           onPressed: missing > 0 ? () => _topUp(app, missing) : () => _buy(app, toBuy, price),
         ),
+        simulation,
         if (offerTier != null) ...[
           const SizedBox(height: 12),
           _PlusOffer(tier: offerTier, upgrade: unlocks.tier != null, onTap: _busy ? null : () => _joinPlus(offerTier)),
@@ -275,13 +304,21 @@ class _UnlockSheetState extends State<_UnlockSheet> {
               ],
               const SizedBox(height: 16),
               ...action,
-              const SizedBox(height: 6),
-              Text('Simulation : aucun paiement n’est effectué.', textAlign: TextAlign.center, style: bodyFont(size: 11.5, weight: FontWeight.w800, color: AppColors.gold)),
             ],
           ),
         ),
       ),
     );
+  }
+}
+
+/// Says, under the button, that nothing is really paid yet.
+class _SimulationNote extends StatelessWidget {
+  const _SimulationNote();
+
+  @override
+  Widget build(BuildContext context) {
+    return Text('Simulation : aucun paiement n’est effectué.', textAlign: TextAlign.center, style: bodyFont(size: 11.5, weight: FontWeight.w800, color: AppColors.gold));
   }
 }
 

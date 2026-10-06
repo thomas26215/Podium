@@ -178,7 +178,11 @@ void main() {
         final pack = themePack(theme);
         expect(pack.items, isNotEmpty, reason: theme.id);
         expect(pack.items.every((i) => i.kind.interface), isTrue, reason: '${theme.id}: a pack of parts of the interface');
-        expect(pack.priceFor(const {}), lessThanOrEqualTo(pack.fullPrice), reason: '${theme.id}: never dearer than its parts');
+        expect(pack.isTheme, isTrue);
+        expect(pack.priceFor(const {}), pack.fullPrice, reason: '${theme.id}: a theme costs exactly its parts');
+        for (final part in pack.items) {
+          expect(pack.priceFor({part.key}), pack.fullPrice - part.price, reason: '${theme.id}: a part already owned is not paid again');
+        }
       }
       for (final pack in kCoinPacks) {
         expect(pack.cents, coinsToCents(pack.coins), reason: 'paid at 100 jetons for 1 €, the bonus on top');
@@ -539,10 +543,12 @@ void main() {
       await tester.drag(find.descendant(of: find.byType(ShopScreen), matching: find.byType(Scrollable)).first, const Offset(0, 3000));
       await _settle(tester);
       await _tap(tester, find.text('Interface'));
+      // Verre is its style (150), its font (100) and its backdrop (100).
       await _tap(tester, find.text('🔮  Verre'));
-      await _tap(tester, find.text('Acheter pour ${coinsLabel(200)}'));
+      expect(find.text('Prix du thème'), findsOneWidget);
+      await _tap(tester, find.text('Acheter pour ${coinsLabel(350)}'));
       expect(app.users.users['lea']!.ownedItems, containsAll(['surface:glass', 'appFont:geometric', 'backdrop:aurora']));
-      expect(app.users.users['lea']!.coins, 1150 - 150 - 400 - 200);
+      expect(app.users.users['lea']!.coins, 1150 - 150 - 400 - 350);
       await _tap(tester, find.text('Utiliser'));
       expect(app.state.appearance.surface, SurfaceStyle.glass, reason: 'the theme put on');
       await tester.pump(const Duration(seconds: 3));
