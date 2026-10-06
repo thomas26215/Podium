@@ -49,9 +49,10 @@ class AppUser {
   /// A short free-text line under the name on the profile.
   final String bio;
 
-  /// An emoji shown in the avatar instead of the name's initial (see
-  /// [initial]) — null for the plain initial.
-  final String? avatarEmoji;
+  /// The illustrated avatar shown instead of the name's initial (see
+  /// [initial]): one of `kAvatarCollections`' ids, 'style/seed' — null for
+  /// the plain initial.
+  final String? avatar;
 
   /// Which banner theme the profile card uses (see `kBannerThemes` in
   /// lib/widgets/profile_banners.dart) — a plain gradient or a game-themed
@@ -126,7 +127,7 @@ class AppUser {
     this.isGuest = false,
     this.friendIds = const [],
     this.bio = '',
-    this.avatarEmoji,
+    this.avatar,
     this.banner = kDefaultBanner,
     this.avatarFrame,
     this.badges = const [],
@@ -148,10 +149,10 @@ class AppUser {
 
   bool get isPlus => plus != null;
 
-  /// What the avatar shows: the chosen emoji, else the name's first letter.
-  String get initial => avatarEmoji ?? letter;
+  /// What the avatar shows: the one picked, else the name's first letter.
+  String get initial => avatar ?? letter;
 
-  /// The name's first letter, regardless of any [avatarEmoji].
+  /// The name's first letter, regardless of any [avatar].
   String get letter => displayName.isNotEmpty ? displayName[0].toUpperCase() : '?';
 
   AppUser copyWith({
@@ -159,7 +160,7 @@ class AppUser {
     int? color,
     List<String>? friendIds,
     String? bio,
-    String? Function()? avatarEmoji,
+    String? Function()? avatar,
     String? banner,
     String? Function()? avatarFrame,
     List<String>? badges,
@@ -186,7 +187,7 @@ class AppUser {
       isGuest: isGuest,
       friendIds: friendIds ?? this.friendIds,
       bio: bio ?? this.bio,
-      avatarEmoji: avatarEmoji != null ? avatarEmoji() : this.avatarEmoji,
+      avatar: avatar != null ? avatar() : this.avatar,
       banner: banner ?? this.banner,
       avatarFrame: avatarFrame != null ? avatarFrame() : this.avatarFrame,
       badges: badges ?? this.badges,
@@ -214,7 +215,7 @@ class AppUser {
         'displayName': displayName,
         'color': color,
         'bio': bio,
-        'avatarEmoji': avatarEmoji,
+        'avatar': avatar,
         'banner': banner,
         'avatarFrame': avatarFrame,
         'showcasedBadges': showcasedBadges,
@@ -258,7 +259,7 @@ class AppUser {
       color: (data['color'] as int?) ?? colorForUid(uid),
       friendIds: List<String>.from((p['friendIds'] as List?) ?? (data['friendIds'] as List?) ?? const []),
       bio: (data['bio'] as String?) ?? '',
-      avatarEmoji: _nonEmpty(data['avatarEmoji']),
+      avatar: _nonEmpty(data['avatar']),
       banner: (data['banner'] as String?) ?? kDefaultBanner,
       avatarFrame: data['avatarFrame'] as String?,
       badges: List<String>.from((data['badges'] as List?) ?? const []),

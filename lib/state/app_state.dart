@@ -2803,13 +2803,13 @@ class AppState extends ChangeNotifier {
   // ============================== PROFILE / BADGES / COLLECTION ==============================
 
   /// Saves the signed-in player's profile customization — any argument left
-  /// null keeps its current value; [avatarEmoji]/[favoriteGameId] take a
+  /// null keeps its current value; [avatar]/[favoriteGameId] take a
   /// closure so they can also be cleared back to null.
   Future<bool> updateProfile({
     String? displayName,
     int? color,
     String? bio,
-    String? Function()? avatarEmoji,
+    String? Function()? avatar,
     String? banner,
     String? Function()? avatarFrame,
     List<String>? showcasedBadges,
@@ -2828,7 +2828,7 @@ class AppState extends ChangeNotifier {
       displayName: name,
       color: color,
       bio: bio?.trim(),
-      avatarEmoji: avatarEmoji,
+      avatar: avatar,
       banner: banner,
       avatarFrame: avatarFrame,
       showcasedBadges: showcasedBadges?.where(me.badges.contains).take(kMaxShowcasedBadges).toList(),

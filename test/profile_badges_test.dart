@@ -20,7 +20,10 @@ import 'package:podium/repositories/guests_repository.dart';
 import 'package:podium/repositories/users_repository.dart';
 import 'package:podium/screens/auth/auth_gate.dart';
 import 'package:podium/screens/profile/badges_screen.dart';
+import 'package:podium/screens/profile/edit_profile_screen.dart';
+import 'package:podium/screens/profile/profile_header.dart';
 import 'package:podium/state/app_state.dart';
+import 'package:podium/widgets/avatar_art.dart';
 import 'package:podium/widgets/badge_symbol_data.dart';
 import 'package:podium/widgets/badge_symbols.dart';
 import 'package:podium/widgets/badge_widgets.dart';
@@ -216,14 +219,14 @@ void main() {
   });
 
   group('AppUser profile fields', () {
-    test('round-trip through the public doc, and the emoji replaces the initial', () {
+    test('round-trip through the public doc, and the avatar replaces the initial', () {
       const u = AppUser(
         uid: 'x',
         email: 'x@test.fr',
         displayName: 'léa',
         color: 0xFF000000,
         bio: 'Salut',
-        avatarEmoji: '🦊',
+        avatar: 'critters/14',
         banner: 'arcade',
         avatarFrame: 'neon',
         showcasedBadges: ['first_win'],
@@ -232,8 +235,8 @@ void main() {
       );
       final back = AppUser.fromDoc('x', {...u.toProfileMap(), 'badges': ['first_win']});
       expect(back.bio, 'Salut');
-      expect(back.avatarEmoji, '🦊');
-      expect(back.initial, '🦊');
+      expect(back.avatar, 'critters/14');
+      expect(back.initial, 'critters/14');
       expect(back.letter, 'L');
       expect(back.banner, 'arcade');
       expect(back.avatarFrame, 'neon');
@@ -274,7 +277,7 @@ void main() {
       expect(u.initial, 'T');
       expect(u.banner, kDefaultBanner);
       expect(u.badges, isEmpty);
-      expect(u.avatarEmoji, isNull);
+      expect(u.avatar, isNull);
       expect(u.avatarFrame, isNull);
     });
   });
@@ -506,12 +509,12 @@ void main() {
       final state = await signIn(tester, s);
       await tester.pumpAndSettle();
 
-      expect(await state.updateProfile(displayName: '  Léa la Rouge ', bio: 'Reine du Catan', avatarEmoji: () => '🦊', banner: 'braise', avatarFrame: () => 'gold'), isTrue);
+      expect(await state.updateProfile(displayName: '  Léa la Rouge ', bio: 'Reine du Catan', avatar: () => 'voxel-art/5', banner: 'braise', avatarFrame: () => 'gold'), isTrue);
       await tester.pumpAndSettle();
       final saved = s.users.users['lea']!;
       expect(saved.displayName, 'Léa la Rouge');
       expect(saved.bio, 'Reine du Catan');
-      expect(saved.initial, '🦊');
+      expect(saved.initial, 'voxel-art/5');
       expect(saved.banner, 'braise');
       expect(saved.avatarFrame, 'gold');
       await state.updateProfile(avatarFrame: () => null);
@@ -539,6 +542,40 @@ void main() {
       await state.toggleShowcasedBadge('first_win');
       await tester.pumpAndSettle();
       expect(s.users.users['lea']!.showcasedBadges, isEmpty);
+    });
+
+    testWidgets('the editor picks an avatar from its collections, tried on the preview, then saved', (tester) async {
+      final s = seed();
+      final state = await signIn(tester, s);
+      await tester.pumpAndSettle();
+      // The preview card's banner loops forever: no pumpAndSettle from here.
+      Future<void> settle() async {
+        for (var i = 0; i < 10; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+      }
+
+      Future<void> tap(Finder finder) async {
+        await tester.ensureVisible(finder);
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.tap(finder);
+        await settle();
+      }
+
+      unawaited(Navigator.of(tester.element(find.byType(AuthGate))).push(MaterialPageRoute(builder: (_) => const EditProfileScreen())));
+      await settle();
+      await tap(find.text('Avatar'));
+      expect(find.text(kAvatarCollections.first.credit), findsOneWidget, reason: 'the first collection opens, its authors credited');
+      Finder art(String id) => find.byWidgetPredicate((w) => w is AvatarArt && w.id == id);
+      expect(art('critters/14'), findsNothing);
+
+      await tap(find.text('Créatures'));
+      await tap(art('critters/14'));
+      expect(find.descendant(of: find.byType(ProfileHeaderCard), matching: art('critters/14')), findsOneWidget, reason: 'tried on the preview');
+      await tap(find.text('Enregistrer'));
+      expect(s.users.users['lea']!.avatar, 'critters/14');
+      expect(state.currentUser!.initial, 'critters/14');
+      await tester.pump(const Duration(seconds: 3)); // the toast goes
     });
   });
 }

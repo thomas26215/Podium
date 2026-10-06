@@ -11,6 +11,7 @@ import '../../models/game.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/avatar.dart';
+import '../../widgets/avatar_art.dart';
 import '../../widgets/badge_widgets.dart';
 import '../../widgets/common.dart';
 import '../../widgets/option_chip.dart';
@@ -20,17 +21,6 @@ import '../../widgets/profile_style.dart';
 import '../shop/shop_item_view.dart';
 import '../shop/unlock_sheet.dart';
 import 'profile_header.dart';
-
-const _avatarEmojis = [
-  '😎', '🤠', '🥸', '🤓', '😈', '👻', '💀', '🤖', //
-  '👾', '🎃', '👑', '🧙', '🥷', '🦸', '🧛', '🧜', //
-  '🦊', '🐼', '🐯', '🦁', '🐸', '🐙', '🦄', '🐲', //
-  '🦖', '🐧', '🦉', '🐺', '🦝', '🐨', '🐵', '🐝', //
-  '🧠', '🍕', '🌮', '🍩', '🍀', '🌟', '🌈', '🚀', //
-  '⚽', '🏀', '🎳', '🏓', '🎱', '🎯', '🛹', '🥊', //
-  '🎲', '♟️', '🃏', '🀄', '🧩', '🎮', '🕹️', '🏆', //
-  '🔥', '⚡', '💎', '🎸', '🎨', '🍷', '☕', '🪐', //
-];
 
 const _statusEmojis = ['🎲', '🎮', '🃏', '♟️', '🏆', '🔥', '🍕', '🍻', '😴', '📚', '🤔', '🎉'];
 
@@ -43,7 +33,7 @@ const _tabs = <({String label, IconData icon})>[
 ];
 
 /// Edits the signed-in player's profile, Discord-style: identity (name,
-/// pronouns, title, status, bio), avatar (emoji, colour, decoration), card
+/// pronouns, title, status, bio), avatar (illustration, colour, decoration), card
 /// (banner, name font & effect, profile effect), showcase (pinned badges,
 /// favourite game) and game accounts — with the card previewed live on top.
 /// Podium+ cosmetics (marked with a +) can be tried on the preview by
@@ -61,6 +51,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late final TextEditingController _name, _bio, _pronouns, _status;
   late final Map<String, TextEditingController> _accounts;
   late String _bannerCategory;
+  late AvatarCollection _avatarCollection;
   int _tab = 0;
   int _effectReplay = 0;
   bool _saving = false;
@@ -81,6 +72,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     // chip sits last, off screen, and the themes are the point.
     final category = bannerThemeById(_initial.banner).category;
     _bannerCategory = category == 'Couleurs' ? kBannerCategories.first : category;
+    _avatarCollection = avatarCollectionOf(_initial.avatar) ?? kAvatarCollections.first;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) app.ensureGameLibraryLoaded();
     });
@@ -338,21 +330,36 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Widget _avatarTab(AppUser me, Unlocks unlocks) {
+    final collection = _avatarCollection;
     return _section([
       _label('Avatar'),
-      Wrap(
-        spacing: 8,
-        runSpacing: 8,
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (final c in kAvatarCollections) ...[
+              OptionChip(label: c.label, selected: c == collection, onTap: () => setState(() => _avatarCollection = c)),
+              const SizedBox(width: 8),
+            ],
+          ],
+        ),
+      ),
+      const SizedBox(height: 12),
+      GridView.count(
+        key: ValueKey(collection.style),
+        crossAxisCount: 5,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
         children: [
-          _pickCircle(
-            selected: _draft.avatarEmoji == null,
-            onTap: () => _edit((d) => d.copyWith(avatarEmoji: () => null)),
-            child: Avatar(initial: me.letter, color: Color(_draft.color), size: 34, fontSize: 15),
-          ),
-          for (final e in _avatarEmojis)
-            _pickCircle(selected: _draft.avatarEmoji == e, onTap: () => _edit((d) => d.copyWith(avatarEmoji: () => e)), child: Text(e, style: const TextStyle(fontSize: 21))),
+          // The plain initial comes first in every collection.
+          _avatarChoice(null, me.letter),
+          for (final (i, id) in collection.ids.indexed) FadeSlideIn(delay: staggerDelay(i + 1, stepMs: 18), child: _avatarChoice(id, id)),
         ],
       ),
+      const SizedBox(height: 10),
+      Text(collection.credit, style: bodyFont(size: 11, weight: FontWeight.w600, color: AppColors.mut, height: 1.35)),
       const SizedBox(height: 22),
       _label('Couleur'),
       Wrap(
@@ -387,7 +394,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               child: FramedAvatar(
                 frameId: f.id,
                 size: 38,
-                child: Avatar(initial: _draft.avatarEmoji ?? me.letter, color: Color(_draft.color), size: 38, fontSize: 15),
+                child: Avatar(initial: _draft.avatar ?? me.letter, color: Color(_draft.color), size: 38, fontSize: 15),
               ),
             ),
         ],
@@ -699,6 +706,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           selected: selected,
         ),
         child: AnimatedScale(scale: selected ? 1.12 : 1, duration: const Duration(milliseconds: 220), curve: Curves.easeOutBack, child: child),
+      ),
+    );
+  }
+
+  /// An avatar to pick, filling its cell — [id] null for the plain
+  /// [initial] — ringed in the accent colour once picked.
+  Widget _avatarChoice(String? id, String initial) {
+    final selected = _draft.avatar == id;
+    return Pressable(
+      onTap: () => _edit((d) => d.copyWith(avatar: () => id)),
+      pressedScale: 0.9,
+      child: AnimatedContainer(
+        duration: AppColors.motion.change,
+        curve: AppColors.motion.changeCurve,
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: selected ? AppColors.accent : Colors.transparent, width: 2.5)),
+        child: LayoutBuilder(builder: (_, box) => Avatar(initial: initial, color: Color(_draft.color), size: box.maxWidth, fontSize: box.maxWidth * 0.42)),
       ),
     );
   }
