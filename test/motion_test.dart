@@ -270,29 +270,73 @@ void main() {
     }
   });
 
-  testWidgets('pages come and go along the vertical, never sideways', (tester) async {
-    // A full-width band: its centre only moves sideways if the page does
-    // (zooming from the centre leaves it put).
+  testWidgets('a page comes from the side it was opened from, and goes back there', (tester) async {
+    // A centred band: its centre only moves sideways if the page does, and
+    // up or down only if the page does (zooming from the centre leaves it).
     Widget page(String key) => Scaffold(body: Center(child: SizedBox(key: ValueKey(key), width: double.infinity, height: 40)));
     for (final s in SurfaceStyle.values) {
-      AppColors.configure(dark: false, appearance: Appearance(surface: s));
-      final nav = GlobalKey<NavigatorState>();
-      await tester.pumpWidget(MaterialApp(key: ValueKey(s), navigatorKey: nav, theme: buildAppTheme(), home: page('accueil')));
-      final mid = tester.getCenter(find.byKey(const ValueKey('accueil'))).dx;
-      nav.currentState!.push(MaterialPageRoute(builder: (_) => page('profil')));
-      await tester.pump();
-      for (var i = 0; i < 3; i++) {
-        await tester.pump(AppMotion.of(s).page * 0.25);
-        expect(tester.getCenter(find.byKey(const ValueKey('profil'))).dx, closeTo(mid, 0.01), reason: '${s.name}: the page coming in');
-        expect(tester.getCenter(find.byKey(const ValueKey('accueil'), skipOffstage: false)).dx, closeTo(mid, 0.01), reason: '${s.name}: the page behind');
+      for (final (tapY, vertical) in [(20.0, true), (300.0, false), (590.0, true)]) {
+        AppColors.configure(dark: false, appearance: Appearance(surface: s));
+        final nav = GlobalKey<NavigatorState>();
+        await tester.pumpWidget(MaterialApp(key: ValueKey((s, tapY)), navigatorKey: nav, theme: buildAppTheme(), home: page('accueil')));
+        final rest = tester.getCenter(find.byKey(const ValueKey('accueil')));
+        // Across the way it comes: that coordinate holds still.
+        double across(Offset o) => vertical ? o.dx : o.dy;
+        final where = '${s.name}, tapped at $tapY';
+        await tester.tapAt(Offset(400, tapY));
+        nav.currentState!.push(MaterialPageRoute(builder: (_) => page('profil')));
+        await tester.pump();
+        for (var i = 0; i < 3; i++) {
+          await tester.pump(AppMotion.of(s).page * 0.25);
+          expect(across(tester.getCenter(find.byKey(const ValueKey('profil')))), closeTo(across(rest), 0.01), reason: '$where: the page coming in');
+          expect(across(tester.getCenter(find.byKey(const ValueKey('accueil'), skipOffstage: false))), closeTo(across(rest), 0.01), reason: '$where: the page behind');
+        }
+        await tester.pumpAndSettle();
+        nav.currentState!.pop();
+        await tester.pump();
+        await tester.pump(AppMotion.of(s).pageReverse * 0.5);
+        expect(across(tester.getCenter(find.byKey(const ValueKey('profil')))), closeTo(across(rest), 0.01), reason: '$where: going back');
+        await tester.pumpAndSettle();
       }
-      await tester.pumpAndSettle();
-      nav.currentState!.pop();
-      await tester.pump();
-      await tester.pump(AppMotion.of(s).pageReverse * 0.5);
-      expect(tester.getCenter(find.byKey(const ValueKey('profil'))).dx, closeTo(mid, 0.01), reason: '${s.name}: going back');
-      await tester.pumpAndSettle();
     }
+  });
+
+  testWidgets('a button at the top brings its page down, a card in the middle from the right', (tester) async {
+    AppColors.configure(dark: false, appearance: const Appearance(surface: SurfaceStyle.brutalist));
+    final nav = GlobalKey<NavigatorState>();
+    Widget page(String key) => Scaffold(body: Center(child: SizedBox(key: ValueKey(key), width: 100, height: 40)));
+    await tester.pumpWidget(MaterialApp(navigatorKey: nav, theme: buildAppTheme(), home: page('accueil')));
+    final rest = tester.getCenter(find.byKey(const ValueKey('accueil')));
+    final step = AppMotion.of(SurfaceStyle.brutalist).page * 0.1;
+
+    await tester.tapAt(const Offset(760, 24));
+    nav.currentState!.push(MaterialPageRoute(builder: (_) => page('profil')));
+    await tester.pump();
+    await tester.pump(step);
+    expect(tester.getCenter(find.byKey(const ValueKey('profil'))).dy, lessThan(rest.dy), reason: 'still on its way down');
+    expect(tester.getCenter(find.byKey(const ValueKey('accueil'), skipOffstage: false)).dy, greaterThan(rest.dy), reason: 'pushed down');
+    await tester.pumpAndSettle();
+
+    await tester.tapAt(const Offset(400, 300));
+    nav.currentState!.push(MaterialPageRoute(builder: (_) => page('partie')));
+    await tester.pump();
+    await tester.pump(step);
+    expect(tester.getCenter(find.byKey(const ValueKey('partie'))).dx, greaterThan(rest.dx), reason: 'still coming from the right');
+    expect(tester.getCenter(find.byKey(const ValueKey('profil'), skipOffstage: false)).dx, lessThan(rest.dx), reason: 'pushed off to the left');
+    await tester.pumpAndSettle();
+
+    await tester.tapAt(const Offset(400, 580));
+    nav.currentState!.push(MaterialPageRoute(builder: (_) => page('bas')));
+    await tester.pump();
+    await tester.pump(step);
+    expect(tester.getCenter(find.byKey(const ValueKey('bas'))).dy, greaterThan(rest.dy), reason: 'still on its way up');
+    await tester.pumpAndSettle();
+
+    nav.currentState!.pop();
+    await tester.pump();
+    await tester.pump(AppMotion.of(SurfaceStyle.brutalist).pageReverse * 0.5);
+    expect(tester.getCenter(find.byKey(const ValueKey('bas'))).dy, greaterThan(rest.dy), reason: 'sent back down where it came from');
+    await tester.pumpAndSettle();
   });
 
   testWidgets('with reduced motion, screens only fade', (tester) async {

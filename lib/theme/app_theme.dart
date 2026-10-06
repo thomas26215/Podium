@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -170,19 +171,85 @@ TextStyle bodyFont({double? size, FontWeight? weight, double? height, Color? col
   return pairBodyFont(pair, size: size, weight: weight, height: height, color: color, letterSpacing: letterSpacing);
 }
 
-/// How every pushed route (Groups screen, QR scanner…) comes in, in the
-/// player's surface style: slid down from the top with a fade in the
-/// original one, risen out of the surface in neumorphism, brought into
-/// focus behind frosted glass, dropped in hard in neo-brutalism, drawn
-/// down like a pen stroke in the outlined style… — always along the
-/// vertical, never sideways. Over the player's backdrop, which each route
-/// paints for itself so that it stays opaque while it comes in. With
-/// reduced motion, screens only fade.
+/// Where a pushed screen comes in from: the side of the screen the finger
+/// was on when it opened it. A button at the top brings its page down from
+/// the top, one at the bottom brings it up from the bottom, a card in the
+/// middle brings it in from the right — and going back sends it away the
+/// way it came.
+enum PageOrigin {
+  top(Offset(0, -1)),
+  bottom(Offset(0, 1)),
+  right(Offset(1, 0));
+
+  const PageOrigin(this.unit);
+
+  /// Toward where it comes from, a page's size away.
+  final Offset unit;
+
+  bool get vertical => unit.dx == 0;
+
+  static Offset? _lastDown;
+  static DateTime? _lastDownAt;
+  static bool _tracking = false;
+
+  /// Starts watching where fingers go down, app-wide.
+  static void track() {
+    if (_tracking) return;
+    _tracking = true;
+    GestureBinding.instance.pointerRouter.addGlobalRoute((event) {
+      if (event is PointerDownEvent) {
+        _lastDown = event.position;
+        _lastDownAt = DateTime.now();
+      }
+    });
+  }
+
+  /// For a screen being opened now on a screen of [size]: from the tap that
+  /// opened it, if there was one just before — or the right, for one opened
+  /// on its own (a flow moving on).
+  static PageOrigin ofLastTap(Size size) {
+    final at = _lastDown, when = _lastDownAt;
+    if (at == null || when == null || DateTime.now().difference(when) > const Duration(seconds: 2) || size.height <= 0) return right;
+    final y = at.dy / size.height;
+    if (y < 0.3) return top;
+    if (y > 0.8) return bottom;
+    return right;
+  }
+}
+
+/// How every pushed route comes in, in the player's surface style and
+/// from where it was opened (see [PageOrigin]): slid in with a fade in the
+/// original style, risen out of the surface in neumorphism, brought into
+/// focus behind frosted glass, shoved in hard in neo-brutalism, drawn in
+/// like a pen stroke in the outlined style… The page underneath gives way
+/// the same way. Over the player's backdrop, which each route paints for
+/// itself so that it stays opaque while it comes in. With reduced motion,
+/// screens only fade.
 class AppPageTransitionsBuilder extends PageTransitionsBuilder {
   final SurfaceStyle style;
   const AppPageTransitionsBuilder(this.style);
 
   AppMotion get _motion => AppMotion.of(style);
+
+  /// Each route's origin, fixed when it's pushed.
+  static final _origins = Expando<PageOrigin>();
+
+  /// The same, by the route's own animation — which is all the route
+  /// underneath sees of it, as its secondary animation.
+  static final _originsByAnimation = Expando<PageOrigin>();
+
+  /// Where the route coming over the one with [secondaryAnimation] comes
+  /// from — the right if it can't be told.
+  static PageOrigin _originOver(Animation<double> secondaryAnimation) => _originsByAnimation[_unwrapped(secondaryAnimation)] ?? PageOrigin.right;
+
+  /// [a] out of the proxies routes wrap their animations in.
+  static Animation<double> _unwrapped(Animation<double> a) {
+    var at = a;
+    while (at is ProxyAnimation && at.parent != null) {
+      at = at.parent!;
+    }
+    return at;
+  }
 
   @override
   Duration get transitionDuration => _motion.page;
@@ -198,9 +265,23 @@ class AppPageTransitionsBuilder extends PageTransitionsBuilder {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
+    PageOrigin.track();
+    // Fixed on the first build, right as it's pushed.
+    final origin = _origins[route] ??= PageOrigin.ofLastTap(MediaQuery.sizeOf(context));
+    // The route's own animation (behind the proxy routes hand out), for the
+    // route underneath to look it up.
+    final own = _unwrapped(animation);
+    if (own != kAlwaysCompleteAnimation && own != kAlwaysDismissedAnimation) _originsByAnimation[own] = origin;
     if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) {
       return FadeTransition(opacity: animation, child: AppBackdrop(child: child));
     }
+    final down = origin.vertical;
+    final over = _originOver(secondaryAnimation);
+    // Where a page comes from, [by] of its size away.
+    Offset from(double by) => origin.unit * by;
+    // Where the page underneath goes, [by] of its size: pushed along by the
+    // one coming over it.
+    Offset away(double by) => -over.unit * by;
     Animation<double> curved(Animation<double> a, Curve curve) => a.drive(CurveTween(curve: curve));
     Animation<double> scale(Animation<double> a, double begin, double end, Curve curve) => a.drive(Tween<double>(begin: begin, end: end).chain(CurveTween(curve: curve)));
     Animation<Offset> slide(Animation<double> a, Offset begin, Offset end, Curve curve) => a.drive(Tween<Offset>(begin: begin, end: end).chain(CurveTween(curve: curve)));
@@ -212,16 +293,19 @@ class AppPageTransitionsBuilder extends PageTransitionsBuilder {
         final curve = leaving ? Curves.easeInCubic : Curves.easeOutCubic;
         return FadeTransition(
           opacity: curved(animation, curve),
-          child: AppBackdrop(child: SlideTransition(position: slide(animation, const Offset(0, -0.06), Offset.zero, curve), child: child)),
+          child: AppBackdrop(child: SlideTransition(position: slide(animation, from(down ? 0.06 : 0.08), Offset.zero, curve), child: child)),
         );
       case SurfaceStyle.elevated:
         // Lifted toward you out of the page behind, which drifts closer.
         return FadeTransition(
           opacity: curved(animation, const Interval(0, 0.7, curve: Curves.easeOut)),
           child: AppBackdrop(
-            child: ScaleTransition(
-              scale: scale(animation, 0.92, 1, Curves.easeOutCubic),
-              child: ScaleTransition(scale: scale(secondaryAnimation, 1, 1.04, Curves.easeOutCubic), child: child),
+            child: SlideTransition(
+              position: slide(animation, from(0.04), Offset.zero, Curves.easeOutCubic),
+              child: ScaleTransition(
+                scale: scale(animation, 0.92, 1, Curves.easeOutCubic),
+                child: ScaleTransition(scale: scale(secondaryAnimation, 1, 1.04, Curves.easeOutCubic), child: child),
+              ),
             ),
           ),
         );
@@ -230,9 +314,12 @@ class AppPageTransitionsBuilder extends PageTransitionsBuilder {
         return FadeTransition(
           opacity: curved(animation, const Interval(0, 0.55, curve: Curves.easeOut)),
           child: AppBackdrop(
-            child: ScaleTransition(
-              scale: scale(animation, 0.94, 1, Curves.easeOutQuint),
-              child: ScaleTransition(scale: scale(secondaryAnimation, 1, 0.96, Curves.easeInOutCubic), child: child),
+            child: SlideTransition(
+              position: slide(animation, from(0.03), Offset.zero, Curves.easeOutQuint),
+              child: ScaleTransition(
+                scale: scale(animation, 0.94, 1, Curves.easeOutQuint),
+                child: ScaleTransition(scale: scale(secondaryAnimation, 1, 0.96, Curves.easeInOutCubic), child: child),
+              ),
             ),
           ),
         );
@@ -244,17 +331,20 @@ class AppPageTransitionsBuilder extends PageTransitionsBuilder {
             child: _Frosted(
               animation: animation,
               secondaryAnimation: secondaryAnimation,
-              child: ScaleTransition(scale: scale(animation, 1.06, 1, Curves.easeOutCubic), child: child),
+              child: SlideTransition(
+                position: slide(animation, from(0.04), Offset.zero, Curves.easeOutCubic),
+                child: ScaleTransition(scale: scale(animation, 1.06, 1, Curves.easeOutCubic), child: child),
+              ),
             ),
           ),
         );
       case SurfaceStyle.clay:
-        // Bounces up into place; the page behind shrinks away.
+        // Bounces into place; the page behind shrinks away.
         return FadeTransition(
           opacity: curved(animation, const Interval(0, 0.4, curve: Curves.easeOut)),
           child: AppBackdrop(
             child: SlideTransition(
-              position: slide(animation, const Offset(0, 0.08), Offset.zero, Curves.easeOutBack),
+              position: slide(animation, from(down ? 0.08 : 0.12), Offset.zero, Curves.easeOutBack),
               child: ScaleTransition(
                 scale: scale(animation, 0.94, 1, Curves.easeOutBack),
                 child: ScaleTransition(scale: scale(secondaryAnimation, 1, 0.95, Curves.easeOutCubic), child: child),
@@ -263,47 +353,50 @@ class AppPageTransitionsBuilder extends PageTransitionsBuilder {
           ),
         );
       case SurfaceStyle.brutalist:
-        // Dropped down from the top with a hard stop and a hard edge,
-        // shoving the page behind down.
+        // Shoved in whole with a hard stop and a hard leading edge,
+        // pushing the page behind along.
         return SlideTransition(
-          position: slide(animation, const Offset(0, -1), Offset.zero, Curves.easeOutExpo),
+          position: slide(animation, from(1), Offset.zero, Curves.easeOutExpo),
           child: SlideTransition(
-            position: slide(secondaryAnimation, Offset.zero, const Offset(0, 0.25), Curves.easeOutExpo),
-            child: _HardEdge(animation: animation, child: AppBackdrop(child: child)),
+            position: slide(secondaryAnimation, Offset.zero, away(0.25), Curves.easeOutExpo),
+            child: _HardEdge(animation: animation, origin: origin, child: AppBackdrop(child: child)),
           ),
         );
       case SurfaceStyle.outlined:
-        // Drawn down the screen behind a pen line.
-        return _Wipe(animation: animation, child: AppBackdrop(child: child));
+        // Drawn in behind a pen line, down the screen or across it.
+        return _Wipe(animation: animation, origin: origin, child: AppBackdrop(child: child));
       case SurfaceStyle.neon:
         // Strikes on with a stutter; the page behind dims.
         return FadeTransition(
           opacity: curved(animation, leaving ? Curves.easeIn : flickerSoft),
           child: AppBackdrop(
-            child: ScaleTransition(
-              scale: scale(animation, 1.02, 1, Curves.easeOutCubic),
-              child: _Dimmed(animation: secondaryAnimation, child: child),
+            child: SlideTransition(
+              position: slide(animation, from(0.03), Offset.zero, Curves.easeOutCubic),
+              child: ScaleTransition(
+                scale: scale(animation, 1.02, 1, Curves.easeOutCubic),
+                child: _Dimmed(animation: secondaryAnimation, child: child),
+              ),
             ),
           ),
         );
       case SurfaceStyle.gradient:
-        // Flows down from the top as the page behind drifts away below.
+        // Flows in as the page behind drifts away.
         return FadeTransition(
           opacity: curved(animation, const Interval(0, 0.7, curve: Curves.easeOut)),
           child: AppBackdrop(
             child: SlideTransition(
-              position: slide(animation, const Offset(0, -0.12), Offset.zero, Curves.easeOutQuart),
-              child: SlideTransition(position: slide(secondaryAnimation, Offset.zero, const Offset(0, 0.05), Curves.easeOutQuart), child: child),
+              position: slide(animation, from(down ? 0.12 : 0.2), Offset.zero, Curves.easeOutQuart),
+              child: SlideTransition(position: slide(secondaryAnimation, Offset.zero, away(over.vertical ? 0.05 : 0.06), Curves.easeOutQuart), child: child),
             ),
           ),
         );
       case SurfaceStyle.satin:
-        // Rises gently under a passing gloss.
+        // Rises gently, or glides in, under a passing gloss.
         return FadeTransition(
           opacity: curved(animation, const Interval(0, 0.65, curve: Curves.easeOut)),
           child: AppBackdrop(
             child: SlideTransition(
-              position: slide(animation, const Offset(0, 0.05), Offset.zero, Curves.easeOutQuart),
+              position: slide(animation, from(down ? 0.05 : 0.08), Offset.zero, Curves.easeOutQuart),
               child: ScaleTransition(
                 scale: scale(secondaryAnimation, 1, 0.98, Curves.easeOutCubic),
                 child: _Gloss(animation: animation, child: child),
@@ -344,12 +437,14 @@ class _Frosted extends StatelessWidget {
   }
 }
 
-/// A page's leading edge while it drops in: a hard ink rule along its
-/// bottom with a flat shadow under it, gone once it's in place.
+/// A page's leading edge while it's shoved in — its bottom as it drops
+/// from the top, its top as it rises, its left side as it comes from the
+/// right: a hard ink rule with a flat shadow past it, gone once in place.
 class _HardEdge extends StatelessWidget {
   final Animation<double> animation;
+  final PageOrigin origin;
   final Widget child;
-  const _HardEdge({required this.animation, required this.child});
+  const _HardEdge({required this.animation, required this.origin, required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -359,25 +454,28 @@ class _HardEdge extends StatelessWidget {
       builder: (context, child) {
         final moving = animation.status.isAnimating;
         final ink = AppColors.ink;
+        final rule = BorderSide(color: ink, width: 2.5);
+        final edge = switch (origin) {
+          PageOrigin.top => Border(bottom: rule),
+          PageOrigin.bottom => Border(top: rule),
+          PageOrigin.right => Border(left: rule),
+        };
         // The shadow behind the opaque page shows only past its edge.
         return DecoratedBox(
-          decoration: BoxDecoration(boxShadow: moving ? [BoxShadow(color: ink, offset: const Offset(0, 7))] : null),
-          child: DecoratedBox(
-            position: DecorationPosition.foreground,
-            decoration: BoxDecoration(border: moving ? Border(bottom: BorderSide(color: ink, width: 2.5)) : null),
-            child: child,
-          ),
+          decoration: BoxDecoration(boxShadow: moving ? [BoxShadow(color: ink, offset: -origin.unit * 7)] : null),
+          child: DecoratedBox(position: DecorationPosition.foreground, decoration: BoxDecoration(border: moving ? edge : null), child: child),
         );
       },
     );
   }
 }
 
-/// Reveals a page from the top down, a fine line drawing it in.
+/// Reveals a page from the side it comes from, a fine line drawing it in.
 class _Wipe extends StatelessWidget {
   final Animation<double> animation;
+  final PageOrigin origin;
   final Widget child;
-  const _Wipe({required this.animation, required this.child});
+  const _Wipe({required this.animation, required this.origin, required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -388,41 +486,59 @@ class _Wipe extends StatelessWidget {
         final e = Curves.easeInOutCubic.transform(animation.value);
         final drawing = e > 0 && e < 1;
         return ClipRect(
-          clipper: _WipeClipper(e),
+          clipper: _WipeClipper(e, origin),
           clipBehavior: e >= 1 ? Clip.none : Clip.hardEdge,
-          child: CustomPaint(foregroundPainter: drawing ? _WipeLine(e, AppColors.ink.withValues(alpha: 0.55)) : null, child: child),
+          child: CustomPaint(foregroundPainter: drawing ? _WipeLine(e, origin, AppColors.ink.withValues(alpha: 0.55)) : null, child: child),
         );
       },
     );
   }
 }
 
+/// What's drawn in so far, [progress] of the way from [origin].
+Rect _wiped(Size size, double progress, PageOrigin origin) => switch (origin) {
+      PageOrigin.top => Rect.fromLTWH(0, 0, size.width, size.height * progress),
+      PageOrigin.bottom => Rect.fromLTRB(0, size.height * (1 - progress), size.width, size.height),
+      PageOrigin.right => Rect.fromLTRB(size.width * (1 - progress), 0, size.width, size.height),
+    };
+
 class _WipeClipper extends CustomClipper<Rect> {
   final double progress;
-  const _WipeClipper(this.progress);
+  final PageOrigin origin;
+  const _WipeClipper(this.progress, this.origin);
 
   @override
-  Rect getClip(Size size) => Rect.fromLTWH(0, 0, size.width, size.height * progress);
+  Rect getClip(Size size) => _wiped(size, progress, origin);
 
   @override
-  bool shouldReclip(_WipeClipper old) => old.progress != progress;
+  bool shouldReclip(_WipeClipper old) => old.progress != progress || old.origin != origin;
 }
 
 class _WipeLine extends CustomPainter {
   final double progress;
+  final PageOrigin origin;
   final Color color;
-  const _WipeLine(this.progress, this.color);
+  const _WipeLine(this.progress, this.origin, this.color);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final y = size.height * progress - 0.8;
-    canvas.drawLine(Offset(0, y), Offset(size.width, y), Paint()
+    final paint = Paint()
       ..color = color
-      ..strokeWidth = 1.6);
+      ..strokeWidth = 1.6;
+    // Along the moving edge, just inside what's drawn.
+    final r = _wiped(size, progress, origin);
+    switch (origin) {
+      case PageOrigin.top:
+        canvas.drawLine(Offset(0, r.bottom - 0.8), Offset(size.width, r.bottom - 0.8), paint);
+      case PageOrigin.bottom:
+        canvas.drawLine(Offset(0, r.top + 0.8), Offset(size.width, r.top + 0.8), paint);
+      case PageOrigin.right:
+        canvas.drawLine(Offset(r.left + 0.8, 0), Offset(r.left + 0.8, size.height), paint);
+    }
   }
 
   @override
-  bool shouldRepaint(_WipeLine old) => old.progress != progress || old.color != color;
+  bool shouldRepaint(_WipeLine old) => old.progress != progress || old.origin != origin || old.color != color;
 }
 
 /// Dims a page as another one covers it.
