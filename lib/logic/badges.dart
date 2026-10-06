@@ -57,7 +57,10 @@ class BadgeStats {
 
 class BadgeDef {
   final String id;
-  final String emoji;
+
+  /// The symbol struck on its medal: a game-icons.net icon, as
+  /// 'author/name' — run tool/badge_symbols.dart after picking a new one.
+  final String symbol;
   final String name;
   final String description;
   final BadgeTier tier;
@@ -68,7 +71,7 @@ class BadgeDef {
   /// is until further notice. Past it, nobody can earn it any more, so it
   /// only shows to those who have it — for good.
   final DateTime? availableUntil;
-  const BadgeDef({required this.id, required this.emoji, required this.name, required this.description, required this.tier, required this.target, required this.value, this.availableUntil});
+  const BadgeDef({required this.id, required this.symbol, required this.name, required this.description, required this.tier, required this.target, required this.value, this.availableUntil});
 
   /// 0…1 — how close [s] is to unlocking this badge.
   double progress(BadgeStats s) => (value(s) / target).clamp(0.0, 1.0);
@@ -88,99 +91,99 @@ class BadgeDef {
 /// the rarest.
 final List<BadgeDef> kBadges = [
   // Exclusifs — on offer for a while only, then never again
-  BadgeDef(id: 'founder', emoji: '🚀', name: 'Fondateur', description: 'Devenir Fondateur de Podium avec l\'offre de lancement : Podium++ à vie.', tier: BadgeTier.exclusive, target: 1, value: (s) => s.founder, availableUntil: kFounderOfferEnds),
+  BadgeDef(id: 'founder', symbol: 'lorc/rocket', name: 'Fondateur', description: 'Devenir Fondateur de Podium avec l\'offre de lancement : Podium++ à vie.', tier: BadgeTier.exclusive, target: 1, value: (s) => s.founder, availableUntil: kFounderOfferEnds),
   // Parties jouées
-  BadgeDef(id: 'first_game', emoji: '🎲', name: 'Première partie', description: 'Jouer sa toute première partie.', tier: BadgeTier.bronze, target: 1, value: (s) => s.played),
-  BadgeDef(id: 'played_10', emoji: '🃏', name: 'Mise en jambes', description: 'Jouer 10 parties.', tier: BadgeTier.bronze, target: 10, value: (s) => s.played),
-  BadgeDef(id: 'regular', emoji: '🪑', name: 'Habitué', description: 'Jouer 25 parties.', tier: BadgeTier.silver, target: 25, value: (s) => s.played),
-  BadgeDef(id: 'die_hard', emoji: '🏟️', name: 'Acharné', description: 'Jouer 100 parties.', tier: BadgeTier.gold, target: 100, value: (s) => s.played),
-  BadgeDef(id: 'played_250', emoji: '🎖️', name: 'Vétéran', description: 'Jouer 250 parties.', tier: BadgeTier.platinum, target: 250, value: (s) => s.played),
-  BadgeDef(id: 'played_500', emoji: '🗿', name: 'Monument', description: 'Jouer 500 parties.', tier: BadgeTier.diamond, target: 500, value: (s) => s.played),
-  BadgeDef(id: 'played_1000', emoji: '♾️', name: 'Immortel', description: 'Jouer 1 000 parties.', tier: BadgeTier.mythic, target: 1000, value: (s) => s.played),
+  BadgeDef(id: 'first_game', symbol: 'delapouite/meeple', name: 'Première partie', description: 'Jouer sa toute première partie.', tier: BadgeTier.bronze, target: 1, value: (s) => s.played),
+  BadgeDef(id: 'played_10', symbol: 'delapouite/rolling-dices', name: 'Mise en jambes', description: 'Jouer 10 parties.', tier: BadgeTier.bronze, target: 10, value: (s) => s.played),
+  BadgeDef(id: 'regular', symbol: 'caro-asercion/armchair', name: 'Habitué', description: 'Jouer 25 parties.', tier: BadgeTier.silver, target: 25, value: (s) => s.played),
+  BadgeDef(id: 'die_hard', symbol: 'skoll/fist', name: 'Acharné', description: 'Jouer 100 parties.', tier: BadgeTier.gold, target: 100, value: (s) => s.played),
+  BadgeDef(id: 'played_250', symbol: 'skoll/rank-3', name: 'Vétéran', description: 'Jouer 250 parties.', tier: BadgeTier.platinum, target: 250, value: (s) => s.played),
+  BadgeDef(id: 'played_500', symbol: 'delapouite/moai', name: 'Monument', description: 'Jouer 500 parties.', tier: BadgeTier.diamond, target: 500, value: (s) => s.played),
+  BadgeDef(id: 'played_1000', symbol: 'lorc/ankh', name: 'Immortel', description: 'Jouer 1 000 parties.', tier: BadgeTier.mythic, target: 1000, value: (s) => s.played),
   // Victoires
-  BadgeDef(id: 'first_win', emoji: '🥇', name: 'Première victoire', description: 'Remporter une partie.', tier: BadgeTier.bronze, target: 1, value: (s) => s.wins),
-  BadgeDef(id: 'wins_10', emoji: '✌️', name: 'Gagneur', description: 'Remporter 10 parties.', tier: BadgeTier.bronze, target: 10, value: (s) => s.wins),
-  BadgeDef(id: 'winner', emoji: '🏆', name: 'Machine à gagner', description: 'Remporter 25 parties.', tier: BadgeTier.silver, target: 25, value: (s) => s.wins),
-  BadgeDef(id: 'legend', emoji: '🌟', name: 'Légende', description: 'Remporter 100 parties.', tier: BadgeTier.gold, target: 100, value: (s) => s.wins),
-  BadgeDef(id: 'wins_250', emoji: '⚔️', name: 'Conquérant', description: 'Remporter 250 parties.', tier: BadgeTier.platinum, target: 250, value: (s) => s.wins),
-  BadgeDef(id: 'wins_500', emoji: '🦾', name: 'Titan', description: 'Remporter 500 parties.', tier: BadgeTier.diamond, target: 500, value: (s) => s.wins),
-  BadgeDef(id: 'wins_1000', emoji: '🪐', name: 'Dieu du jeu', description: 'Remporter 1 000 parties.', tier: BadgeTier.mythic, target: 1000, value: (s) => s.wins),
+  BadgeDef(id: 'first_win', symbol: 'delapouite/podium-winner', name: 'Première victoire', description: 'Remporter une partie.', tier: BadgeTier.bronze, target: 1, value: (s) => s.wins),
+  BadgeDef(id: 'wins_10', symbol: 'lorc/laurels', name: 'Gagneur', description: 'Remporter 10 parties.', tier: BadgeTier.bronze, target: 10, value: (s) => s.wins),
+  BadgeDef(id: 'winner', symbol: 'delapouite/trophy-cup', name: 'Machine à gagner', description: 'Remporter 25 parties.', tier: BadgeTier.silver, target: 25, value: (s) => s.wins),
+  BadgeDef(id: 'legend', symbol: 'lorc/laurel-crown', name: 'Légende', description: 'Remporter 100 parties.', tier: BadgeTier.gold, target: 100, value: (s) => s.wins),
+  BadgeDef(id: 'wins_250', symbol: 'lorc/crossed-swords', name: 'Conquérant', description: 'Remporter 250 parties.', tier: BadgeTier.platinum, target: 250, value: (s) => s.wins),
+  BadgeDef(id: 'wins_500', symbol: 'lorc/muscle-up', name: 'Titan', description: 'Remporter 500 parties.', tier: BadgeTier.diamond, target: 500, value: (s) => s.wins),
+  BadgeDef(id: 'wins_1000', symbol: 'lorc/ringed-planet', name: 'Dieu du jeu', description: 'Remporter 1 000 parties.', tier: BadgeTier.mythic, target: 1000, value: (s) => s.wins),
   // Séries de victoires
-  BadgeDef(id: 'streak3', emoji: '🔥', name: 'En feu', description: 'Gagner 3 parties d\'affilée.', tier: BadgeTier.silver, target: 3, value: (s) => s.bestWinStreak),
-  BadgeDef(id: 'streak5', emoji: '⚡', name: 'Inarrêtable', description: 'Gagner 5 parties d\'affilée.', tier: BadgeTier.gold, target: 5, value: (s) => s.bestWinStreak),
-  BadgeDef(id: 'streak8', emoji: '🌪️', name: 'Intouchable', description: 'Gagner 8 parties d\'affilée.', tier: BadgeTier.platinum, target: 8, value: (s) => s.bestWinStreak),
-  BadgeDef(id: 'streak12', emoji: '☄️', name: 'Invaincu', description: 'Gagner 12 parties d\'affilée.', tier: BadgeTier.diamond, target: 12, value: (s) => s.bestWinStreak),
-  BadgeDef(id: 'streak20', emoji: '🐉', name: 'Divinité', description: 'Gagner 20 parties d\'affilée.', tier: BadgeTier.mythic, target: 20, value: (s) => s.bestWinStreak),
+  BadgeDef(id: 'streak3', symbol: 'carl-olsen/flame', name: 'En feu', description: 'Gagner 3 parties d\'affilée.', tier: BadgeTier.silver, target: 3, value: (s) => s.bestWinStreak),
+  BadgeDef(id: 'streak5', symbol: 'lorc/lightning-helix', name: 'Inarrêtable', description: 'Gagner 5 parties d\'affilée.', tier: BadgeTier.gold, target: 5, value: (s) => s.bestWinStreak),
+  BadgeDef(id: 'streak8', symbol: 'lorc/tornado', name: 'Intouchable', description: 'Gagner 8 parties d\'affilée.', tier: BadgeTier.platinum, target: 8, value: (s) => s.bestWinStreak),
+  BadgeDef(id: 'streak12', symbol: 'lorc/comet-spark', name: 'Invaincu', description: 'Gagner 12 parties d\'affilée.', tier: BadgeTier.diamond, target: 12, value: (s) => s.bestWinStreak),
+  BadgeDef(id: 'streak20', symbol: 'delapouite/spiked-dragon-head', name: 'Divinité', description: 'Gagner 20 parties d\'affilée.', tier: BadgeTier.mythic, target: 20, value: (s) => s.bestWinStreak),
   // Jeux différents
-  BadgeDef(id: 'curious', emoji: '🧭', name: 'Touche-à-tout', description: 'Jouer à 5 jeux différents.', tier: BadgeTier.bronze, target: 5, value: (s) => s.distinctGames),
-  BadgeDef(id: 'explorer', emoji: '🗺️', name: 'Explorateur', description: 'Jouer à 15 jeux différents.', tier: BadgeTier.silver, target: 15, value: (s) => s.distinctGames),
-  BadgeDef(id: 'games_30', emoji: '🌍', name: 'Globe-trotteur', description: 'Jouer à 30 jeux différents.', tier: BadgeTier.gold, target: 30, value: (s) => s.distinctGames),
-  BadgeDef(id: 'games_50', emoji: '📖', name: 'Encyclopédie', description: 'Jouer à 50 jeux différents.', tier: BadgeTier.platinum, target: 50, value: (s) => s.distinctGames),
-  BadgeDef(id: 'games_100', emoji: '🔭', name: 'Omniscient', description: 'Jouer à 100 jeux différents.', tier: BadgeTier.diamond, target: 100, value: (s) => s.distinctGames),
+  BadgeDef(id: 'curious', symbol: 'lorc/compass', name: 'Touche-à-tout', description: 'Jouer à 5 jeux différents.', tier: BadgeTier.bronze, target: 5, value: (s) => s.distinctGames),
+  BadgeDef(id: 'explorer', symbol: 'lorc/treasure-map', name: 'Explorateur', description: 'Jouer à 15 jeux différents.', tier: BadgeTier.silver, target: 15, value: (s) => s.distinctGames),
+  BadgeDef(id: 'games_30', symbol: 'lorc/world', name: 'Globe-trotteur', description: 'Jouer à 30 jeux différents.', tier: BadgeTier.gold, target: 30, value: (s) => s.distinctGames),
+  BadgeDef(id: 'games_50', symbol: 'lorc/book-cover', name: 'Encyclopédie', description: 'Jouer à 50 jeux différents.', tier: BadgeTier.platinum, target: 50, value: (s) => s.distinctGames),
+  BadgeDef(id: 'games_100', symbol: 'delapouite/all-seeing-eye', name: 'Omniscient', description: 'Jouer à 100 jeux différents.', tier: BadgeTier.diamond, target: 100, value: (s) => s.distinctGames),
   // Jeux gagnés
-  BadgeDef(id: 'versatile_5', emoji: '🎨', name: 'Polyvalent', description: 'Gagner à 5 jeux différents.', tier: BadgeTier.silver, target: 5, value: (s) => s.distinctGamesWon),
-  BadgeDef(id: 'versatile_15', emoji: '🎭', name: 'Virtuose', description: 'Gagner à 15 jeux différents.', tier: BadgeTier.gold, target: 15, value: (s) => s.distinctGamesWon),
-  BadgeDef(id: 'versatile_30', emoji: '🧠', name: 'Génie', description: 'Gagner à 30 jeux différents.', tier: BadgeTier.platinum, target: 30, value: (s) => s.distinctGamesWon),
-  BadgeDef(id: 'versatile_60', emoji: '💫', name: 'Prodige', description: 'Gagner à 60 jeux différents.', tier: BadgeTier.diamond, target: 60, value: (s) => s.distinctGamesWon),
+  BadgeDef(id: 'versatile_5', symbol: 'delapouite/palette', name: 'Polyvalent', description: 'Gagner à 5 jeux différents.', tier: BadgeTier.silver, target: 5, value: (s) => s.distinctGamesWon),
+  BadgeDef(id: 'versatile_15', symbol: 'lorc/drama-masks', name: 'Virtuose', description: 'Gagner à 15 jeux différents.', tier: BadgeTier.gold, target: 15, value: (s) => s.distinctGamesWon),
+  BadgeDef(id: 'versatile_30', symbol: 'lorc/brain', name: 'Génie', description: 'Gagner à 30 jeux différents.', tier: BadgeTier.platinum, target: 30, value: (s) => s.distinctGamesWon),
+  BadgeDef(id: 'versatile_60', symbol: 'lorc/fairy-wand', name: 'Prodige', description: 'Gagner à 60 jeux différents.', tier: BadgeTier.diamond, target: 60, value: (s) => s.distinctGamesWon),
   // Un seul jeu
-  BadgeDef(id: 'specialist', emoji: '🎯', name: 'Spécialiste', description: 'Gagner 10 fois au même jeu.', tier: BadgeTier.silver, target: 10, value: (s) => s.bestWinsAtOneGame),
-  BadgeDef(id: 'specialist_25', emoji: '🏹', name: 'Expert', description: 'Gagner 25 fois au même jeu.', tier: BadgeTier.gold, target: 25, value: (s) => s.bestWinsAtOneGame),
-  BadgeDef(id: 'specialist_50', emoji: '🥋', name: 'Maître', description: 'Gagner 50 fois au même jeu.', tier: BadgeTier.platinum, target: 50, value: (s) => s.bestWinsAtOneGame),
-  BadgeDef(id: 'specialist_100', emoji: '🧙', name: 'Grand maître', description: 'Gagner 100 fois au même jeu.', tier: BadgeTier.diamond, target: 100, value: (s) => s.bestWinsAtOneGame),
+  BadgeDef(id: 'specialist', symbol: 'skoll/bullseye', name: 'Spécialiste', description: 'Gagner 10 fois au même jeu.', tier: BadgeTier.silver, target: 10, value: (s) => s.bestWinsAtOneGame),
+  BadgeDef(id: 'specialist_25', symbol: 'carl-olsen/crossbow', name: 'Expert', description: 'Gagner 25 fois au même jeu.', tier: BadgeTier.gold, target: 25, value: (s) => s.bestWinsAtOneGame),
+  BadgeDef(id: 'specialist_50', symbol: 'delapouite/black-belt', name: 'Maître', description: 'Gagner 50 fois au même jeu.', tier: BadgeTier.platinum, target: 50, value: (s) => s.bestWinsAtOneGame),
+  BadgeDef(id: 'specialist_100', symbol: 'delapouite/wizard-face', name: 'Grand maître', description: 'Gagner 100 fois au même jeu.', tier: BadgeTier.diamond, target: 100, value: (s) => s.bestWinsAtOneGame),
   // En équipe
-  BadgeDef(id: 'team_player', emoji: '🤝', name: 'Esprit d\'équipe', description: 'Gagner 5 parties en équipe ou en coopératif.', tier: BadgeTier.silver, target: 5, value: (s) => s.teamWins),
-  BadgeDef(id: 'team_25', emoji: '🧱', name: 'Ciment de l\'équipe', description: 'Gagner 25 parties en équipe ou en coopératif.', tier: BadgeTier.gold, target: 25, value: (s) => s.teamWins),
-  BadgeDef(id: 'team_100', emoji: '🛡️', name: 'Âme du collectif', description: 'Gagner 100 parties en équipe ou en coopératif.', tier: BadgeTier.platinum, target: 100, value: (s) => s.teamWins),
+  BadgeDef(id: 'team_player', symbol: 'delapouite/shaking-hands', name: 'Esprit d\'équipe', description: 'Gagner 5 parties en équipe ou en coopératif.', tier: BadgeTier.silver, target: 5, value: (s) => s.teamWins),
+  BadgeDef(id: 'team_25', symbol: 'delapouite/brick-wall', name: 'Ciment de l\'équipe', description: 'Gagner 25 parties en équipe ou en coopératif.', tier: BadgeTier.gold, target: 25, value: (s) => s.teamWins),
+  BadgeDef(id: 'team_100', symbol: 'lorc/checked-shield', name: 'Âme du collectif', description: 'Gagner 100 parties en équipe ou en coopératif.', tier: BadgeTier.platinum, target: 100, value: (s) => s.teamWins),
   // Grandes tablées
-  BadgeDef(id: 'crowd_1', emoji: '🎪', name: 'Seul contre tous', description: 'Gagner une partie chacun pour soi à 6 joueurs ou plus.', tier: BadgeTier.silver, target: 1, value: (s) => s.crowdWins),
-  BadgeDef(id: 'crowd_10', emoji: '🦁', name: 'Roi de la foule', description: 'Gagner 10 parties chacun pour soi à 6 joueurs ou plus.', tier: BadgeTier.platinum, target: 10, value: (s) => s.crowdWins),
-  BadgeDef(id: 'crowd_30', emoji: '🌋', name: 'Force de la nature', description: 'Gagner 30 parties chacun pour soi à 6 joueurs ou plus.', tier: BadgeTier.diamond, target: 30, value: (s) => s.crowdWins),
+  BadgeDef(id: 'crowd_1', symbol: 'delapouite/meeple-army', name: 'Seul contre tous', description: 'Gagner une partie chacun pour soi à 6 joueurs ou plus.', tier: BadgeTier.silver, target: 1, value: (s) => s.crowdWins),
+  BadgeDef(id: 'crowd_10', symbol: 'delapouite/meeple-king', name: 'Roi de la foule', description: 'Gagner 10 parties chacun pour soi à 6 joueurs ou plus.', tier: BadgeTier.platinum, target: 10, value: (s) => s.crowdWins),
+  BadgeDef(id: 'crowd_30', symbol: 'delapouite/smoking-volcano', name: 'Force de la nature', description: 'Gagner 30 parties chacun pour soi à 6 joueurs ou plus.', tier: BadgeTier.diamond, target: 30, value: (s) => s.crowdWins),
   // Adversaires
-  BadgeDef(id: 'opponents_5', emoji: '👋', name: 'Nouvelles têtes', description: 'Affronter 5 joueurs différents.', tier: BadgeTier.bronze, target: 5, value: (s) => s.distinctOpponents),
-  BadgeDef(id: 'opponents_15', emoji: '📇', name: 'Carnet d\'adresses', description: 'Affronter 15 joueurs différents.', tier: BadgeTier.silver, target: 15, value: (s) => s.distinctOpponents),
-  BadgeDef(id: 'opponents_40', emoji: '🎤', name: 'Célébrité locale', description: 'Affronter 40 joueurs différents.', tier: BadgeTier.gold, target: 40, value: (s) => s.distinctOpponents),
+  BadgeDef(id: 'opponents_5', symbol: 'lorc/two-shadows', name: 'Nouvelles têtes', description: 'Affronter 5 joueurs différents.', tier: BadgeTier.bronze, target: 5, value: (s) => s.distinctOpponents),
+  BadgeDef(id: 'opponents_15', symbol: 'delapouite/notebook', name: 'Carnet d\'adresses', description: 'Affronter 15 joueurs différents.', tier: BadgeTier.silver, target: 15, value: (s) => s.distinctOpponents),
+  BadgeDef(id: 'opponents_40', symbol: 'delapouite/microphone', name: 'Célébrité locale', description: 'Affronter 40 joueurs différents.', tier: BadgeTier.gold, target: 40, value: (s) => s.distinctOpponents),
   // Journées de jeu
-  BadgeDef(id: 'day_5', emoji: '🍕', name: 'Belle soirée', description: 'Jouer 5 parties dans la même journée.', tier: BadgeTier.bronze, target: 5, value: (s) => s.bestDay),
-  BadgeDef(id: 'marathon', emoji: '⏱️', name: 'Marathon', description: 'Jouer 10 parties dans la même journée.', tier: BadgeTier.silver, target: 10, value: (s) => s.bestDay),
-  BadgeDef(id: 'day_20', emoji: '🏃', name: 'Ultra-trail', description: 'Jouer 20 parties dans la même journée.', tier: BadgeTier.gold, target: 20, value: (s) => s.bestDay),
-  BadgeDef(id: 'day_35', emoji: '🔋', name: 'Increvable', description: 'Jouer 35 parties dans la même journée.', tier: BadgeTier.platinum, target: 35, value: (s) => s.bestDay),
+  BadgeDef(id: 'day_5', symbol: 'delapouite/pizza-slice', name: 'Belle soirée', description: 'Jouer 5 parties dans la même journée.', tier: BadgeTier.bronze, target: 5, value: (s) => s.bestDay),
+  BadgeDef(id: 'marathon', symbol: 'skoll/stopwatch', name: 'Marathon', description: 'Jouer 10 parties dans la même journée.', tier: BadgeTier.silver, target: 10, value: (s) => s.bestDay),
+  BadgeDef(id: 'day_20', symbol: 'lorc/run', name: 'Ultra-trail', description: 'Jouer 20 parties dans la même journée.', tier: BadgeTier.gold, target: 20, value: (s) => s.bestDay),
+  BadgeDef(id: 'day_35', symbol: 'priorblue/battery-100', name: 'Increvable', description: 'Jouer 35 parties dans la même journée.', tier: BadgeTier.platinum, target: 35, value: (s) => s.bestDay),
   // La nuit
-  BadgeDef(id: 'night_owl', emoji: '🌙', name: 'Oiseau de nuit', description: 'Jouer une partie entre minuit et 5 h.', tier: BadgeTier.bronze, target: 1, value: (s) => s.nightGames),
-  BadgeDef(id: 'night_10', emoji: '🦉', name: 'Noctambule', description: 'Jouer 10 parties entre minuit et 5 h.', tier: BadgeTier.silver, target: 10, value: (s) => s.nightGames),
-  BadgeDef(id: 'night_50', emoji: '🦇', name: 'Vampire', description: 'Jouer 50 parties entre minuit et 5 h.', tier: BadgeTier.gold, target: 50, value: (s) => s.nightGames),
-  BadgeDef(id: 'night_150', emoji: '🌌', name: 'Créature de la nuit', description: 'Jouer 150 parties entre minuit et 5 h.', tier: BadgeTier.platinum, target: 150, value: (s) => s.nightGames),
+  BadgeDef(id: 'night_owl', symbol: 'lorc/moon', name: 'Oiseau de nuit', description: 'Jouer une partie entre minuit et 5 h.', tier: BadgeTier.bronze, target: 1, value: (s) => s.nightGames),
+  BadgeDef(id: 'night_10', symbol: 'caro-asercion/barn-owl', name: 'Noctambule', description: 'Jouer 10 parties entre minuit et 5 h.', tier: BadgeTier.silver, target: 10, value: (s) => s.nightGames),
+  BadgeDef(id: 'night_50', symbol: 'skoll/bat', name: 'Vampire', description: 'Jouer 50 parties entre minuit et 5 h.', tier: BadgeTier.gold, target: 50, value: (s) => s.nightGames),
+  BadgeDef(id: 'night_150', symbol: 'lorc/wolf-howl', name: 'Créature de la nuit', description: 'Jouer 150 parties entre minuit et 5 h.', tier: BadgeTier.platinum, target: 150, value: (s) => s.nightGames),
   // Fidélité
-  BadgeDef(id: 'days_10', emoji: '📅', name: 'Fidèle', description: 'Jouer sur 10 journées différentes.', tier: BadgeTier.bronze, target: 10, value: (s) => s.daysPlayed),
-  BadgeDef(id: 'days_50', emoji: '🗓️', name: 'Assidu', description: 'Jouer sur 50 journées différentes.', tier: BadgeTier.silver, target: 50, value: (s) => s.daysPlayed),
-  BadgeDef(id: 'days_100', emoji: '💯', name: 'Inconditionnel', description: 'Jouer sur 100 journées différentes.', tier: BadgeTier.gold, target: 100, value: (s) => s.daysPlayed),
-  BadgeDef(id: 'days_200', emoji: '🏯', name: 'Institution', description: 'Jouer sur 200 journées différentes.', tier: BadgeTier.platinum, target: 200, value: (s) => s.daysPlayed),
-  BadgeDef(id: 'days_365', emoji: '🎂', name: 'Une année de jeu', description: 'Jouer sur 365 journées différentes.', tier: BadgeTier.diamond, target: 365, value: (s) => s.daysPlayed),
-  BadgeDef(id: 'days_1000', emoji: '⏳', name: 'Éternel', description: 'Jouer sur 1 000 journées différentes.', tier: BadgeTier.mythic, target: 1000, value: (s) => s.daysPlayed),
+  BadgeDef(id: 'days_10', symbol: 'delapouite/calendar', name: 'Fidèle', description: 'Jouer sur 10 journées différentes.', tier: BadgeTier.bronze, target: 10, value: (s) => s.daysPlayed),
+  BadgeDef(id: 'days_50', symbol: 'delapouite/alarm-clock', name: 'Assidu', description: 'Jouer sur 50 journées différentes.', tier: BadgeTier.silver, target: 50, value: (s) => s.daysPlayed),
+  BadgeDef(id: 'days_100', symbol: 'delapouite/heart-wings', name: 'Inconditionnel', description: 'Jouer sur 100 journées différentes.', tier: BadgeTier.gold, target: 100, value: (s) => s.daysPlayed),
+  BadgeDef(id: 'days_200', symbol: 'delapouite/pagoda', name: 'Institution', description: 'Jouer sur 200 journées différentes.', tier: BadgeTier.platinum, target: 200, value: (s) => s.daysPlayed),
+  BadgeDef(id: 'days_365', symbol: 'delapouite/stairs-cake', name: 'Une année de jeu', description: 'Jouer sur 365 journées différentes.', tier: BadgeTier.diamond, target: 365, value: (s) => s.daysPlayed),
+  BadgeDef(id: 'days_1000', symbol: 'lorc/hourglass', name: 'Éternel', description: 'Jouer sur 1 000 journées différentes.', tier: BadgeTier.mythic, target: 1000, value: (s) => s.daysPlayed),
   // Jours d'affilée
-  BadgeDef(id: 'daily_3', emoji: '🔁', name: 'Sur sa lancée', description: 'Jouer 3 jours d\'affilée.', tier: BadgeTier.bronze, target: 3, value: (s) => s.bestDayStreak),
-  BadgeDef(id: 'daily_7', emoji: '📆', name: 'Semaine de jeu', description: 'Jouer 7 jours d\'affilée.', tier: BadgeTier.gold, target: 7, value: (s) => s.bestDayStreak),
-  BadgeDef(id: 'daily_14', emoji: '🧲', name: 'Accro', description: 'Jouer 14 jours d\'affilée.', tier: BadgeTier.platinum, target: 14, value: (s) => s.bestDayStreak),
-  BadgeDef(id: 'daily_30', emoji: '🌕', name: 'Mois parfait', description: 'Jouer 30 jours d\'affilée.', tier: BadgeTier.diamond, target: 30, value: (s) => s.bestDayStreak),
-  BadgeDef(id: 'daily_100', emoji: '🌠', name: 'Sans relâche', description: 'Jouer 100 jours d\'affilée.', tier: BadgeTier.mythic, target: 100, value: (s) => s.bestDayStreak),
+  BadgeDef(id: 'daily_3', symbol: 'lorc/cycle', name: 'Sur sa lancée', description: 'Jouer 3 jours d\'affilée.', tier: BadgeTier.bronze, target: 3, value: (s) => s.bestDayStreak),
+  BadgeDef(id: 'daily_7', symbol: 'lorc/sun', name: 'Semaine de jeu', description: 'Jouer 7 jours d\'affilée.', tier: BadgeTier.gold, target: 7, value: (s) => s.bestDayStreak),
+  BadgeDef(id: 'daily_14', symbol: 'lorc/magnet', name: 'Accro', description: 'Jouer 14 jours d\'affilée.', tier: BadgeTier.platinum, target: 14, value: (s) => s.bestDayStreak),
+  BadgeDef(id: 'daily_30', symbol: 'delapouite/moon-orbit', name: 'Mois parfait', description: 'Jouer 30 jours d\'affilée.', tier: BadgeTier.diamond, target: 30, value: (s) => s.bestDayStreak),
+  BadgeDef(id: 'daily_100', symbol: 'delapouite/falling-star', name: 'Sans relâche', description: 'Jouer 100 jours d\'affilée.', tier: BadgeTier.mythic, target: 100, value: (s) => s.bestDayStreak),
   // Tournois
-  BadgeDef(id: 'tourney_1', emoji: '🎟️', name: 'Compétiteur', description: 'Participer à un tournoi.', tier: BadgeTier.bronze, target: 1, value: (s) => s.tournamentsPlayed),
-  BadgeDef(id: 'tourney_10', emoji: '🏅', name: 'Habitué des tournois', description: 'Participer à 10 tournois.', tier: BadgeTier.silver, target: 10, value: (s) => s.tournamentsPlayed),
-  BadgeDef(id: 'champion', emoji: '👑', name: 'Champion', description: 'Remporter un tournoi.', tier: BadgeTier.gold, target: 1, value: (s) => s.tournamentsWon),
-  BadgeDef(id: 'champion_3', emoji: '🔱', name: 'Triple couronne', description: 'Remporter 3 tournois.', tier: BadgeTier.platinum, target: 3, value: (s) => s.tournamentsWon),
-  BadgeDef(id: 'champion_10', emoji: '🏰', name: 'Empereur', description: 'Remporter 10 tournois.', tier: BadgeTier.diamond, target: 10, value: (s) => s.tournamentsWon),
-  BadgeDef(id: 'champion_25', emoji: '⚜️', name: 'Panthéon', description: 'Remporter 25 tournois.', tier: BadgeTier.mythic, target: 25, value: (s) => s.tournamentsWon),
+  BadgeDef(id: 'tourney_1', symbol: 'delapouite/ticket', name: 'Compétiteur', description: 'Participer à un tournoi.', tier: BadgeTier.bronze, target: 1, value: (s) => s.tournamentsPlayed),
+  BadgeDef(id: 'tourney_10', symbol: 'lorc/medal', name: 'Habitué des tournois', description: 'Participer à 10 tournois.', tier: BadgeTier.silver, target: 10, value: (s) => s.tournamentsPlayed),
+  BadgeDef(id: 'champion', symbol: 'lorc/crown', name: 'Champion', description: 'Remporter un tournoi.', tier: BadgeTier.gold, target: 1, value: (s) => s.tournamentsWon),
+  BadgeDef(id: 'champion_3', symbol: 'lorc/trident', name: 'Triple couronne', description: 'Remporter 3 tournois.', tier: BadgeTier.platinum, target: 3, value: (s) => s.tournamentsWon),
+  BadgeDef(id: 'champion_10', symbol: 'lorc/castle', name: 'Empereur', description: 'Remporter 10 tournois.', tier: BadgeTier.diamond, target: 10, value: (s) => s.tournamentsWon),
+  BadgeDef(id: 'champion_25', symbol: 'delapouite/greek-temple', name: 'Panthéon', description: 'Remporter 25 tournois.', tier: BadgeTier.mythic, target: 25, value: (s) => s.tournamentsWon),
   // Classement
-  BadgeDef(id: 'leader', emoji: '📈', name: 'Numéro 1', description: 'Prendre la tête du classement d\'un groupe (au moins 3 joueurs et 5 parties).', tier: BadgeTier.gold, target: 1, value: (s) => s.leading),
+  BadgeDef(id: 'leader', symbol: 'delapouite/stairs-goal', name: 'Numéro 1', description: 'Prendre la tête du classement d\'un groupe (au moins 3 joueurs et 5 parties).', tier: BadgeTier.gold, target: 1, value: (s) => s.leading),
   // Collection
-  BadgeDef(id: 'collector', emoji: '📚', name: 'Collectionneur', description: 'Avoir 10 jeux dans sa collection.', tier: BadgeTier.bronze, target: 10, value: (s) => s.ownedGames),
-  BadgeDef(id: 'collection_25', emoji: '🗃️', name: 'Amateur éclairé', description: 'Avoir 25 jeux dans sa collection.', tier: BadgeTier.silver, target: 25, value: (s) => s.ownedGames),
-  BadgeDef(id: 'game_library', emoji: '🏛️', name: 'Ludothèque', description: 'Avoir 50 jeux dans sa collection.', tier: BadgeTier.gold, target: 50, value: (s) => s.ownedGames),
-  BadgeDef(id: 'collection_100', emoji: '🖼️', name: 'Musée du jeu', description: 'Avoir 100 jeux dans sa collection.', tier: BadgeTier.platinum, target: 100, value: (s) => s.ownedGames),
-  BadgeDef(id: 'collection_200', emoji: '💎', name: 'Caverne d\'Ali Baba', description: 'Avoir 200 jeux dans sa collection.', tier: BadgeTier.diamond, target: 200, value: (s) => s.ownedGames),
+  BadgeDef(id: 'collector', symbol: 'delapouite/book-pile', name: 'Collectionneur', description: 'Avoir 10 jeux dans sa collection.', tier: BadgeTier.bronze, target: 10, value: (s) => s.ownedGames),
+  BadgeDef(id: 'collection_25', symbol: 'delapouite/wooden-crate', name: 'Amateur éclairé', description: 'Avoir 25 jeux dans sa collection.', tier: BadgeTier.silver, target: 25, value: (s) => s.ownedGames),
+  BadgeDef(id: 'game_library', symbol: 'delapouite/bookshelf', name: 'Ludothèque', description: 'Avoir 50 jeux dans sa collection.', tier: BadgeTier.gold, target: 50, value: (s) => s.ownedGames),
+  BadgeDef(id: 'collection_100', symbol: 'delapouite/painted-pottery', name: 'Musée du jeu', description: 'Avoir 100 jeux dans sa collection.', tier: BadgeTier.platinum, target: 100, value: (s) => s.ownedGames),
+  BadgeDef(id: 'collection_200', symbol: 'skoll/open-treasure-chest', name: 'Caverne d\'Ali Baba', description: 'Avoir 200 jeux dans sa collection.', tier: BadgeTier.diamond, target: 200, value: (s) => s.ownedGames),
   // Amis
-  BadgeDef(id: 'social', emoji: '👥', name: 'Bien entouré', description: 'Ajouter 5 amis.', tier: BadgeTier.bronze, target: 5, value: (s) => s.friends),
-  BadgeDef(id: 'friends_15', emoji: '🎉', name: 'Populaire', description: 'Ajouter 15 amis.', tier: BadgeTier.silver, target: 15, value: (s) => s.friends),
-  BadgeDef(id: 'friends_30', emoji: '⭐', name: 'Star', description: 'Ajouter 30 amis.', tier: BadgeTier.gold, target: 30, value: (s) => s.friends),
+  BadgeDef(id: 'social', symbol: 'delapouite/three-friends', name: 'Bien entouré', description: 'Ajouter 5 amis.', tier: BadgeTier.bronze, target: 5, value: (s) => s.friends),
+  BadgeDef(id: 'friends_15', symbol: 'delapouite/party-popper', name: 'Populaire', description: 'Ajouter 15 amis.', tier: BadgeTier.silver, target: 15, value: (s) => s.friends),
+  BadgeDef(id: 'friends_30', symbol: 'delapouite/star-formation', name: 'Star', description: 'Ajouter 30 amis.', tier: BadgeTier.gold, target: 30, value: (s) => s.friends),
 ];
 
 BadgeDef? badgeById(String id) {

@@ -7,12 +7,13 @@ import 'package:flutter/material.dart';
 import '../logic/badges.dart';
 import '../theme/app_theme.dart';
 import 'ambient_loop.dart';
+import 'badge_symbols.dart';
 import 'common.dart';
 import 'fx_kit.dart';
 import 'match_card.dart' show frenchDayMonth;
 import 'prestige_medal.dart';
 
-/// Medal colours per tier: rim gradient, then the face behind the emoji —
+/// Medal colours per tier: rim gradient, then the face behind the symbol —
 /// the exclusive tier's face is its obsidian.
 ({Color from, Color to, Color face}) badgeTierColors(BadgeTier t) => switch (t) {
       BadgeTier.bronze => (from: const Color(0xFFB0652A), to: const Color(0xFFE9A86B), face: const Color(0xFFFFF1E4)),
@@ -102,7 +103,7 @@ class BadgeMedal extends StatelessWidget {
               child: Container(
                 alignment: Alignment.center,
                 decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.card),
-                child: Opacity(opacity: 0.3, child: Text(badge.emoji, style: TextStyle(fontSize: size * 0.4))),
+                child: BadgeSymbol(badge: badge, earned: false, size: size * 0.48),
               ),
             ),
             if (p != null && p > 0)
@@ -133,7 +134,7 @@ class BadgeMedal extends StatelessWidget {
           child: Container(
             alignment: Alignment.center,
             decoration: BoxDecoration(shape: BoxShape.circle, gradient: RadialGradient(center: const Alignment(-0.3, -0.35), colors: [Colors.white, c.face])),
-            child: Text(badge.emoji, style: TextStyle(fontSize: size * 0.4)),
+            child: BadgeSymbol(badge: badge, earned: true, size: size * 0.48),
           ),
         );
     Widget alive(double ph) => CustomPaint(foregroundPainter: _MedalFx(ph, badge.tier), child: medal(ph * tau));

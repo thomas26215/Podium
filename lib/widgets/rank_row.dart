@@ -4,6 +4,7 @@ import '../logic/badges.dart';
 import '../models/app_user.dart';
 import '../theme/app_theme.dart';
 import 'avatar.dart';
+import 'badge_symbols.dart';
 import 'common.dart';
 
 /// `.mrow` — compact rank row used in the home mini-ranking (top 3 only,
@@ -106,7 +107,7 @@ class RankRow extends StatelessWidget {
   }
 }
 
-/// A player's name followed by the emojis of the badges they pinned (see
+/// A player's name followed by the symbols of the badges they pinned (see
 /// AppUser.showcasedBadges) — a little flair in the rankings.
 class _NameWithBadges extends StatelessWidget {
   final AppUser player;
@@ -115,11 +116,15 @@ class _NameWithBadges extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final emojis = player.showcasedBadges.map(badgeById).whereType<BadgeDef>().map((b) => b.emoji).join(' ');
+    final badges = player.showcasedBadges.map(badgeById).whereType<BadgeDef>();
     return Text.rich(
       TextSpan(children: [
         TextSpan(text: player.displayName, style: style),
-        if (emojis.isNotEmpty) TextSpan(text: '  $emojis', style: const TextStyle(fontSize: 12)),
+        for (final (i, b) in badges.indexed)
+          WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: Padding(padding: EdgeInsets.only(left: i == 0 ? 8 : 4), child: BadgeSymbol(badge: b, earned: true, size: 15)),
+          ),
       ]),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,

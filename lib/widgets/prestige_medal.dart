@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../logic/badges.dart';
 import '../theme/app_theme.dart';
 import 'ambient_loop.dart';
+import 'badge_symbols.dart';
 import 'fx_kit.dart';
 
 /// Tiers above gold aren't round medals: each gets a shape of its own and,
@@ -45,7 +46,7 @@ class PrestigeMedal extends StatelessWidget {
         child: Stack(
           children: [
             Positioned.fill(child: CustomPaint(painter: _LockedPainter(look, AppColors.segTrack, AppColors.card))),
-            _emoji(look, opacity: 0.3),
+            _symbol(look, earned: false),
             if (p != null && p > 0)
               Positioned.fill(
                 child: TweenAnimationBuilder<double>(
@@ -60,23 +61,21 @@ class PrestigeMedal extends StatelessWidget {
         ),
       );
     }
-    Widget frame(double ph) => CustomPaint(painter: _LookPainter(look, ph), foregroundPainter: _LookPainter(look, ph, front: true), child: _emoji(look));
+    final symbol = _symbol(look, earned: true);
+    Widget frame(double ph) => CustomPaint(painter: _LookPainter(look, ph), foregroundPainter: _LookPainter(look, ph, front: true), child: symbol);
     if (phase != null) return frame(phase!);
     // Each badge on its own period, so a row of them never moves in unison.
     final period = Duration(milliseconds: 4600 + (hash01(badge.id.length * 7 + badge.id.codeUnitAt(0)) * 1800).round());
     return RepaintBoundary(child: AmbientLoop(period: period, builder: (context, ph) => frame(ph)));
   }
 
-  Widget _emoji(_Look look, {double opacity = 1}) {
-    final text = Text(badge.emoji, style: TextStyle(fontSize: size * look.emojiScale));
-    return SizedBox.square(
-      dimension: size,
-      child: Transform.translate(
-        offset: Offset(0, size * look.faceDy),
-        child: Center(child: opacity < 1 ? Opacity(opacity: opacity, child: text) : text),
-      ),
-    );
-  }
+  Widget _symbol(_Look look, {required bool earned}) => SizedBox.square(
+        dimension: size,
+        child: Transform.translate(
+          offset: Offset(0, size * look.faceDy),
+          child: Center(child: BadgeSymbol(badge: badge, earned: earned, size: size * look.symbolScale)),
+        ),
+      );
 }
 
 /// The padlock in the corner of a locked badge [size] wide.
@@ -153,19 +152,19 @@ class _TrackPainter extends CustomPainter {
 abstract class _Look {
   const _Look();
 
-  /// Where the emoji sits: how far below the centre (× S)…
+  /// Where the symbol sits: how far below the centre (× S)…
   double get faceDy => 0;
 
   /// …and how big it is (× S).
-  double get emojiScale => 0.34;
+  double get symbolScale => 0.38;
 
-  /// Behind the emoji: the badge itself.
+  /// Behind the symbol: the badge itself.
   void paintBack(Canvas canvas, double S, double ph);
 
-  /// Over the emoji: glints and shines.
+  /// Over the symbol: glints and shines.
   void paintFront(Canvas canvas, double S, double ph);
 
-  /// The locked silhouette, in [track] with a [face] where the emoji goes.
+  /// The locked silhouette, in [track] with a [face] where the symbol goes.
   void paintLocked(Canvas canvas, double S, Color track, Color face);
 
   /// The line a locked badge's progress is traced along: from the top,
@@ -301,7 +300,7 @@ class _Platinum extends _Look {
 
 typedef _Facet = ({List<Offset> pts, double facing, int kind});
 
-/// Diamond: a brilliant-cut gem seen from above — the emoji on its table,
+/// Diamond: a brilliant-cut gem seen from above — the symbol on its table,
 /// a ring of facets round it.
 class _Diamond extends _Look {
   const _Diamond();
@@ -577,7 +576,7 @@ class _Exclusive extends _Look {
   double get faceDy => _cy - 0.5;
 
   @override
-  double get emojiScale => 0.31;
+  double get symbolScale => 0.36;
 
   /// Gold, from its shade (0) to its highlight (1).
   static Color _gold(double k) => _ramp(const [Color(0xFF6E4609), Color(0xFFB98322), Color(0xFFF0C55A), Color(0xFFFFF4C9)], const [0.0, 0.42, 0.78, 1.0], k);

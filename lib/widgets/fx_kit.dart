@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:path_parsing/path_parsing.dart';
 
 /// Shared toolkit for the profile card's procedural animations — banners,
 /// avatar frames, name effects and profile effects.
@@ -146,6 +147,29 @@ Path starPath(double r, [double innerRatio = 0.45]) {
     i == 0 ? path.moveTo(p.dx, p.dy) : path.lineTo(p.dx, p.dy);
   }
   return path..close();
+}
+
+class _SvgPathBuilder extends PathProxy {
+  final path = Path();
+
+  @override
+  void moveTo(double x, double y) => path.moveTo(x, y);
+
+  @override
+  void lineTo(double x, double y) => path.lineTo(x, y);
+
+  @override
+  void cubicTo(double x1, double y1, double x2, double y2, double x3, double y3) => path.cubicTo(x1, y1, x2, y2, x3, y3);
+
+  @override
+  void close() => path.close();
+}
+
+/// The path an SVG path's data (its `d`) draws.
+Path svgPath(String data) {
+  final builder = _SvgPathBuilder();
+  writeSvgPathDataToPath(data, builder);
+  return builder.path;
 }
 
 const _pips = {

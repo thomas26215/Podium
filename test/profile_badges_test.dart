@@ -21,6 +21,8 @@ import 'package:podium/repositories/users_repository.dart';
 import 'package:podium/screens/auth/auth_gate.dart';
 import 'package:podium/screens/profile/badges_screen.dart';
 import 'package:podium/state/app_state.dart';
+import 'package:podium/widgets/badge_symbol_data.dart';
+import 'package:podium/widgets/badge_symbols.dart';
 import 'package:podium/widgets/badge_widgets.dart';
 import 'package:podium/widgets/profile_banners.dart';
 import 'package:podium/widgets/profile_style.dart';
@@ -126,6 +128,19 @@ void main() {
       }
     });
 
+    test('every badge has a symbol to strike, and the credits name who drew it', () {
+      final credit = badgeSymbolsCredit();
+      for (final b in kBadges) {
+        expect(kBadgeSymbolPaths, contains(b.symbol), reason: '${b.id}: run tool/badge_symbols.dart');
+        final bounds = badgeSymbolOutline(b.symbol).getBounds();
+        expect(bounds.center.dx, closeTo(0.5, 1e-6), reason: b.id);
+        expect(bounds.center.dy, closeTo(0.5, 1e-6), reason: b.id);
+        expect(bounds.longestSide, inInclusiveRange(1.0, 1.25 + 1e-6), reason: '${b.id}: fills its box');
+        expect(credit, contains(kBadgeSymbolAuthors[b.symbol.split('/').first]), reason: b.id);
+      }
+      expect(credit, contains('CC BY 3.0'));
+    });
+
     test('progress is capped at 1', () {
       final s = computeBadgeStats(uid: 'a', matches: const [], ownedGames: 80);
       expect(badgeById('game_library')!.progress(s), 1.0);
@@ -134,7 +149,7 @@ void main() {
   });
 
   group('exclusive badges', () {
-    BadgeDef exclusive(String id, DateTime? until) => BadgeDef(id: id, emoji: '⌛', name: id, description: '', tier: BadgeTier.exclusive, target: 1, value: (s) => s.founder, availableUntil: until);
+    BadgeDef exclusive(String id, DateTime? until) => BadgeDef(id: id, symbol: 'lorc/hourglass', name: id, description: '', tier: BadgeTier.exclusive, target: 1, value: (s) => s.founder, availableUntil: until);
 
     test('one out of reach shows only to those who have it — for good', () {
       final now = DateTime(2026, 10, 6);

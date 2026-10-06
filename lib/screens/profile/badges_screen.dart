@@ -5,6 +5,7 @@ import '../../logic/badges.dart';
 import '../../models/app_user.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/badge_symbols.dart';
 import '../../widgets/badge_widgets.dart';
 import '../../widgets/common.dart';
 
@@ -118,6 +119,8 @@ class BadgesScreen extends StatelessWidget {
               ),
             grid(locked, false, 120),
           ],
+          const SizedBox(height: 24),
+          Text(badgeSymbolsCredit(), textAlign: TextAlign.center, style: bodyFont(size: 11, weight: FontWeight.w600, color: AppColors.mut, height: 1.35)),
         ],
       ),
     );
