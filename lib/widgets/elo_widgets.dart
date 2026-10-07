@@ -28,6 +28,109 @@ class EloDeltaChip extends StatelessWidget {
   }
 }
 
+/// "Comment marche l'Elo ?" — the rules of `computeElo`, in plain words.
+Future<void> showEloExplainer(BuildContext context) => showModalBottomSheet<void>(
+      context: context,
+      sheetAnimationStyle: appSheetAnimation,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _EloExplainerSheet(),
+    );
+
+class _EloExplainerSheet extends StatelessWidget {
+  const _EloExplainerSheet();
+
+  static const _sections = [
+    (
+      Icons.stairs_rounded,
+      'Départ à 100',
+      'Tout le monde démarre à 100 et monte au fil des parties, palier après palier\u00a0: Bronze, Argent (500), Or (1000), Platine (1500), Diamant (2000).',
+    ),
+    (
+      Icons.flag_rounded,
+      'Vers son niveau',
+      "En coulisses, Podium estime le niveau de chacun d'après qui bat qui. L'Elo grimpe vers ce niveau\u00a0: tant qu'on en est loin, chaque victoire rapporte un bonus et les défaites coûtent peu. Une fois le niveau rejoint, gains et pertes s'équilibrent.",
+    ),
+    (
+      Icons.swap_vert_rounded,
+      'Gagner rapporte, perdre coûte',
+      'Une victoire fait toujours monter, une défaite toujours descendre. Battre plus fort que soi sur le jeu joué rapporte davantage, perdre contre plus faible coûte plus cher.',
+    ),
+    (
+      Icons.groups_rounded,
+      'À plusieurs et en équipe',
+      "Chaque adversaire devancé compte comme un duel gagné. Une équipe joue au niveau moyen de ses membres. Les ex æquo d'une partie à trois ou plus gagnent ou perdent ensemble, comme une partie en équipes saisie en chacun pour soi.",
+    ),
+    (
+      Icons.casino_rounded,
+      'La part de chance',
+      "Podium apprend la part de hasard de chaque jeu\u00a0: plus les favoris y perdent souvent, moins ses parties font bouger l'Elo.",
+    ),
+    (
+      Icons.sports_esports_rounded,
+      'Un Elo par jeu',
+      'Chaque jeu a aussi son propre Elo, tiré de ses seules parties. Les parties en coopération ou en solo ne comptent pas.',
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
+      decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.sheet))),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 12, 4),
+            child: Row(
+              children: [
+                Expanded(child: Text("Comment marche l'Elo\u00a0?", style: bodyFont(size: 18, weight: FontWeight.w800, color: AppColors.ink, letterSpacing: -0.2))),
+                IconButton(icon: Icon(Icons.close_rounded, color: AppColors.ink), onPressed: () => Navigator.of(context).pop()),
+              ],
+            ),
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(20, 4, 20, 24 + MediaQuery.of(context).padding.bottom),
+              child: Column(
+                children: [
+                  for (final (icon, title, body) in _sections)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(color: AppColors.accentSoft, borderRadius: BorderRadius.circular(10)),
+                            child: Icon(icon, size: 18, color: AppColors.accent),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(title, style: bodyFont(size: 14, weight: FontWeight.w800, color: AppColors.ink)),
+                                const SizedBox(height: 3),
+                                Text(body, style: bodyFont(size: 13, weight: FontWeight.w600, color: AppColors.ink2)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// A rating band's colored pill — "◆ Or".
 class EloTierBadge extends StatelessWidget {
   final EloTier tier;

@@ -1926,6 +1926,15 @@ void main() {
     expect(seeded.state.effectiveRankMode, 'elo');
     expect(find.text('${rows.last.elo!.round()} Elo'), findsOneWidget);
 
+    // The blurb opens the rules.
+    await tester.tap(find.textContaining('Comment ça marche'));
+    await tester.pumpAndSettle();
+    expect(find.text("Comment marche l'Elo\u00a0?"), findsOneWidget);
+    expect(find.text('La part de chance'), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.close_rounded).last);
+    await tester.pumpAndSettle();
+    expect(find.text("Comment marche l'Elo\u00a0?"), findsNothing);
+
     // Picking a game shows that game's own Elo.
     await tester.tap(find.text('Catan'));
     await tester.pumpAndSettle();
@@ -2006,6 +2015,9 @@ void main() {
     final rating = state.groupElo.ratingOf('lea')!;
     expect(find.text('◆ ${eloTier(rating).name}'), findsOneWidget);
     expect(find.textContaining('pour ${nextEloTier(rating)!.name}'), findsOneWidget);
+    expect(find.text('Niveau estimé'), findsOneWidget);
+    expect(find.text('${state.groupElo.levelOf('lea')!.round()}'), findsOneWidget);
+    expect(find.textContaining("L'Elo monte vers ce niveau"), findsOneWidget, reason: 'one win in, Léa is far below her level');
     expect(find.byType(EloHistoryChart), findsOneWidget);
     expect(find.text('Record  '), findsOneWidget);
 

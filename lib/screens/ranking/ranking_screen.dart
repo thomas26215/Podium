@@ -6,6 +6,7 @@ import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/avatar.dart';
 import '../../widgets/common.dart';
+import '../../widgets/elo_widgets.dart';
 import '../../widgets/podium.dart';
 import '../../widgets/rank_row.dart';
 import '../../widgets/segmented_control.dart';
@@ -83,11 +84,17 @@ class RankingScreen extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           if (isElo)
-            Text(
-              app.gameFilter == null
-                  ? 'Tous jeux confondus, tout le monde démarre à 100. On monte en devançant des joueurs, d\'autant plus qu\'ils sont forts sur le jeu joué, et à mesure que son niveau se confirme.'
-                  : 'La cote sur ce jeu seul. Elle pèse sur l\'Elo global : battre un joueur plus fort que soi à ce jeu y rapporte davantage.',
-              style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut),
+            Pressable(
+              onTap: () => showEloExplainer(context),
+              child: Text.rich(
+                TextSpan(
+                  text: app.gameFilter == null
+                      ? 'Tous jeux confondus, tout le monde démarre à 100 et monte vers son niveau au fil des parties. Battre plus fort que soi sur le jeu joué rapporte davantage. '
+                      : 'La cote sur ce jeu seul, tirée de ses seules parties — elle démarre aussi à 100. ',
+                  children: [TextSpan(text: 'Comment ça marche\u00a0?', style: bodyFont(size: 12.5, weight: FontWeight.w800, color: AppColors.accent))],
+                ),
+                style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut),
+              ),
             )
           else ...[
             Wrap(

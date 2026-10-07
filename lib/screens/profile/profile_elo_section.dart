@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -9,8 +11,9 @@ import '../../widgets/elo_widgets.dart';
 import '../../widgets/match_card.dart' show frenchDayMonth;
 
 /// A player's Elo on their profile: their tier and how far the next one is,
-/// their rating curve, and their highlights (see [eloRecordsOf]) — globally,
-/// or on one of the games they've played, picked from the chips on top.
+/// the level it climbs towards, their rating curve, and their highlights
+/// (see [eloRecordsOf]) — globally, or on one of the games they've played,
+/// picked from the chips on top.
 class ProfileEloSection extends StatefulWidget {
   final String uid;
   const ProfileEloSection({super.key, required this.uid});
@@ -92,6 +95,7 @@ class _ProfileEloSectionState extends State<ProfileEloSection> {
             next == null ? 'Palier maximum atteint.' : 'Plus que ${(next.min - rating).ceil()} pour ${next.name}.',
             style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
           ),
+          if (elo.levelOf(uid, gameId: gameId) case final level?) _level(rating, level),
           const SizedBox(height: 16),
           EloHistoryChart(key: ValueKey(gameId), points: points),
           const SizedBox(height: 10),
@@ -104,7 +108,7 @@ class _ProfileEloSectionState extends State<ProfileEloSection> {
               '⚡',
               'Plus bel exploit',
               'devant ${records.upset!.opponentIds.map((id) => app.playerById(id)?.displayName ?? '?').join(' et ')} '
-                  '(${records.upset!.gap.round()} Elo de plus) · ${frenchDayMonth(records.upset!.date)}',
+                  'avec ${math.max(1, (records.upset!.chance * 100).round())}\u00a0% de chances · ${frenchDayMonth(records.upset!.date)}',
             ),
         ],
       ),
@@ -130,6 +134,36 @@ class _ProfileEloSectionState extends State<ProfileEloSection> {
           ),
         ),
       );
+
+  /// The level the Elo climbs towards, and what that gap means for the next
+  /// results (see `computeElo`).
+  Widget _level(double rating, double level) {
+    final gap = level - rating;
+    final note = gap > 50
+        ? "L'Elo monte vers ce niveau\u00a0: d'ici là, chaque victoire rapporte un bonus et les défaites coûtent peu."
+        : gap < -50
+            ? "L'Elo est au-dessus de ce niveau\u00a0: il y redescend, gains réduits et défaites plus chères."
+            : "L'Elo a rejoint ce niveau\u00a0: gains et pertes s'équilibrent.";
+    return Padding(
+      padding: const EdgeInsets.only(top: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.flag_rounded, size: 16, color: AppColors.accent),
+              const SizedBox(width: 8),
+              Text('Niveau estimé', style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.ink2)),
+              const Spacer(),
+              Text('${level.round()}', style: bodyFont(size: 13, weight: FontWeight.w800, color: AppColors.ink)),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(note, style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
+        ],
+      ),
+    );
+  }
 
   Widget _record(String emoji, String label, String value) => Padding(
         padding: const EdgeInsets.only(top: 8),
