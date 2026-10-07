@@ -2,11 +2,13 @@
 // — see UsersRepository.watchRoster) of every group and server that existed
 // before them. The syncGroupRoster/syncServerRoster Cloud Functions rebuild a
 // roster whenever its group or server is written while its `rosterVersion`
-// is behind, so this only sets that field back to 0 and lets them do the
-// rest — run it once the functions are deployed. Until a roster is filled,
-// the app fetches its members one by one, as before.
+// is behind, so this only knocks that field back (to 0, or off when it's
+// already 0: a write that changes nothing triggers nothing) and lets them do
+// the rest — run it once the functions are deployed. Until a roster is
+// filled, the app fetches its members one by one, as before.
 //
-// Safe to re-run: a rebuild just rewrites the same entries.
+// Safe to re-run — say, for a group a freshly deployed trigger missed: a
+// rebuild just rewrites the same entries.
 //
 // Usage (from the repo root, reusing functions/node_modules):
 //   GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json \
@@ -23,6 +25,7 @@ const dryRun = process.argv.includes('--dry-run');
 async function main() {
   admin.initializeApp({ projectId: 'podium-9b4bf' });
   const db = admin.firestore();
+  const { FieldValue } = admin.firestore;
 
   const roots = [];
   for (const name of ['groups', 'servers']) {
@@ -37,7 +40,7 @@ async function main() {
 
   for (let i = 0; i < roots.length; i += 400) {
     const batch = db.batch();
-    for (const d of roots.slice(i, i + 400)) batch.update(d.ref, { rosterVersion: 0 });
+    for (const d of roots.slice(i, i + 400)) batch.update(d.ref, { rosterVersion: d.get('rosterVersion') === 0 ? FieldValue.delete() : 0 });
     await batch.commit();
   }
   console.log('Terminé — les Cloud Functions remplissent les annuaires.');
