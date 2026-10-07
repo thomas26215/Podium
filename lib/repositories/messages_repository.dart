@@ -1,12 +1,18 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/message.dart';
 
+/// How many of a thread's latest messages are loaded at first — each "older
+/// messages" tap brings that many more (see AppState.loadOlderMessages).
+const kMessagesPage = 50;
+
 abstract class MessagesRepository {
-  /// Every message posted to the thread, oldest first. `salonId` scopes it
+  /// The thread's `limit` latest messages, oldest first. `salonId` scopes it
   /// to one salon when [FirebaseMessagesRepository.rootCollection] is
   /// `'servers'` — left null for a Group, which has exactly one thread.
-  Stream<List<GroupMessage>> watchMessages(String rootId, {String? salonId});
+  Stream<List<GroupMessage>> watchMessages(String rootId, {String? salonId, int limit = kMessagesPage});
 
   /// `replyTo*` carries a snapshot of the quoted message (see
   /// [GroupMessage.replyToId]) — null for a message that isn't a reply.
@@ -58,14 +64,36 @@ class FirebaseMessagesRepository implements MessagesRepository {
       _db.collection(rootCollection).doc(rootId).collection('messages');
 
   @override
-  Stream<List<GroupMessage>> watchMessages(String rootId, {String? salonId}) {
-    List<GroupMessage> parse(QuerySnapshot<Map<String, dynamic>> snap) => snap.docs.map((d) => GroupMessage.fromDoc(d.id, d.data())).toList();
-    if (salonId == null) return _col(rootId).orderBy('createdAt').snapshots().map(parse);
-    // A salon's thread is filtered only, then sorted here: `where salonId` +
-    // `orderBy createdAt` would need a composite index, and without one the
-    // query just errors out — which left the previous context's messages on
-    // screen in the salon.
-    return _col(rootId).where('salonId', isEqualTo: salonId).snapshots().map((snap) => parse(snap)..sort((a, b) => a.createdAt.compareTo(b.createdAt)));
+  Stream<List<GroupMessage>> watchMessages(String rootId, {String? salonId, int limit = kMessagesPage}) {
+    List<GroupMessage> latest(QuerySnapshot<Map<String, dynamic>> snap) {
+      final all = snap.docs.map((d) => GroupMessage.fromDoc(d.id, d.data())).toList()..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      return all.length > limit ? all.sublist(all.length - limit) : all;
+    }
+
+    final thread = salonId == null ? _col(rootId) : _col(rootId).where('salonId', isEqualTo: salonId);
+    final page = thread.orderBy('createdAt', descending: true).limit(limit);
+    if (salonId == null) return page.snapshots().map(latest);
+    // A salon's page needs the (salonId, createdAt) composite index (see
+    // firestore.indexes.json): until it's deployed, the query errors out
+    // and the whole thread is read instead — slower and costlier, but the
+    // chat keeps working.
+    late final StreamController<List<GroupMessage>> controller;
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? sub;
+    void listen(Query<Map<String, dynamic>> query, {required bool fallBack}) {
+      sub = query.snapshots().listen((snap) => controller.add(latest(snap)), onError: (Object e, StackTrace s) {
+        if (fallBack && e is FirebaseException && e.code == 'failed-precondition') {
+          listen(thread, fallBack: false);
+        } else {
+          controller.addError(e, s);
+        }
+      });
+    }
+
+    controller = StreamController<List<GroupMessage>>(
+      onListen: () => listen(page, fallBack: true),
+      onCancel: () => sub?.cancel(),
+    );
+    return controller.stream;
   }
 
   @override

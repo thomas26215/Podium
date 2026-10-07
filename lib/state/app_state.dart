@@ -294,6 +294,21 @@ class AppState extends ChangeNotifier {
   final Map<String, AppUser> _memberCache = {};
   StreamSubscription? _groupsSub;
 
+  /// Roster subscriptions (see [UsersRepository.watchRoster]), keyed
+  /// `'groups/<id>'`/`'servers/<id>'` — one per group and server the user
+  /// belongs to, filling [_memberCache].
+  final Map<String, StreamSubscription<List<AppUser>>> _rosterSubs = {};
+
+  /// Rosters that have answered (or failed) at least once: a member still
+  /// missing from [_memberCache] after that is fetched on its own (see
+  /// [_ensureMembersLoaded]) — before it, they're most likely on their way.
+  final Set<String> _rostersIn = {};
+
+  /// Members being fetched on their own right now, and those that turned
+  /// out not to exist (a deleted account) — neither is asked for again.
+  final Set<String> _fetchingMembers = {};
+  final Set<String> _missingMembers = {};
+
   // ---- servers / salons ----
   List<Server> servers = [];
   bool serversLoading = true;
@@ -356,6 +371,28 @@ class AppState extends ChangeNotifier {
   bool messagesLoaded = false;
   StreamSubscription? _messagesSub;
   String? _messagesThreadKey; // see _resetMessagesFor
+
+  /// How many of the thread's latest messages [messages] holds — a page more
+  /// with each [loadOlderMessages], back to one when the thread changes.
+  int _messagesLimit = kMessagesPage;
+
+  /// Opens the current thread with a given limit — kept so
+  /// [loadOlderMessages] can reopen it with a bigger one.
+  Stream<List<GroupMessage>> Function(int limit)? _openThread;
+
+  /// Which context the games/matches/… listeners are on — `group:<id>` or
+  /// `salon:<serverId>/<salonId>` (see [_resubscribeGroupData]).
+  String? _dataKey;
+
+  // ---- background (see handleAppLifecycleChange) ----
+
+  /// How long the app may sit in the background before its Firestore
+  /// listeners are paused (see [_pauseSync]) — long enough for a quick app
+  /// switch, while a phone left in a pocket all evening stops being billed
+  /// a read for every match, score and message of its groups and salons.
+  static const syncPauseAfter = Duration(minutes: 1);
+  Timer? _syncPauseTimer;
+  bool _syncPaused = false;
 
   // Per-thread "last read" timestamps — device-local only (SharedPreferences,
   // not Firestore), keyed by 'group:<id>'/'salon:<id>' (see _discussionKey).
@@ -539,6 +576,11 @@ class AppState extends ChangeNotifier {
     _tournamentsSub?.cancel();
     _eventsSub?.cancel();
     _messagesSub?.cancel();
+    _openThread = null;
+    for (final sub in _rosterSubs.values) {
+      sub.cancel();
+    }
+    _syncPauseTimer?.cancel();
     _toastTimer?.cancel();
     _liveUpdateDebounce?.cancel();
     _liveSessionHoldTimer?.cancel();
@@ -561,7 +603,18 @@ class AppState extends ChangeNotifier {
     _tournamentsSub?.cancel();
     _eventsSub?.cancel();
     _messagesSub?.cancel();
+    _openThread = null;
     _currentUserSub?.cancel();
+    for (final sub in _rosterSubs.values) {
+      sub.cancel();
+    }
+    _rosterSubs.clear();
+    _rostersIn.clear();
+    _missingMembers.clear();
+    _dataKey = null;
+    _syncPauseTimer?.cancel();
+    _syncPauseTimer = null;
+    _syncPaused = false;
     groups = [];
     servers = [];
     salons = [];
@@ -621,10 +674,13 @@ class AppState extends ChangeNotifier {
   /// cache — friends are looked up the same way group members are, see
   /// [playerById]) and publishes the result as [friends].
   Future<void> _resolveFriends(List<String> friendIds) async {
-    for (final id in friendIds) {
-      if (_memberCache.containsKey(id)) continue;
-      final u = await usersRepo.getById(id);
-      if (u != null) _memberCache[id] = u;
+    final missing = friendIds.where((id) => !_memberCache.containsKey(id)).toList();
+    try {
+      for (final u in await usersRepo.getByIds(missing)) {
+        _memberCache[u.uid] = u;
+      }
+    } catch (_) {
+      // Shown once they're back — friends are re-resolved on every change.
     }
     friends = friendIds.map((id) => _memberCache[id]).whereType<AppUser>().toList();
     _scheduleBadgeCheck();
@@ -736,6 +792,7 @@ class AppState extends ChangeNotifier {
       // Someone who only ever plays solo lands straight in their space.
       currentGroupId = groups.firstOrNull?.id ?? personalGroup?.id;
     }
+    _syncRosters();
     unawaited(_ensureMembersLoaded());
     // Only actually (re)subscribe games/matches/tournaments if a Group is
     // the active context — otherwise this would clobber a Salon's data
@@ -753,6 +810,7 @@ class AppState extends ChangeNotifier {
     if (currentServerId == null || servers.every((s) => s.id != currentServerId)) {
       currentServerId = servers.isNotEmpty ? servers.first.id : null;
     }
+    _syncRosters();
     unawaited(_ensureMembersLoaded());
     _resubscribeSalons();
     notifyListeners();
@@ -763,7 +821,9 @@ class AppState extends ChangeNotifier {
     salons = [];
     final serverId = currentServerId;
     if (serverId == null) return;
-    _salonsSub = serversRepo.watchSalons(serverId).listen((ss) {
+    final uid = currentUser?.uid;
+    final admin = uid != null && (servers.where((s) => s.id == serverId).firstOrNull?.isAdmin(uid) ?? false);
+    _salonsSub = serversRepo.watchSalons(serverId, memberUid: admin ? null : uid).listen((ss) {
       salons = ss;
       unawaited(refreshSalonPartyCounts(serverId));
       notifyListeners();
@@ -1247,17 +1307,27 @@ class AppState extends ChangeNotifier {
 
   void _resubscribeGroupData() {
     final root = currentRootId;
+    final key = root == null ? null : 'group:$root';
+    // Same group with its listeners still running (the groups list updating,
+    // say): nothing to redo. Back from a pause (see _resumeSync), its data
+    // stays on screen — and counted as loaded — while they catch up.
+    if (key != null && key == _dataKey && _matchesSub != null) return;
+    final sameContext = key == _dataKey;
+    _dataKey = key;
     _gamesSub?.cancel();
     _matchesSub?.cancel();
     _liveSessionsSub?.cancel();
     _tournamentsSub?.cancel();
     _eventsSub?.cancel();
     _messagesSub?.cancel();
-    gamesLoaded = false;
-    matchesLoaded = false;
-    liveSessionsLoaded = false;
-    tournamentsLoaded = false;
-    messagesLoaded = false;
+    _openThread = null;
+    if (!sameContext) {
+      gamesLoaded = false;
+      matchesLoaded = false;
+      liveSessionsLoaded = false;
+      tournamentsLoaded = false;
+      messagesLoaded = false;
+    }
     _resetMessagesFor(root == null ? null : 'group:$root');
     // No Group equivalent for scheduled events (see
     // lib/models/scheduled_event.dart) — nothing to fetch, so this is
@@ -1302,12 +1372,33 @@ class AppState extends ChangeNotifier {
       _rawLiveSessions = ss;
       notifyListeners();
     });
-    _messagesSub = messagesRepo.watchMessages(root).listen((ms) {
+    _listenToThread((limit) => messagesRepo.watchMessages(root, limit: limit));
+  }
+
+  /// (Re)subscribes [messages] to the thread `open` returns, with the current
+  /// [_messagesLimit].
+  void _listenToThread(Stream<List<GroupMessage>> Function(int limit) open) {
+    _openThread = open;
+    _messagesSub?.cancel();
+    _messagesSub = open(_messagesLimit).listen((ms) {
       messages = ms;
       messagesLoaded = true;
       if (tab == AppTab.games) markDiscussionRead();
       notifyListeners();
     }, onError: _onMessagesError);
+  }
+
+  /// Whether the thread may hold older messages than [messages] — the last
+  /// page came back full.
+  bool get hasOlderMessages => messages.length >= _messagesLimit;
+
+  /// Brings the thread's previous page of messages in (see
+  /// [hasOlderMessages]) — the thread stays live, just over more messages.
+  void loadOlderMessages() {
+    final open = _openThread;
+    if (open == null || !hasOlderMessages) return;
+    _messagesLimit += kMessagesPage;
+    _listenToThread(open);
   }
 
   /// Drops [messages] as soon as the thread being watched changes, rather
@@ -1319,6 +1410,7 @@ class AppState extends ChangeNotifier {
     if (threadKey == _messagesThreadKey) return;
     _messagesThreadKey = threadKey;
     messages = [];
+    _messagesLimit = kMessagesPage;
   }
 
   /// A failed thread query must not leave the previous context's messages
@@ -1336,20 +1428,28 @@ class AppState extends ChangeNotifier {
   /// call site written against those keeps working unchanged regardless of
   /// which context is active.
   void _resubscribeSalonData() {
+    final serverId = currentSalonServerId;
+    final salonId = currentSalonId;
+    final key = serverId == null || salonId == null ? null : 'salon:$serverId/$salonId';
+    // Same as _resubscribeGroupData: nothing to redo for the same salon.
+    if (key != null && key == _dataKey && _matchesSub != null) return;
+    final sameContext = key == _dataKey;
+    _dataKey = key;
     _gamesSub?.cancel();
     _matchesSub?.cancel();
     _liveSessionsSub?.cancel();
     _tournamentsSub?.cancel();
     _eventsSub?.cancel();
     _messagesSub?.cancel();
-    gamesLoaded = false;
-    matchesLoaded = false;
-    tournamentsLoaded = false;
-    liveSessionsLoaded = false;
-    eventsLoaded = false;
-    messagesLoaded = false;
-    final serverId = currentSalonServerId;
-    final salonId = currentSalonId;
+    _openThread = null;
+    if (!sameContext) {
+      gamesLoaded = false;
+      matchesLoaded = false;
+      tournamentsLoaded = false;
+      liveSessionsLoaded = false;
+      eventsLoaded = false;
+      messagesLoaded = false;
+    }
     _resetMessagesFor(serverId == null || salonId == null ? null : 'salon:$serverId/$salonId');
     if (serverId == null || salonId == null) {
       games = [];
@@ -1402,27 +1502,65 @@ class AppState extends ChangeNotifier {
       _scheduleBadgeCheck();
       notifyListeners();
     });
-    _messagesSub = serverMessagesRepo.watchMessages(serverId, salonId: salonId).listen((ms) {
-      messages = ms;
-      messagesLoaded = true;
-      if (tab == AppTab.games) markDiscussionRead();
-      notifyListeners();
-    }, onError: _onMessagesError);
+    _listenToThread((limit) => serverMessagesRepo.watchMessages(serverId, salonId: salonId, limit: limit));
   }
 
+  /// Subscribes to the roster of every group and server the user belongs
+  /// to (see [UsersRepository.watchRoster]), and drops the ones they left.
+  void _syncRosters() {
+    final wanted = {for (final g in groups) 'groups/${g.id}', for (final s in servers) 'servers/${s.id}'};
+    for (final key in _rosterSubs.keys.where((k) => !wanted.contains(k)).toList()) {
+      unawaited(_rosterSubs.remove(key)!.cancel());
+      _rostersIn.remove(key);
+    }
+    for (final key in wanted) {
+      if (_rosterSubs.containsKey(key)) continue;
+      final slash = key.indexOf('/');
+      void answered() {
+        _rostersIn.add(key);
+        unawaited(_ensureMembersLoaded());
+      }
+
+      _rosterSubs[key] = usersRepo.watchRoster(key.substring(0, slash), key.substring(slash + 1)).listen((profiles) {
+        final me = currentUser?.uid;
+        for (final p in profiles) {
+          // The signed-in account comes from its own docs (see
+          // _onCurrentUserDocChanged) — fresher, with its private fields.
+          if (p.uid != me) _memberCache[p.uid] = p;
+        }
+        answered();
+        notifyListeners();
+      }, onError: (_) => answered());
+    }
+  }
+
+  /// Fetches, all at once, every member of a group or server whose roster
+  /// has answered but doesn't hold them (not filled in yet, or the roster
+  /// triggers aren't deployed) — a fallback, the rosters are what keeps a
+  /// thousand-member server from costing a thousand reads per launch.
   Future<void> _ensureMembersLoaded() async {
-    final allIds = <String>{};
-    for (final g in groups) {
-      allIds.addAll(g.memberIds);
-    }
-    for (final s in servers) {
-      allIds.addAll(s.memberIds);
-    }
-    final missing = allIds.where((id) => !_memberCache.containsKey(id)).toList();
+    final ids = <String>{
+      for (final g in groups)
+        if (_rostersIn.contains('groups/${g.id}')) ...g.memberIds,
+      for (final s in servers)
+        if (_rostersIn.contains('servers/${s.id}')) ...s.memberIds,
+    };
+    final missing = ids.where((id) => !_memberCache.containsKey(id) && !_fetchingMembers.contains(id) && !_missingMembers.contains(id)).toList();
     if (missing.isEmpty) return;
-    for (final id in missing) {
-      final u = isGuestId(id) ? await guestsRepo.getById(id) : await usersRepo.getById(id);
-      if (u != null) _memberCache[id] = u;
+    _fetchingMembers.addAll(missing);
+    try {
+      final (users, guests) = await (
+        usersRepo.getByIds(missing.where((id) => !isGuestId(id)).toList()),
+        Future.wait(missing.where(isGuestId).map(guestsRepo.getById)),
+      ).wait;
+      for (final u in [...users, ...guests.whereType<AppUser>()]) {
+        _memberCache[u.uid] = u;
+      }
+      _missingMembers.addAll(missing.where((id) => !_memberCache.containsKey(id)));
+    } catch (_) {
+      // Asked for again on the next roster or membership change.
+    } finally {
+      _fetchingMembers.removeAll(missing);
     }
     notifyListeners();
   }
@@ -1542,7 +1680,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     var ok = false;
     try {
-      await eventsRepo.deleteEvent(server.id, event.id);
+      await eventsRepo.deleteEvent(server.id, event);
       ok = true;
     } catch (e) {
       flowError = e.toString();
@@ -3483,6 +3621,9 @@ class AppState extends ChangeNotifier {
   /// does — and coming back to it resumes broadcasting.
   void handleAppLifecycleChange(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      _syncPauseTimer?.cancel();
+      _syncPauseTimer = null;
+      if (_syncPaused) _resumeSync();
       if (sheetOpen && !isTournamentFlow && currentStepKind == WizardStepKind.scores && _editingMatchId == null) {
         if (_liveSessionId != null) {
           // Still within the grace window (or never actually held) — pick
@@ -3501,10 +3642,46 @@ class AppState extends ChangeNotifier {
       }
       return;
     }
+    if (state == AppLifecycleState.hidden || state == AppLifecycleState.paused) {
+      _syncPauseTimer ??= Timer(syncPauseAfter, _pauseSync);
+    }
     // Leaving the app doesn't end the session outright — see
     // _holdLiveSession — so a quick app-switch or a notification check
     // doesn't drop the match from spectators' view.
     if (sheetOpen && !isTournamentFlow && currentStepKind == WizardStepKind.scores) _holdLiveSession();
+  }
+
+  /// Stops every Firestore listener once the app has been in the background
+  /// for [syncPauseAfter]. Nothing is shown meanwhile, and catching up on
+  /// the way back (see [_resumeSync]) costs next to nothing: synced
+  /// collections only fetch what changed since. Pushes still arrive — they
+  /// don't go through these listeners.
+  void _pauseSync() {
+    _syncPauseTimer = null;
+    if (currentUser == null || _syncPaused) return;
+    _syncPaused = true;
+    for (final sub in [_groupsSub, _serversSub, _salonsSub, _currentUserSub, _gamesSub, _matchesSub, _liveSessionsSub, _tournamentsSub, _eventsSub, _messagesSub]) {
+      sub?.cancel();
+    }
+    _matchesSub = null;
+    for (final sub in _rosterSubs.values) {
+      sub.cancel();
+    }
+    _rosterSubs.clear();
+    _rostersIn.clear();
+  }
+
+  /// Undoes [_pauseSync]: the user's groups and servers listeners bring the
+  /// rosters, salons and a group's data back with them (see
+  /// [_onGroupsChanged]/[_onServersChanged]); a salon's is restarted here.
+  void _resumeSync() {
+    _syncPaused = false;
+    final user = currentUser;
+    if (user == null) return;
+    _groupsSub = groupsRepo.watchMyGroups(user.uid).listen(_onGroupsChanged);
+    _serversSub = serversRepo.watchMyServers(user.uid).listen(_onServersChanged);
+    _currentUserSub = usersRepo.watchOwnAccount(user.uid).listen(_onCurrentUserDocChanged);
+    if (activeContext == ActiveContextKind.salon) _resubscribeSalonData();
   }
 
   void setGameGridFilter(GameFilter filter) {
@@ -5206,7 +5383,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     var ok = false;
     try {
-      await _activeMatchesRepo.deleteMatch(root, match.id);
+      await _activeMatchesRepo.deleteMatch(root, match);
       showToast('Partie supprimée.');
       ok = true;
     } catch (e) {
@@ -5231,7 +5408,7 @@ class AppState extends ChangeNotifier {
     var ok = false;
     try {
       for (final leg in legs) {
-        await _activeMatchesRepo.deleteMatch(root, leg.id);
+        await _activeMatchesRepo.deleteMatch(root, leg);
       }
       showToast('Série supprimée.');
       ok = true;
@@ -5326,9 +5503,9 @@ class AppState extends ChangeNotifier {
     try {
       final linkedMatches = matches.where((m) => m.tournamentId == tournament.id).toList();
       for (final m in linkedMatches) {
-        await _activeMatchesRepo.deleteMatch(root, m.id);
+        await _activeMatchesRepo.deleteMatch(root, m);
       }
-      await _activeTournamentsRepo.deleteTournament(root, tournament.id);
+      await _activeTournamentsRepo.deleteTournament(root, tournament);
       showToast('Tournoi et ses parties supprimés.');
       ok = true;
     } catch (e) {

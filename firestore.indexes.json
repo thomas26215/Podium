@@ -34,6 +34,30 @@
       ]
     },
     {
+      "collectionGroup": "matches",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "groupId", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "matches",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "salonId", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "messages",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "salonId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "matchSessions",
       "queryScope": "COLLECTION",
       "fields": [
@@ -63,6 +87,22 @@
       "fields": [
         { "fieldPath": "salonId", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tournaments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "groupId", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tournaments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "salonId", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "ASCENDING" }
       ]
     },
     {
@@ -72,12 +112,28 @@
         { "fieldPath": "salonId", "order": "ASCENDING" },
         { "fieldPath": "scheduledAt", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "salonId", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [
     {
       "collectionGroup": "games",
       "fieldPath": "libraryId",
+      "indexes": [
+        { "order": "ASCENDING", "queryScope": "COLLECTION" },
+        { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }
+      ]
+    },
+    {
+      "collectionGroup": "members",
+      "fieldPath": "uid",
       "indexes": [
         { "order": "ASCENDING", "queryScope": "COLLECTION" },
         { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }

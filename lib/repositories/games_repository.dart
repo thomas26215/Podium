@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/game.dart';
+import 'matches_repository.dart' show matchTombstone;
+import 'synced_query.dart';
 
 /// The starter catalog every new root group gets, matching the prototype's
 /// seed data so a fresh group isn't staring at an empty game grid.
@@ -36,6 +38,8 @@ final List<Game> kDefaultGames = [
 ];
 
 abstract class GamesRepository {
+  /// A root's whole catalog, synced (see [watchSynced]): each device
+  /// downloads a game only once, plus whatever changes to it afterwards.
   Stream<List<Game>> watchGames(String rootGroupId);
 
   /// One-shot read of a root's catalog — used to browse another group's
@@ -71,7 +75,8 @@ abstract class GamesRepository {
   Future<void> seedDefaultCatalog(String rootGroupId);
 
   /// Removes a game from the catalog and deletes every match recorded for
-  /// it in this group.
+  /// it in this group — both overwritten with a [tombstone], so every
+  /// device's synced copy drops them too.
   Future<void> deleteGame(String rootGroupId, String gameId);
 }
 
@@ -88,16 +93,14 @@ class FirebaseGamesRepository implements GamesRepository {
   CollectionReference<Map<String, dynamic>> _col(String rootGroupId) =>
       _db.collection(rootCollection).doc(rootGroupId).collection('games');
 
-  @override
-  Stream<List<Game>> watchGames(String rootGroupId) {
-    return _col(rootGroupId).snapshots().map((snap) => snap.docs.map((d) => Game.fromDoc(d.id, d.data())).toList());
-  }
+  // Document id order, as Firestore returns an unordered collection.
+  static int _byId(Game a, Game b) => a.id.compareTo(b.id);
 
   @override
-  Future<List<Game>> fetchGames(String rootGroupId) async {
-    final snap = await _col(rootGroupId).get();
-    return snap.docs.map((d) => Game.fromDoc(d.id, d.data())).toList();
-  }
+  Stream<List<Game>> watchGames(String rootGroupId) => watchSynced(_col(rootGroupId), parse: Game.fromDoc, compare: _byId, key: '$rootCollection/$rootGroupId/games');
+
+  @override
+  Future<List<Game>> fetchGames(String rootGroupId) => fetchSynced(_col(rootGroupId), parse: Game.fromDoc, compare: _byId, key: '$rootCollection/$rootGroupId/games');
 
   @override
   Future<Game> createGame(
@@ -127,7 +130,7 @@ class FirebaseGamesRepository implements GamesRepository {
       setupChoice: setupChoice,
       salonId: salonId,
     );
-    await ref.set(game.toMap());
+    await ref.set(stamped(game.toMap()));
     return game;
   }
 
@@ -149,20 +152,20 @@ class FirebaseGamesRepository implements GamesRepository {
       salonId: salonId,
       libraryId: libraryId,
     );
-    await ref.set(game.toMap());
+    await ref.set(stamped(game.toMap()));
     return game;
   }
 
   @override
   Future<void> updateGame(String rootGroupId, Game game) async {
-    await _col(rootGroupId).doc(game.id).set(game.toMap());
+    await _col(rootGroupId).doc(game.id).set(stamped(game.toMap()));
   }
 
   @override
   Future<void> seedDefaultCatalog(String rootGroupId) async {
     final batch = _db.batch();
     for (final g in kDefaultGames) {
-      batch.set(_col(rootGroupId).doc(g.id), g.toMap());
+      batch.set(_col(rootGroupId).doc(g.id), stamped(g.toMap()));
     }
     await batch.commit();
   }
@@ -171,14 +174,14 @@ class FirebaseGamesRepository implements GamesRepository {
   Future<void> deleteGame(String rootGroupId, String gameId) async {
     final matchesSnap = await _db.collection(rootCollection).doc(rootGroupId).collection('matches').where('gameId', isEqualTo: gameId).get();
     const chunkSize = 450;
-    final refs = matchesSnap.docs.map((d) => d.reference).toList();
-    for (var i = 0; i < refs.length; i += chunkSize) {
+    final docs = matchesSnap.docs;
+    for (var i = 0; i < docs.length; i += chunkSize) {
       final batch = _db.batch();
-      for (final r in refs.skip(i).take(chunkSize)) {
-        batch.delete(r);
+      for (final d in docs.skip(i).take(chunkSize)) {
+        batch.set(d.reference, matchTombstone(d.data()));
       }
       await batch.commit();
     }
-    await _col(rootGroupId).doc(gameId).delete();
+    await _col(rootGroupId).doc(gameId).set(tombstone());
   }
 }

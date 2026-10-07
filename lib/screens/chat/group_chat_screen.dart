@@ -19,7 +19,7 @@ import '../new_game/new_game_sheet.dart';
 /// the "+" new-game picker's long-press menu (see `game_actions_sheet.dart`).
 ///
 /// Three kinds of message render here, alongside plain text: a `system`
-/// highlight (auto-posted by the `onMatchCreated` Cloud Function — a streak,
+/// highlight (auto-posted by the `onMatchWritten` Cloud Function — a streak,
 /// or a new leaderboard leader) shown as a centered pill, and a poll (see
 /// `GroupMessage.isPoll`) letting the group vote on what to play next, with
 /// a one-tap shortcut straight into the new-game wizard for whichever
@@ -38,8 +38,16 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
   final _inputFocus = FocusNode();
-  int _lastMessageCount = -1;
   final _seenMessageIds = <String>{};
+
+  // The newest message shown, and how many — a new newest one scrolls down
+  // to it, while older ones arriving on top (see _loadOlder) keep the view
+  // where it was instead.
+  String? _newestId;
+  int _shownCount = 0;
+
+  /// Distance from the bottom to restore once the older page lands.
+  double? _offsetFromBottom;
 
   // At most one of these is set at a time — starting one clears the other
   // (see _startReply/_startEdit). Both are purely local UI state: neither
@@ -101,14 +109,27 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     );
   }
 
+  void _loadOlder(AppState app) {
+    if (_scrollController.hasClients) {
+      final position = _scrollController.position;
+      _offsetFromBottom = position.maxScrollExtent - position.pixels;
+    }
+    app.loadOlderMessages();
+  }
+
   void _scrollToBottom({bool animated = false}) {
     if (!_scrollController.hasClients) return;
     final target = _scrollController.position.maxScrollExtent;
     if (animated) {
       _scrollController.animateTo(target, duration: const Duration(milliseconds: 260), curve: Curves.easeOutCubic);
-    } else {
-      _scrollController.jumpTo(target);
+      return;
     }
+    _scrollController.jumpTo(target);
+    // The list only learns its true length as the rows near its end get laid
+    // out — follow it until it stops growing.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients && _scrollController.position.maxScrollExtent > target + 1) _scrollToBottom();
+    });
   }
 
   void _startReply(GroupMessage message) {
@@ -307,15 +328,24 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final messages = app.messages;
+    final older = app.hasOlderMessages;
 
-    // Auto-scroll to the newest message once it's actually laid out — but
-    // only when the list actually grew (a delete, or just switching tabs and
-    // rebuilding, shouldn't yank the scroll position back to the bottom).
-    final grew = _lastMessageCount != -1 && messages.length > _lastMessageCount;
-    _lastMessageCount = messages.length;
-    if (grew) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom(animated: true));
+    // Opens on the newest message, and follows each new one once it's
+    // actually laid out — but nothing else (a delete, an older page, or just
+    // switching tabs and rebuilding) yanks the scroll position around.
+    final newestId = messages.lastOrNull?.id;
+    if (newestId != _newestId) {
+      final opening = _newestId == null;
+      _newestId = newestId;
+      if (newestId != null) WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom(animated: !opening));
+    } else if (_offsetFromBottom != null && messages.length > _shownCount) {
+      final offset = _offsetFromBottom!;
+      _offsetFromBottom = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) _scrollController.jumpTo((_scrollController.position.maxScrollExtent - offset).clamp(0.0, double.infinity));
+      });
     }
+    _shownCount = messages.length;
 
     final title = app.activeContext == ActiveContextKind.salon ? app.currentSalon?.name : app.currentGroup?.name;
 
@@ -333,8 +363,10 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 : ListView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.only(bottom: 8),
-                    itemCount: messages.length,
-                    itemBuilder: (context, i) {
+                    itemCount: messages.length + (older ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (older && index == 0) return _OlderMessagesButton(onTap: () => _loadOlder(app));
+                      final i = older ? index - 1 : index;
                       final m = messages[i];
                       // Only messages arriving live (sent or received while
                       // the chat is open) pop in — not the backlog, nor rows
@@ -451,8 +483,39 @@ class _ComposeExtraBanner extends StatelessWidget {
   }
 }
 
+/// Tops the thread while it holds only its latest messages (see
+/// AppState.hasOlderMessages): brings the previous page in.
+class _OlderMessagesButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _OlderMessagesButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Center(
+        child: Pressable(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(color: AppColors.accentSoft, borderRadius: BorderRadius.circular(999)),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.history_rounded, size: 16, color: AppColors.accent),
+                const SizedBox(width: 6),
+                Text('Messages précédents', style: bodyFont(size: 12.5, weight: FontWeight.w800, color: AppColors.accent)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// A centered, muted pill for an auto-generated highlight (`m.system` —
-/// posted by the `onMatchCreated` Cloud Function) — visually distinct from a
+/// posted by the `onMatchWritten` Cloud Function) — visually distinct from a
 /// normal chat bubble, no author/avatar/delete since nobody actually wrote it.
 class _SystemPill extends StatelessWidget {
   final GroupMessage message;

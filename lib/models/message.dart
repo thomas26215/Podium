@@ -16,7 +16,7 @@ class GroupMessage {
   final String? salonId;
 
   /// True for an auto-generated highlight ("Léa prend la tête du
-  /// classement 👑") posted by the `onMatchCreated` Cloud Function
+  /// classement 👑") posted by the `onMatchWritten` Cloud Function
   /// (`authorId` is then the literal string `'system'`, never a real uid —
   /// firestore.rules blocks any client from claiming that authorId itself).
   /// Rendered as a centered pill instead of a normal chat bubble.

@@ -3,8 +3,10 @@
 // can only read that collection, so this is how the library is managed.
 //
 // Each JSON key is the document id: re-running the script updates existing
-// games in place and never duplicates them. Games removed from the JSON are
-// left in Firestore unless --prune is passed.
+// games in place and never duplicates them. Only the games whose content
+// changed are written, each with a fresh `updatedAt` — the app downloads just
+// those (see lib/repositories/game_library_repository.dart). Games removed
+// from the JSON are left in Firestore unless --prune is passed.
 //
 // Usage (from the repo root, reusing functions/node_modules):
 //   GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json \
@@ -14,6 +16,7 @@
 // Service accounts → Generate new private key. Never commit it.
 
 const path = require('path');
+const { isDeepStrictEqual } = require('util');
 const admin = require(path.join(__dirname, '..', 'functions', 'node_modules', 'firebase-admin'));
 const games = require('./game_library.json');
 
@@ -32,11 +35,16 @@ async function main() {
   const db = admin.firestore();
   const col = db.collection('gameLibrary');
 
+  const existing = new Map((await col.get()).docs.map((d) => [d.id, d]));
+  const changed = ids.filter((id) => {
+    if (!existing.has(id)) return true;
+    const { updatedAt, ...game } = existing.get(id).data();
+    return !isDeepStrictEqual(game, games[id]);
+  });
   // A Firestore batch holds at most 500 writes.
-  const ops = ids.map((id) => (b) => b.set(col.doc(id), games[id]));
+  const ops = changed.map((id) => (b) => b.set(col.doc(id), { ...games[id], updatedAt: admin.firestore.FieldValue.serverTimestamp() }));
   if (prune) {
-    const existing = await col.get();
-    for (const doc of existing.docs) {
+    for (const doc of existing.values()) {
       if (!(doc.id in games)) {
         console.log(`  suppression de ${doc.id}`);
         ops.push((b) => b.delete(doc.ref));
@@ -48,7 +56,7 @@ async function main() {
     for (const op of ops.slice(i, i + 400)) op(batch);
     await batch.commit();
   }
-  console.log(`gameLibrary à jour (${ids.length} jeux écrits).`);
+  console.log(`gameLibrary à jour (${changed.length} jeu(x) modifié(s) sur ${ids.length}).`);
 }
 
 main().catch((e) => {

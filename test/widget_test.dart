@@ -381,7 +381,7 @@ void main() {
     seeded.state.setTab(AppTab.games);
     await tester.pumpAndSettle();
 
-    // Mirrors what the onMatchCreated Cloud Function posts (see
+    // Mirrors what the onMatchWritten Cloud Function posts (see
     // functions/index.js's postMatchHighlights) — authorId 'system'.
     final fake = seeded.state.messagesRepo as FakeMessagesRepository;
     fake.debugSeedSystemMessage('bandits', 'Léa prend la tête du classement 👑');
@@ -3021,8 +3021,8 @@ void main() {
 /// Salon threads always fail — like a Firestore query missing its index.
 class _FailingSalonMessagesRepository extends FakeMessagesRepository {
   @override
-  Stream<List<GroupMessage>> watchMessages(String rootId, {String? salonId}) {
+  Stream<List<GroupMessage>> watchMessages(String rootId, {String? salonId, int limit = kMessagesPage}) {
     if (salonId != null) return Stream.error(Exception('FAILED_PRECONDITION: the query requires an index'));
-    return super.watchMessages(rootId, salonId: salonId);
+    return super.watchMessages(rootId, salonId: salonId, limit: limit);
   }
 }

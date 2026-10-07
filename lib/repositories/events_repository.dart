@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/scheduled_event.dart';
+import 'synced_query.dart';
 
 /// Salon-only (see `lib/models/scheduled_event.dart`) — unlike
 /// GamesRepository/MatchesRepository/TournamentsRepository, there's no
@@ -8,7 +9,8 @@ import '../models/scheduled_event.dart';
 /// `servers/{serverId}/events`, since there's no Group equivalent to
 /// generalize for.
 abstract class EventsRepository {
-  /// Every event scheduled in `salonId`, soonest first.
+  /// Every event scheduled in `salonId`, soonest first. Synced (see
+  /// [watchSynced]).
   Stream<List<ScheduledEvent>> watchEvents(String serverId, String salonId);
 
   Future<ScheduledEvent> addEvent(String serverId, ScheduledEvent event);
@@ -17,7 +19,8 @@ abstract class EventsRepository {
   /// `AppState.startEvent`) as well as sign-up changes.
   Future<void> updateEvent(String serverId, ScheduledEvent event);
 
-  Future<void> deleteEvent(String serverId, String eventId);
+  /// Overwritten with a [tombstone], so every device's synced copy drops it.
+  Future<void> deleteEvent(String serverId, ScheduledEvent event);
 
   /// Adds `uid` to the event's sign-up list, in order — an `arrayUnion` so a
   /// double-tap can't sign someone up twice.
@@ -38,41 +41,42 @@ class FirebaseEventsRepository implements EventsRepository {
 
   @override
   Stream<List<ScheduledEvent>> watchEvents(String serverId, String salonId) {
-    return _col(serverId)
-        .where('salonId', isEqualTo: salonId)
-        .orderBy('scheduledAt')
-        .snapshots()
-        .map((snap) => snap.docs.map((d) => ScheduledEvent.fromDoc(d.id, d.data())).toList());
+    return watchSynced(
+      _col(serverId).where('salonId', isEqualTo: salonId),
+      parse: ScheduledEvent.fromDoc,
+      compare: (a, b) => a.scheduledAt.compareTo(b.scheduledAt),
+      key: 'servers/$serverId/events?salonId=$salonId',
+    );
   }
 
   @override
   Future<ScheduledEvent> addEvent(String serverId, ScheduledEvent event) async {
     final ref = _col(serverId).doc();
-    await ref.set(event.toMap());
+    await ref.set(stamped(event.toMap()));
     return ScheduledEvent.fromDoc(ref.id, event.toMap());
   }
 
   @override
   Future<void> updateEvent(String serverId, ScheduledEvent event) async {
-    await _col(serverId).doc(event.id).set(event.toMap());
+    await _col(serverId).doc(event.id).set(stamped(event.toMap()));
   }
 
   @override
-  Future<void> deleteEvent(String serverId, String eventId) async {
-    await _col(serverId).doc(eventId).delete();
+  Future<void> deleteEvent(String serverId, ScheduledEvent event) async {
+    await _col(serverId).doc(event.id).set(tombstone({'salonId': event.salonId}));
   }
 
   @override
   Future<void> register({required String serverId, required String eventId, required String uid}) async {
-    await _col(serverId).doc(eventId).update({
+    await _col(serverId).doc(eventId).update(stamped({
       'signups': FieldValue.arrayUnion([uid]),
-    });
+    }));
   }
 
   @override
   Future<void> unregister({required String serverId, required String eventId, required String uid}) async {
-    await _col(serverId).doc(eventId).update({
+    await _col(serverId).doc(eventId).update(stamped({
       'signups': FieldValue.arrayRemove([uid]),
-    });
+    }));
   }
 }

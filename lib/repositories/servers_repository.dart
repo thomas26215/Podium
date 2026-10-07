@@ -29,10 +29,11 @@ abstract class ServersRepository {
   Future<void> setServerClosed({required String serverId, required bool closed});
   Future<void> refreshServerInviteWindow(String serverId);
 
-  /// Every salon of `serverId` the user belongs to, plus (for an owner/admin)
-  /// every salon of the server, so management screens can show the full
-  /// list.
-  Stream<List<Salon>> watchSalons(String serverId);
+  /// Every salon of the server for an owner/admin (`memberUid` null), so
+  /// management screens can show the full list — or only the ones
+  /// `memberUid` belongs to, the only ones a plain member may read (see
+  /// firestore.rules).
+  Stream<List<Salon>> watchSalons(String serverId, {String? memberUid});
 
   Future<Salon> createSalon({required String serverId, required String name, required String emoji, required int emojiBg});
 
@@ -158,8 +159,9 @@ class FirebaseServersRepository implements ServersRepository {
   }
 
   @override
-  Stream<List<Salon>> watchSalons(String serverId) {
-    return _salons(serverId).snapshots().map((snap) => snap.docs.map((d) => Salon.fromDoc(d.id, d.data())).toList());
+  Stream<List<Salon>> watchSalons(String serverId, {String? memberUid}) {
+    final query = memberUid == null ? _salons(serverId) : _salons(serverId).where('memberIds', arrayContains: memberUid);
+    return query.snapshots().map((snap) => snap.docs.map((d) => Salon.fromDoc(d.id, d.data())).toList());
   }
 
   @override

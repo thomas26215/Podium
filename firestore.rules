@@ -22,7 +22,12 @@ rules_version = '2';
 //                                       plain message, a poll ("quel jeu ce
 //                                       soir ?" — see pollGameIds/pollVotes),
 //                                       or a system highlight (authorId
-//                                       'system', posted by onMatchCreated)
+//                                       'system', posted by onMatchWritten)
+//   groups/{groupId}/members/{uid}     roster: a copy of each member's public
+//                                       profile, kept by Cloud Functions (see
+//                                       UsersRepository.watchRoster)
+//   groups/{groupId}/stats/{id}        win tallies (and match counts), kept
+//                                       by Cloud Functions
 //   servers/{serverId}                 a rigid community (e.g. a game café) —
 //                                       unlike a group, only the owner/admins
 //                                       manage the catalog and salons
@@ -42,6 +47,18 @@ rules_version = '2';
 //                                       server's `messages` collection but
 //                                       each doc tagged with the salon it was
 //                                       posted in (`salonId`)
+//   servers/{serverId}/tournaments,
+//     events, matchSessions/{id}       same as a group's, tagged with their
+//                                       salon (`salonId`) — events are
+//                                       Salon-only
+//   servers/{serverId}/members/{uid}   same as a group's
+//   servers/{serverId}/stats/{id}      one win tally per salon, `wins-<salonId>`
+//
+// Matches, catalog games, tournaments and events are deleted by overwriting
+// them with a tombstone
+// (`deleted: true` — see isTombstone() and lib/repositories/synced_query.dart)
+// so every device's synced copy hears about it; the same people who could
+// delete one can tombstone it.
 
 service cloud.firestore {
 match /databases/{database}/documents {
@@ -143,12 +160,26 @@ match /databases/{database}/documents {
   }
 
   // True if a newly created message is a plain one posted by the caller —
-  // never a `system` highlight (only the onMatchCreated Cloud Function posts
+  // never a `system` highlight (only the onMatchWritten Cloud Function posts
   // those, through the Admin SDK), and never born with someone's poll vote,
   // reaction or an `edited` flag already filled in.
   function isValidNewMessage() {
     return request.resource.data.authorId == request.auth.uid
       && !request.resource.data.keys().hasAny(['system', 'pollVotes', 'reactions', 'edited']);
+  }
+
+  // True if this write overwrites a match, catalog game, tournament or event
+  // with a tombstone (see the data model recap above) — i.e. deletes it.
+  function isTombstone() {
+    return request.resource.data.get('deleted', false) == true;
+  }
+
+  // True if this update on a scheduled event only adds or removes the
+  // caller's own uid in `signups` — a member signing up or backing out (see
+  // EventsRepository.register/unregister).
+  function isOwnSignup(before) {
+    return request.resource.data.diff(before).affectedKeys().hasOnly(['signups', 'updatedAt'])
+      && request.resource.data.get('signups', []).removeAll([request.auth.uid]) == before.get('signups', []).removeAll([request.auth.uid]);
   }
 
   function serverDoc(serverId) {
@@ -272,7 +303,10 @@ match /databases/{database}/documents {
       allow read: if signedIn() && isMember(groupDoc(groupId).data);
       // Blocked once the group is closed — see isClosed(): a closed group
       // stays fully readable but frozen against new catalog changes.
-      allow create, update: if signedIn() && isMember(groupDoc(groupId).data) && !isClosed(groupDoc(groupId).data);
+      // Deleting (a tombstone) stays the owner's call, closed or not.
+      allow create: if signedIn() && isMember(groupDoc(groupId).data) && !isClosed(groupDoc(groupId).data) && !isTombstone();
+      allow update: if signedIn() && isMember(groupDoc(groupId).data)
+        && (isTombstone() ? isGroupOwner(groupId) : !isClosed(groupDoc(groupId).data));
       allow delete: if signedIn() && isGroupOwner(groupId);
     }
 
@@ -282,8 +316,11 @@ match /databases/{database}/documents {
       // everything else here — a friend group, not a multi-tenant org).
       // Resuming preserves `createdAt`, `gameId` and `groupId` client-side;
       // nothing here needs to special-case that. Blocked once the group is
-      // closed (see isClosed()).
-      allow create, update: if signedIn() && isMember(groupDoc(groupId).data) && !isClosed(groupDoc(groupId).data);
+      // closed (see isClosed()). Deleting (a tombstone) stays the owner's
+      // call, closed or not.
+      allow create: if signedIn() && isMember(groupDoc(groupId).data) && !isClosed(groupDoc(groupId).data) && !isTombstone();
+      allow update: if signedIn() && isMember(groupDoc(groupId).data)
+        && (isTombstone() ? isGroupOwner(groupId) : !isClosed(groupDoc(groupId).data));
       allow delete: if signedIn() && isGroupOwner(groupId);
     }
 
@@ -292,8 +329,11 @@ match /databases/{database}/documents {
       // Whole-document rewrites (see `TournamentsRepository.updateTournament`)
       // cover both creating a tournament and recording every match result
       // against its bracket — same trust model as matches. Blocked once the
-      // group is closed (see isClosed()).
-      allow create, update: if signedIn() && isMember(groupDoc(groupId).data) && !isClosed(groupDoc(groupId).data);
+      // group is closed (see isClosed()). Deleting (a tombstone) stays the
+      // owner's call.
+      allow create: if signedIn() && isMember(groupDoc(groupId).data) && !isClosed(groupDoc(groupId).data) && !isTombstone();
+      allow update: if signedIn() && isMember(groupDoc(groupId).data)
+        && (isTombstone() ? isGroupOwner(groupId) : !isClosed(groupDoc(groupId).data));
       allow delete: if signedIn() && isGroupOwner(groupId);
     }
 
@@ -304,7 +344,7 @@ match /databases/{database}/documents {
     // isMessageEdit()) — and only their own author can delete one.
     // Not gated behind `isClosed()` since chatting isn't "recording new
     // game data". Highlight messages (`system: true`, `authorId: 'system'`)
-    // are posted by the `onMatchCreated` Cloud Function using the Admin SDK,
+    // are posted by the `onMatchWritten` Cloud Function using the Admin SDK,
     // which bypasses these rules entirely — no client can create one itself,
     // since isValidNewMessage() rejects any `system` field.
     match /messages/{messageId} {
@@ -327,6 +367,19 @@ match /databases/{database}/documents {
       allow create: if signedIn() && isMember(groupDoc(groupId).data)
         && request.resource.data.startedBy == request.auth.uid;
       allow update, delete: if signedIn() && resource.data.startedBy == request.auth.uid;
+    }
+
+    // Written by Cloud Functions only (the Admin SDK bypasses these rules).
+    match /members/{memberId} {
+      allow read: if signedIn() && isMember(groupDoc(groupId).data);
+      allow write: if false;
+    }
+
+    // Read for the match count (see MatchesRepository.countMatches), written
+    // by Cloud Functions only.
+    match /stats/{statId} {
+      allow read: if signedIn() && isMember(groupDoc(groupId).data);
+      allow write: if false;
     }
   }
 
@@ -369,7 +422,8 @@ match /databases/{database}/documents {
       allow read: if signedIn() && isServerMember(serverDoc(serverId).data);
       // Only owner/admins manage the catalog (vs. any member for a Group) —
       // and blocked once the server is closed, same as a Group.
-      allow create, update: if signedIn() && isServerAdmin(serverDoc(serverId).data) && !isClosed(serverDoc(serverId).data);
+      allow create: if signedIn() && isServerAdmin(serverDoc(serverId).data) && !isClosed(serverDoc(serverId).data) && !isTombstone();
+      allow update: if signedIn() && isServerAdmin(serverDoc(serverId).data) && (isTombstone() || !isClosed(serverDoc(serverId).data));
       allow delete: if signedIn() && isServerAdmin(serverDoc(serverId).data);
     }
 
@@ -385,12 +439,20 @@ match /databases/{database}/documents {
       // ever calls confirmMatch/rejectMatch through vetted paths — see
       // AppState.confirmMatch/rejectMatch). Blocked once the server or the
       // specific salon is closed.
-      allow create, update: if signedIn()
+      allow create: if signedIn()
         && isSalonMember(serverId, request.resource.data.salonId)
         && !isClosed(serverDoc(serverId).data)
-        && !isClosed(salonDoc(serverId, request.resource.data.salonId).data);
-      // Only owner/admins delete a match — the last-resort way to resolve a
-      // contested one (see AppState.canForceResolveMatch).
+        && !isClosed(salonDoc(serverId, request.resource.data.salonId).data)
+        && !isTombstone();
+      // Only owner/admins delete (tombstone) a match — the last-resort way to
+      // resolve a contested one (see AppState.canForceResolveMatch).
+      allow update: if signedIn() && (
+        isTombstone()
+          ? isServerAdmin(serverDoc(serverId).data)
+          : isSalonMember(serverId, request.resource.data.salonId)
+            && !isClosed(serverDoc(serverId).data)
+            && !isClosed(salonDoc(serverId, request.resource.data.salonId).data)
+      );
       allow delete: if signedIn() && isServerAdmin(serverDoc(serverId).data);
     }
 
@@ -410,6 +472,66 @@ match /databases/{database}/documents {
       allow update: if signedIn() && isSalonMember(serverId, resource.data.salonId)
         && (isPollVote(resource.data) || isMessageEdit(resource.data) || isReaction(resource.data));
       allow delete: if signedIn() && resource.data.authorId == request.auth.uid;
+    }
+
+    // A salon's brackets — same trust model as its matches: any of its
+    // members (or an admin) records results, only owner/admins delete one.
+    match /tournaments/{tournamentId} {
+      allow read: if signedIn() && (
+        isSalonMember(serverId, resource.data.salonId) || isServerAdmin(serverDoc(serverId).data)
+      );
+      allow create: if signedIn()
+        && (isSalonMember(serverId, request.resource.data.salonId) || isServerAdmin(serverDoc(serverId).data))
+        && !isClosed(serverDoc(serverId).data)
+        && !isClosed(salonDoc(serverId, request.resource.data.salonId).data)
+        && !isTombstone();
+      allow update: if signedIn() && (
+        isTombstone()
+          ? isServerAdmin(serverDoc(serverId).data)
+          : (isSalonMember(serverId, request.resource.data.salonId) || isServerAdmin(serverDoc(serverId).data))
+            && !isClosed(serverDoc(serverId).data)
+            && !isClosed(salonDoc(serverId, request.resource.data.salonId).data)
+      );
+      allow delete: if signedIn() && isServerAdmin(serverDoc(serverId).data);
+    }
+
+    // Scheduled events (see lib/models/scheduled_event.dart): owner/admins
+    // run them; a salon member may only sign up or back out (isOwnSignup()).
+    match /events/{eventId} {
+      allow read: if signedIn() && (
+        isSalonMember(serverId, resource.data.salonId) || isServerAdmin(serverDoc(serverId).data)
+      );
+      allow create: if signedIn() && isServerAdmin(serverDoc(serverId).data) && !isTombstone();
+      allow delete: if signedIn() && isServerAdmin(serverDoc(serverId).data);
+      allow update: if signedIn() && (
+        isServerAdmin(serverDoc(serverId).data)
+        || (isSalonMember(serverId, resource.data.salonId) && isOwnSignup(resource.data))
+      );
+    }
+
+    // Live scoring, same as a group's (see its matchSessions rule).
+    match /matchSessions/{sessionId} {
+      allow read: if signedIn() && (
+        isSalonMember(serverId, resource.data.salonId) || isServerAdmin(serverDoc(serverId).data)
+      );
+      allow create: if signedIn() && isSalonMember(serverId, request.resource.data.salonId)
+        && request.resource.data.startedBy == request.auth.uid;
+      allow update, delete: if signedIn() && resource.data.startedBy == request.auth.uid;
+    }
+
+    // Written by Cloud Functions only (the Admin SDK bypasses these rules).
+    match /members/{memberId} {
+      allow read: if signedIn() && isServerMember(serverDoc(serverId).data);
+      allow write: if false;
+    }
+
+    // A salon's tally (`wins-<salonId>`), readable by those who can see the
+    // salon; written by Cloud Functions only.
+    match /stats/{statId} {
+      allow read: if signedIn() && (
+        isServerAdmin(serverDoc(serverId).data) || isSalonMember(serverId, statId.split('-')[1])
+      );
+      allow write: if false;
     }
   }
 }

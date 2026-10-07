@@ -1,6 +1,6 @@
 {
   "name": "functions",
-  "description": "Cloud Functions for Podium — sends push notifications when a match starts or finishes.",
+  "description": "Cloud Functions for Podium — push notifications, member rosters, win tallies and sync stamps.",
   "engines": {
     "node": "20"
   },

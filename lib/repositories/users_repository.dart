@@ -5,10 +5,37 @@ import 'package:flutter/foundation.dart';
 
 import '../models/app_user.dart';
 import '../models/plus_membership.dart';
+import 'guests_repository.dart' show isGuestId;
+import 'synced_query.dart';
+
+/// A roster entry (see [UsersRepository.watchRoster]): a copy of the public
+/// `users/{uid}` doc, or of a `guests/{id}` doc for a `guest:` id.
+AppUser rosterProfile(String id, Map<String, dynamic> data) {
+  if (!isGuestId(id)) return AppUser.fromDoc(id, data);
+  return AppUser(
+    uid: id,
+    email: '',
+    displayName: (data['displayName'] as String?) ?? 'Invité',
+    color: (data['color'] as int?) ?? colorForUid(id),
+    isGuest: true,
+  );
+}
 
 abstract class UsersRepository {
   Future<AppUser?> getByEmail(String email);
   Future<AppUser?> getById(String uid);
+
+  /// Every account in `uids` that still exists, fetched in parallel — `users`
+  /// can only be read one doc at a time (see firestore.rules).
+  Future<List<AppUser>> getByIds(List<String> uids);
+
+  /// The public profile of everyone who's ever been a member of
+  /// `{rootCollection}/{rootId}` (a group or a server), kept in its
+  /// `members` subcollection by Cloud Functions (see functions/index.js's
+  /// roster triggers) and synced (see [watchSynced]) — a device downloads a
+  /// member's profile once, then only when it changes, instead of one read
+  /// per member every time the app starts.
+  Stream<List<AppUser>> watchRoster(String rootCollection, String rootId);
 
   /// The signed-in account itself: its public doc merged with its owner-only
   /// `private/account` doc (e-mail, friends). Only readable for your own uid.
@@ -74,6 +101,23 @@ class FirebaseUsersRepository implements UsersRepository {
     if (!doc.exists) return null;
     return AppUser.fromDoc(uid, doc.data()!);
   }
+
+  @override
+  Future<List<AppUser>> getByIds(List<String> uids) async {
+    final out = <AppUser>[];
+    // A bounded number in flight at once, so a big server's roster doesn't
+    // queue thousands of requests at the same time.
+    const chunk = 100;
+    for (var i = 0; i < uids.length; i += chunk) {
+      final users = await Future.wait(uids.skip(i).take(chunk).map(getById));
+      out.addAll(users.whereType<AppUser>());
+    }
+    return out;
+  }
+
+  @override
+  Stream<List<AppUser>> watchRoster(String rootCollection, String rootId) =>
+      watchSynced(_db.collection(rootCollection).doc(rootId).collection('members'), parse: rosterProfile, key: '$rootCollection/$rootId/members');
 
   @override
   Stream<AppUser?> watchOwnAccount(String uid) {
@@ -219,7 +263,29 @@ class FakeUsersRepository implements UsersRepository {
   }
 
   @override
-  Future<AppUser?> getById(String uid) async => users[uid];
+  Future<AppUser?> getById(String uid) async {
+    fetchedIds.add(uid);
+    return users[uid];
+  }
+
+  /// Every uid [getById] was asked for, in order — lets tests check which
+  /// profiles had to be fetched one by one rather than from a roster.
+  final List<String> fetchedIds = [];
+
+  @override
+  Future<List<AppUser>> getByIds(List<String> uids) async => [
+        for (final uid in uids) ?await getById(uid),
+      ];
+
+  /// Seeded roster per root id (see [watchRoster]) — the uids whose profile
+  /// a root's `members` subcollection holds. Roots left out have none yet,
+  /// like a group the roster triggers haven't reached.
+  final Map<String, List<String>> rosters = {};
+
+  @override
+  Stream<List<AppUser>> watchRoster(String rootCollection, String rootId) async* {
+    yield [for (final uid in rosters[rootId] ?? const <String>[]) ?users[uid]];
+  }
 
   @override
   Stream<AppUser?> watchOwnAccount(String uid) {

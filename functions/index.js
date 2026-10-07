@@ -2,7 +2,7 @@ const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
 const { getAuth } = require("firebase-admin/auth");
-const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
+const { onDocumentCreated, onDocumentUpdated, onDocumentWritten } = require("firebase-functions/v2/firestore");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { logger } = require("firebase-functions");
 const { isDeepStrictEqual } = require("node:util");
@@ -43,20 +43,26 @@ async function tokensFor(uids, excludeUid) {
   return [...tokens];
 }
 
-/** Sends `notification` to `tokens` on Android channel `channelId`, pruning any that come back invalid/unregistered. */
+/**
+ * Sends `notification` to `tokens` on Android channel `channelId`, pruning any
+ * that come back invalid/unregistered — 500 at a time, the most a multicast
+ * takes.
+ */
 async function sendToTokens(tokens, notification, channelId = "podium_matches") {
-  if (tokens.length === 0) return;
-  const res = await messaging.sendEachForMulticast({
-    tokens,
-    notification,
-    android: { priority: "high", notification: { channelId } },
-  });
   const stale = [];
-  res.responses.forEach((r, i) => {
-    if (!r.success && ["messaging/registration-token-not-registered", "messaging/invalid-registration-token"].includes(r.error?.code)) {
-      stale.push(tokens[i]);
-    }
-  });
+  for (let start = 0; start < tokens.length; start += 500) {
+    const chunk = tokens.slice(start, start + 500);
+    const res = await messaging.sendEachForMulticast({
+      tokens: chunk,
+      notification,
+      android: { priority: "high", notification: { channelId } },
+    });
+    res.responses.forEach((r, i) => {
+      if (!r.success && ["messaging/registration-token-not-registered", "messaging/invalid-registration-token"].includes(r.error?.code)) {
+        stale.push(chunk[i]);
+      }
+    });
+  }
   await Promise.all(
     stale.map(async (token) => {
       const uid = tokenOwners.get(token);
@@ -75,7 +81,7 @@ async function sendToTokens(tokens, notification, channelId = "podium_matches") 
  * A friend Group's catalog/matches live under `groups/{rootId}`, a Server's
  * Salon ones under `servers/{rootId}` (see
  * lib/repositories/*_repository.dart's `rootCollection`) — same doc shape
- * either way, so `onMatchCreated`/`onMatchSessionCreated` below use one
+ * either way, so `onMatchWritten`/`onMatchSessionCreated` below use one
  * wildcarded trigger for both instead of two near-identical exports. The
  * one real difference is *who* to notify: a Group match's audience is the
  * whole root doc's `memberIds`; a Salon match's is just that specific
@@ -89,6 +95,19 @@ function membershipRef(root, rootId, doc) {
     return db.collection("servers").doc(rootId).collection("salons").doc(doc.salonId);
   }
   return db.collection(root).doc(rootId);
+}
+
+/**
+ * Above this many accounts (guests have no phone to notify), a group or salon
+ * only pushes match and chat news to whoever it concerns — a match's players,
+ * the people @mentioned — rather than to everyone: in a game café's salon,
+ * every member would otherwise get each table's every match, a few hundred
+ * pushes a day. Smaller ones, friend groups, still notify everybody.
+ */
+const LARGE_AUDIENCE = 30;
+
+function isLargeAudience(memberIds) {
+  return memberIds.filter((uid) => !uid.startsWith("guest:")).length > LARGE_AUDIENCE;
 }
 
 // Fires when a client starts scoring a new match — see
@@ -108,8 +127,11 @@ exports.onMatchSessionCreated = onDocumentCreated("{root}/{rootId}/matchSessions
   ]);
   if (!memberSnap.exists) return;
 
-  const gameName = gameSnap.exists ? gameSnap.data().name : "une partie";
   const memberIds = memberSnap.data().memberIds || [];
+  // Its players are at the table already, and nobody else in a big room
+  // needs a push for every match that starts there.
+  if (isLargeAudience(memberIds)) return;
+  const gameName = gameSnap.exists ? gameSnap.data().name : "une partie";
   const tokens = await tokensFor(memberIds, session.startedBy);
   if (tokens.length === 0) return;
 
@@ -120,17 +142,27 @@ exports.onMatchSessionCreated = onDocumentCreated("{root}/{rootId}/matchSessions
   logger.info(`match-started push sent for ${gameName} in ${root}/${rootId} to ${tokens.length} device(s)`);
 });
 
-// Fires when a match is recorded (not when it's later updated/resumed — an
-// onCreate trigger only fires once per doc). Pushes "X a gagné la partie de
-// Y !" to the rest of the root community (see membershipRef), and — best
-// effort — drops an auto-generated highlight into the discussion thread if
-// this match made someone's win streak or the group's leaderboard notable
-// (see postMatchHighlights).
-exports.onMatchCreated = onDocumentCreated("{root}/{rootId}/matches/{matchId}", async (event) => {
+// Fires on every write to a match. Keeps the scope's win tally in step (see
+// updateWinsTally) and stamps `updatedAt` when an older app left it out (see
+// stampUpdatedAt). When the match was just recorded (not updated/resumed
+// later, nor deleted), also pushes "X a gagné la partie de Y !" to the rest
+// of the root community (see membershipRef) — to its players only in a big
+// one (see LARGE_AUDIENCE) — and, best effort, drops an auto-generated
+// highlight into the discussion thread if this match made someone's win
+// streak or the leaderboard notable (see postMatchHighlights).
+exports.onMatchWritten = onDocumentWritten("{root}/{rootId}/matches/{matchId}", async (event) => {
   const { root, rootId, matchId } = event.params;
   if (root !== "groups" && root !== "servers") return;
-  const match = event.data?.data();
-  if (!match) return;
+  const before = event.data?.before?.data();
+  const match = event.data?.after?.data();
+  await stampUpdatedAt(event.data);
+  let lead = null;
+  try {
+    lead = await updateWinsTally({ root, rootId, eventId: event.id, before, after: match });
+  } catch (e) {
+    logger.warn(`updateWinsTally failed for ${root}/${rootId}/matches/${matchId}: ${e}`);
+  }
+  if (before || !match || match.deleted) return;
   if (root === "servers" && !match.salonId) return;
 
   const [memberSnap, gameSnap] = await Promise.all([
@@ -151,14 +183,15 @@ exports.onMatchCreated = onDocumentCreated("{root}/{rootId}/matches/{matchId}", 
     : `La partie de ${gameName} est terminée.`;
 
   const memberIds = memberSnap.data().memberIds || [];
-  const tokens = await tokensFor(memberIds, match.createdByUid);
+  const audience = isLargeAudience(memberIds) ? [...new Set((match.entries || []).map((e) => e.playerId))].filter((uid) => memberIds.includes(uid)) : memberIds;
+  const tokens = await tokensFor(audience, match.createdByUid);
   if (tokens.length > 0) {
     await sendToTokens(tokens, { title: "Partie terminée", body });
     logger.info(`match-finished push sent for ${gameName} in ${root}/${rootId} to ${tokens.length} device(s)`);
   }
 
   try {
-    await postMatchHighlights({ root, rootId, matchId, match, gameName, winnerUids, winnerNames });
+    await postMatchHighlights({ root, rootId, match, gameName, winnerUids, winnerNames, lead });
   } catch (e) {
     // Best-effort, same reasoning as AppState's own flowError catches on the
     // Dart side — a highlight is a nice-to-have, never worth losing the
@@ -175,9 +208,65 @@ exports.onMatchCreated = onDocumentCreated("{root}/{rootId}/matches/{matchId}", 
 function computeWinsMap(matchDocs) {
   const wins = {};
   for (const m of matchDocs) {
-    for (const uid of computeWinnerIds(m)) wins[uid] = (wins[uid] || 0) + 1;
+    for (const uid of winnersOf(m)) wins[uid] = (wins[uid] || 0) + 1;
   }
   return wins;
+}
+
+/** Each player credited with a win by `match` (once each), none for a missing or deleted one. */
+function winnersOf(match) {
+  return match && !match.deleted ? [...new Set(computeWinnerIds(match))] : [];
+}
+
+/**
+ * Keeps `{root}/{rootId}/stats/{wins|wins-<salonId>}` — every player's win
+ * count over the scope's matches (the whole group, or one salon) and how many
+ * there are — in step with each match write, so seeing whether a new match
+ * handed someone the lead no longer means re-reading the scope's whole
+ * history every time. Built from that history once, the first time a scope's
+ * match is written. Returns the sole leader before and after this write and
+ * the scope's match count, or null for a write already counted (a retried
+ * event).
+ */
+async function updateWinsTally({ root, rootId, eventId, before, after }) {
+  const doc = after || before;
+  if (!doc) return null;
+  const salonId = root === "servers" ? doc.salonId : null;
+  if (root === "servers" && !salonId) return null;
+  const ref = db.collection(root).doc(rootId).collection("stats").doc(salonId ? `wins-${salonId}` : "wins");
+  const counted = (m) => (m && !m.deleted ? 1 : 0);
+  // Confirmations, stamps, edits that don't change who won: nothing to count.
+  if (before && after && counted(before) === counted(after) && isDeepStrictEqual(winnersOf(before).sort(), winnersOf(after).sort())) return null;
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) {
+      let scope = db.collection(root).doc(rootId).collection("matches");
+      if (salonId) scope = scope.where("salonId", "==", salonId);
+      const history = await tx.get(scope.select("entries", "mode", "lowWins", "deleted"));
+      const matches = history.docs.map((d) => d.data()).filter((m) => !m.deleted);
+      const wins = computeWinsMap(matches);
+      // `history` already includes this write: the tally before it is the
+      // same without this match's winners, with its previous ones back.
+      const previous = { ...wins };
+      for (const uid of winnersOf(after)) previous[uid] = (previous[uid] || 0) - 1;
+      for (const uid of winnersOf(before)) previous[uid] = (previous[uid] || 0) + 1;
+      tx.set(ref, { wins, count: matches.length, events: [eventId] });
+      return { before: soleLeader(previous), after: soleLeader(wins), count: matches.length };
+    }
+    const data = snap.data();
+    const events = data.events || [];
+    if (events.includes(eventId)) return null;
+    const wins = { ...(data.wins || {}) };
+    const leaderBefore = soleLeader(wins);
+    for (const uid of winnersOf(before)) wins[uid] = (wins[uid] || 0) - 1;
+    for (const uid of winnersOf(after)) wins[uid] = (wins[uid] || 0) + 1;
+    for (const uid of Object.keys(wins)) {
+      if (wins[uid] <= 0) delete wins[uid];
+    }
+    const count = Math.max(0, (data.count || 0) + counted(after) - counted(before));
+    tx.set(ref, { wins, count, events: [...events, eventId].slice(-20) });
+    return { before: leaderBefore, after: soleLeader(wins), count };
+  });
 }
 
 /** The single player with strictly more wins than everyone else, or null (no matches yet, or a tie for first). */
@@ -199,11 +288,11 @@ function soleLeader(wins) {
  *   - a win streak (>= 3 in a row) at this specific game, from the last 25
  *     matches of that game only;
  *   - the root's (or, in a Server, the salon's) overall leaderboard gaining
- *     a new sole leader — a full read of that scope's matches, but skipped
- *     entirely once there are fewer than 3 (too early to mean anything) so a
- *     brand new group's first couple of matches don't pay for it.
+ *     a new sole leader — `lead`, from the running win tally (see
+ *     updateWinsTally), and only once there are at least 3 matches (too
+ *     early to mean anything before).
  */
-async function postMatchHighlights({ root, rootId, matchId, match, gameName, winnerUids, winnerNames }) {
+async function postMatchHighlights({ root, rootId, match, gameName, winnerUids, winnerNames, lead }) {
   if (winnerUids.length === 0) return;
   const highlights = [];
   const matchesCol = db.collection(root).doc(rootId).collection("matches");
@@ -238,17 +327,8 @@ async function postMatchHighlights({ root, rootId, matchId, match, gameName, win
   }
 
   // Overall leaderboard: did this match hand the sole lead to someone new?
-  let scopeQuery = matchesCol;
-  if (root === "servers") scopeQuery = scopeQuery.where("salonId", "==", match.salonId);
-  const scopeSnap = await scopeQuery.select("entries", "mode", "lowWins").get();
-  if (scopeSnap.size >= 3) {
-    const beforeDocs = scopeSnap.docs.filter((d) => d.id !== matchId).map((d) => d.data());
-    const afterDocs = scopeSnap.docs.map((d) => d.data());
-    const beforeLeader = soleLeader(computeWinsMap(beforeDocs));
-    const afterLeader = soleLeader(computeWinsMap(afterDocs));
-    if (afterLeader && afterLeader !== beforeLeader && winnerNames.has(afterLeader)) {
-      highlights.push(`${winnerNames.get(afterLeader)} prend la tête du classement 👑`);
-    }
+  if (lead && lead.count >= 3 && lead.after && lead.after !== lead.before && winnerNames.has(lead.after)) {
+    highlights.push(`${winnerNames.get(lead.after)} prend la tête du classement 👑`);
   }
 
   if (highlights.length === 0) return;
@@ -289,6 +369,10 @@ exports.onMessageCreated = onDocumentCreated("{root}/{rootId}/messages/{messageI
   if (!memberSnap.exists) return;
 
   const mentionedUids = Array.isArray(message.mentionedUids) ? message.mentionedUids : [];
+  const memberIds = memberSnap.data().memberIds || [];
+  // In a big room, only the people @mentioned hear about a message.
+  const generalIds = isLargeAudience(memberIds) ? [] : memberIds.filter((uid) => !mentionedUids.includes(uid));
+  if (generalIds.length === 0 && mentionedUids.length === 0) return;
   const author = await authorName(message.authorId);
 
   let title;
@@ -302,8 +386,6 @@ exports.onMessageCreated = onDocumentCreated("{root}/{rootId}/messages/{messageI
     title = author;
   }
 
-  const memberIds = memberSnap.data().memberIds || [];
-  const generalIds = memberIds.filter((uid) => !mentionedUids.includes(uid));
   const tokens = await tokensFor(generalIds, message.authorId);
   if (tokens.length > 0) {
     await sendToTokens(tokens, { title, body }, "podium_chat");
@@ -392,7 +474,12 @@ exports.onSalonMemberAdded = onDocumentUpdated("servers/{serverId}/salons/{salon
 exports.onGameLibraryUpdated = onDocumentUpdated("gameLibrary/{libraryId}", async (event) => {
   const before = event.data?.before?.data();
   const after = event.data?.after?.data();
-  if (!before || !after || isDeepStrictEqual(before, after)) return;
+  if (!before || !after) return;
+  // The game itself, without its sync stamp (see stampUpdatedAt).
+  const { updatedAt: _stamp, ...game } = after;
+  const { updatedAt: _previousStamp, ...previous } = before;
+  if (isDeepStrictEqual(previous, game)) return;
+  await stampUpdatedAt(event.data);
 
   const { libraryId } = event.params;
   const copies = await db.collectionGroup("games").where("libraryId", "==", libraryId).get();
@@ -404,16 +491,157 @@ exports.onGameLibraryUpdated = onDocumentUpdated("gameLibrary/{libraryId}", asyn
       const salonId = snap.get("salonId");
       const solo = snap.get("minPlayers") === 1 && snap.get("maxPlayers") === 1;
       tx.set(copy.ref, {
-        ...after,
+        ...game,
         libraryId,
         ...(salonId != null && { salonId }),
         ...(solo && { minPlayers: 1, maxPlayers: 1 }),
+        updatedAt: FieldValue.serverTimestamp(),
       });
       updated++;
     });
   }
   logger.info(`library game ${libraryId} synced to ${updated} catalog copie(s)`);
 });
+
+// Catalog games, tournaments and a salon's events are synced too (see
+// GamesRepository.watchGames, TournamentsRepository.watchTournaments,
+// EventsRepository.watchEvents): one written by an app from before
+// `updatedAt` gets it stamped here.
+exports.onGameWritten = onDocumentWritten("{root}/{rootId}/games/{gameId}", async (event) => {
+  const { root } = event.params;
+  if (root !== "groups" && root !== "servers") return;
+  await stampUpdatedAt(event.data);
+});
+
+exports.onTournamentWritten = onDocumentWritten("{root}/{rootId}/tournaments/{tournamentId}", async (event) => {
+  const { root } = event.params;
+  if (root !== "groups" && root !== "servers") return;
+  await stampUpdatedAt(event.data);
+});
+
+exports.onEventWritten = onDocumentWritten("servers/{serverId}/events/{eventId}", (event) => stampUpdatedAt(event.data));
+
+/**
+ * Synced collections (matches, catalog games, tournaments, events, the game
+ * library — see lib/repositories/synced_query.dart) only download what was
+ * written since the newest `updatedAt` a device holds, so every write must
+ * stamp it. App versions from before that don't: a write that left it
+ * missing or unchanged gets it stamped here, or other devices would never
+ * see that change. The stamp itself is a write too, but one that changes
+ * `updatedAt`, so the trigger it sets off again stops here.
+ */
+async function stampUpdatedAt(change) {
+  const before = change?.before?.data();
+  const after = change?.after?.data();
+  if (!after) return;
+  const stamp = after.updatedAt;
+  if (stamp && !(before?.updatedAt && stamp.isEqual(before.updatedAt))) return;
+  await change.after.ref.update({ updatedAt: FieldValue.serverTimestamp() }).catch((e) => {
+    logger.warn(`could not stamp ${change.after.ref.path}: ${e}`);
+  });
+}
+
+/** Runs `ops` (each adds one write to a batch) in batches under Firestore's 500-write cap. */
+async function commitAll(ops) {
+  for (let i = 0; i < ops.length; i += 450) {
+    const batch = db.batch();
+    for (const op of ops.slice(i, i + 450)) op(batch);
+    await batch.commit();
+  }
+}
+
+// ---- Rosters ----
+//
+// Every group and server keeps a copy of its members' public profiles in its
+// `members` subcollection (see UsersRepository.watchRoster), which each
+// device syncs — downloading a member's profile once, then only when it
+// changes — instead of reading every member's `users/{uid}` doc on every
+// launch: a thousand reads each time for a thousand-member game café.
+// Entries stay once someone leaves, so their name still shows on the matches
+// they played; an account's are tombstoned when it's deleted.
+
+/** Fields of a `users/{uid}` doc only its owner may see — still there on accounts not migrated yet (see tool/migrate_private_user_fields.js), never copied into a roster. */
+const PRIVATE_USER_FIELDS = ["email", "friendIds", "fcmTokens"];
+
+/**
+ * Bumped whenever rosters need rebuilding: a group or server written while
+ * its `rosterVersion` is behind gets every member's entry (re)written, which
+ * is also how rosters fill in for groups that existed before them.
+ */
+const ROSTER_VERSION = 1;
+
+function publicProfile(data) {
+  const out = { ...data };
+  for (const key of PRIVATE_USER_FIELDS) delete out[key];
+  return out;
+}
+
+function rosterEntry(uid, profile) {
+  return { ...profile, uid, updatedAt: FieldValue.serverTimestamp() };
+}
+
+/** `[id, roster profile]` for every account or guest (`guest:` ids) in `ids` that still exists. */
+async function rosterProfiles(ids) {
+  const out = [];
+  for (let i = 0; i < ids.length; i += 300) {
+    const chunk = ids.slice(i, i + 300);
+    const snaps = await db.getAll(...chunk.map((id) => (id.startsWith("guest:") ? db.collection("guests").doc(id.slice("guest:".length)) : db.collection("users").doc(id))));
+    snaps.forEach((snap, j) => {
+      if (!snap.exists) return;
+      const id = chunk[j];
+      const data = snap.data();
+      out.push([id, id.startsWith("guest:") ? { displayName: data.displayName || "Invité", color: data.color ?? null } : publicProfile(data)]);
+    });
+  }
+  return out;
+}
+
+// A profile changed (or its account was deleted): every roster holding it
+// follows. The collection-group query needs the `members.uid` field override
+// in firestore.indexes.json.
+exports.syncProfileToRosters = onDocumentWritten("users/{uid}", async (event) => {
+  const { uid } = event.params;
+  const before = event.data?.before?.data();
+  const after = event.data?.after?.data();
+  if (before && after && isDeepStrictEqual(publicProfile(before), publicProfile(after))) return;
+  const [held, groups, servers] = await Promise.all([
+    db.collectionGroup("members").where("uid", "==", uid).get(),
+    after ? db.collection("groups").where("memberIds", "array-contains", uid).get() : null,
+    after ? db.collection("servers").where("memberIds", "array-contains", uid).get() : null,
+  ]);
+  const refs = new Map(held.docs.map((d) => [d.ref.path, d.ref]));
+  for (const root of [...(groups?.docs ?? []), ...(servers?.docs ?? [])]) {
+    if (root.get("personal")) continue;
+    const ref = root.ref.collection("members").doc(uid);
+    refs.set(ref.path, ref);
+  }
+  const entry = after ? rosterEntry(uid, publicProfile(after)) : { uid, deleted: true, updatedAt: FieldValue.serverTimestamp() };
+  await commitAll([...refs.values()].map((ref) => (batch) => batch.set(ref, entry)));
+});
+
+/** Adds whoever just joined `event`'s group or server to its roster — everyone, when it's behind ROSTER_VERSION. */
+async function syncRoster(event) {
+  const before = event.data?.before?.data();
+  const after = event.data?.after?.data();
+  if (!after) {
+    // Deleted: so are its roster and win tallies (the app deletes the rest).
+    const ref = event.data.before.ref;
+    await Promise.all([db.recursiveDelete(ref.collection("members")), db.recursiveDelete(ref.collection("stats"))]);
+    return;
+  }
+  if (after.personal) return;
+  const ref = event.data.after.ref;
+  const rebuild = after.rosterVersion !== ROSTER_VERSION;
+  const known = new Set(rebuild ? [] : before?.memberIds ?? []);
+  const joined = (after.memberIds || []).filter((id) => !known.has(id));
+  const profiles = await rosterProfiles(joined);
+  await commitAll(profiles.map(([id, profile]) => (batch) => batch.set(ref.collection("members").doc(id), rosterEntry(id, profile))));
+  if (rebuild) await ref.update({ rosterVersion: ROSTER_VERSION });
+  if (profiles.length > 0) logger.info(`roster of ${ref.path}: ${profiles.length} entr${profiles.length > 1 ? "ies" : "y"} written`);
+}
+
+exports.syncGroupRoster = onDocumentWritten("groups/{groupId}", syncRoster);
+exports.syncServerRoster = onDocumentWritten("servers/{serverId}", syncRoster);
 
 // Mirrors GameMatch.winnerIds() in lib/models/match.dart — keep in sync.
 function computeWinnerIds(match) {

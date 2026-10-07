@@ -1,12 +1,22 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/match.dart';
+import 'synced_query.dart';
+
+/// A deleted match's [tombstone]: only what its query (`groupId`/`salonId`)
+/// and security rules (`salonId`) still need from it, plus `createdAt`.
+Map<String, dynamic> matchTombstone(Map<String, dynamic> data) => tombstone({
+      for (final key in const ['groupId', 'salonId', 'createdAt'])
+        if (data[key] != null) key: data[key],
+    });
 
 abstract class MatchesRepository {
   /// All matches recorded in any of `groupIds`, newest first. Matches on the
   /// `groupId` field by default; pass `bySalon: true` to match on `salonId`
   /// instead — a Salon match's own `groupId` is always empty (see
   /// `AppState.saveGame`), so a Salon's matches must be found by `salonId`.
+  /// Synced (see [watchSynced]): each device downloads a match only once,
+  /// plus whatever changes to it afterwards.
   Stream<List<GameMatch>> watchMatches(String rootGroupId, List<String> groupIds, {bool bySalon = false});
 
   /// One-time tally of matches recorded in any of `groupIds` — cheaper than
@@ -27,9 +37,11 @@ abstract class MatchesRepository {
   /// doesn't jump to the top of the history just because it was edited.
   Future<void> updateMatch(String rootGroupId, GameMatch match);
 
-  /// Permanently removes a recorded match (e.g. entered by mistake, or one
-  /// leg — or the whole thing — of a "best of N" series).
-  Future<void> deleteMatch(String rootGroupId, String matchId);
+  /// Removes a recorded match (e.g. entered by mistake, or one leg — or the
+  /// whole thing — of a "best of N" series). Overwritten with a
+  /// [matchTombstone] rather than deleted, so every device's synced copy
+  /// drops it too.
+  Future<void> deleteMatch(String rootGroupId, GameMatch match);
 
   /// Rewrites every match recorded under `rootGroupId` that references
   /// `oldPlayerId` (in its scores or its point-by-point timeline) to
@@ -114,41 +126,65 @@ class FirebaseMatchesRepository implements MatchesRepository {
   CollectionReference<Map<String, dynamic>> _col(String rootGroupId) =>
       _db.collection(rootCollection).doc(rootGroupId).collection('matches');
 
+  // Firestore whereIn caps at 30 values, comfortably above any realistic
+  // fan-out for this app. A single id (always, for a salon) is an equality
+  // filter: the shape a salon's security rules can check against.
+  Query<Map<String, dynamic>> _scope(CollectionReference<Map<String, dynamic>> col, List<String> groupIds, bool bySalon) {
+    final field = bySalon ? 'salonId' : 'groupId';
+    return groupIds.length == 1 ? col.where(field, isEqualTo: groupIds.first) : col.where(field, whereIn: groupIds.take(30).toList());
+  }
+
   @override
   Stream<List<GameMatch>> watchMatches(String rootGroupId, List<String> groupIds, {bool bySalon = false}) {
     if (groupIds.isEmpty) return Stream.value(const []);
-    // Firestore whereIn caps at 30 values, comfortably above any realistic
-    // fan-out for this app.
-    return _col(rootGroupId)
-        .where(bySalon ? 'salonId' : 'groupId', whereIn: groupIds.take(30).toList())
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snap) => snap.docs.map((d) => GameMatch.fromDoc(d.id, d.data())).toList());
+    return watchSynced(
+      _scope(_col(rootGroupId), groupIds, bySalon),
+      parse: GameMatch.fromDoc,
+      compare: (a, b) => b.createdAt.compareTo(a.createdAt),
+      key: '$rootCollection/$rootGroupId/matches?${bySalon ? 'salonId' : 'groupId'}=${groupIds.join(',')}',
+    );
   }
 
   @override
   Future<int> countMatches(String rootGroupId, List<String> groupIds, {bool bySalon = false}) async {
     if (groupIds.isEmpty) return 0;
-    final agg = await _col(rootGroupId).where(bySalon ? 'salonId' : 'groupId', whereIn: groupIds.take(30).toList()).count().get();
-    return agg.count ?? 0;
+    // The win tally Cloud Functions keep for a whole group and for each
+    // salon (see functions/index.js's updateWinsTally) counts them already:
+    // one read, where count() costs one per thousand matches.
+    if (groupIds.length == 1 && (bySalon || groupIds.first == rootGroupId)) {
+      try {
+        final tally = await _db.collection(rootCollection).doc(rootGroupId).collection('stats').doc(bySalon ? 'wins-${groupIds.first}' : 'wins').get();
+        final count = tally.data()?['count'];
+        if (count is int) return count;
+      } catch (_) {
+        // Not there yet, or not readable (rules not deployed): count instead.
+      }
+    }
+    final scope = _scope(_col(rootGroupId), groupIds, bySalon);
+    final (all, deleted) = await (
+      scope.count().get(),
+      // Tombstones (see deleteMatch) still match the scope.
+      scope.where(kDeleted, isEqualTo: true).count().get().then<int?>((agg) => agg.count, onError: (_) => 0),
+    ).wait;
+    return (all.count ?? 0) - (deleted ?? 0);
   }
 
   @override
   Future<GameMatch> addMatch(String rootGroupId, GameMatch match) async {
     final ref = _col(rootGroupId).doc();
     final saved = match.copyWithId(ref.id);
-    await ref.set(saved.toMap());
+    await ref.set(stamped(saved.toMap()));
     return saved;
   }
 
   @override
   Future<void> updateMatch(String rootGroupId, GameMatch match) async {
-    await _col(rootGroupId).doc(match.id).set(match.toMap());
+    await _col(rootGroupId).doc(match.id).set(stamped(match.toMap()));
   }
 
   @override
-  Future<void> deleteMatch(String rootGroupId, String matchId) async {
-    await _col(rootGroupId).doc(matchId).delete();
+  Future<void> deleteMatch(String rootGroupId, GameMatch match) async {
+    await _col(rootGroupId).doc(match.id).set(matchTombstone(match.toMap()));
   }
 
   @override
@@ -158,7 +194,7 @@ class FirebaseMatchesRepository implements MatchesRepository {
     for (var i = 0; i < snap.docs.length; i += chunkSize) {
       final batch = _db.batch();
       for (final d in snap.docs.skip(i).take(chunkSize)) {
-        batch.update(d.reference, {'gameId': toGameId});
+        batch.update(d.reference, stamped({'gameId': toGameId}));
       }
       await batch.commit();
     }
@@ -187,7 +223,7 @@ class FirebaseMatchesRepository implements MatchesRepository {
         }
         return m;
       }).toList();
-      if (changed) updates[doc.reference] = {'entries': entries, 'timeline': timeline};
+      if (changed) updates[doc.reference] = stamped({'entries': entries, 'timeline': timeline});
     }
     final refs = updates.keys.toList();
     const chunkSize = 450;
@@ -202,14 +238,14 @@ class FirebaseMatchesRepository implements MatchesRepository {
 
   @override
   Future<void> confirmMatch({required String rootId, required String matchId, required String uid}) async {
-    await _col(rootId).doc(matchId).update({
+    await _col(rootId).doc(matchId).update(stamped({
       'confirmedBy': FieldValue.arrayUnion([uid]),
-    });
+    }));
   }
 
   @override
   Future<void> rejectMatch({required String rootId, required String matchId, required String uid}) async {
-    await _col(rootId).doc(matchId).update({'rejectedBy': uid});
+    await _col(rootId).doc(matchId).update(stamped({'rejectedBy': uid}));
   }
 
   CollectionReference<Map<String, dynamic>> _sessionsCol(String rootGroupId) =>
@@ -246,8 +282,7 @@ class FirebaseMatchesRepository implements MatchesRepository {
   @override
   Stream<List<LiveMatchSession>> watchLiveSessions(String rootGroupId, List<String> groupIds, {bool bySalon = false}) {
     if (groupIds.isEmpty) return Stream.value(const []);
-    return _sessionsCol(rootGroupId)
-        .where(bySalon ? 'salonId' : 'groupId', whereIn: groupIds.take(30).toList())
+    return _scope(_sessionsCol(rootGroupId), groupIds, bySalon)
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snap) => snap.docs.map((d) => LiveMatchSession.fromDoc(d.id, d.data())).toList());

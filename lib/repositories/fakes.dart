@@ -324,9 +324,10 @@ class FakeServersRepository implements ServersRepository {
   }
 
   @override
-  Stream<List<Salon>> watchSalons(String serverId) {
+  Stream<List<Salon>> watchSalons(String serverId, {String? memberUid}) {
     Future.microtask(() => _emitSalons(serverId));
-    return _salonsCtrl(serverId).stream;
+    final all = _salonsCtrl(serverId).stream;
+    return memberUid == null ? all : all.map((ss) => ss.where((s) => s.memberIds.contains(memberUid)).toList());
   }
 
   @override
@@ -578,10 +579,10 @@ class FakeMatchesRepository implements MatchesRepository {
   }
 
   @override
-  Future<void> deleteMatch(String rootGroupId, String matchId) async {
+  Future<void> deleteMatch(String rootGroupId, GameMatch match) async {
     final list = byGroup[rootGroupId];
     if (list == null) return;
-    list.removeWhere((m) => m.id == matchId);
+    list.removeWhere((m) => m.id == match.id);
     _emitAll(rootGroupId);
   }
 
@@ -802,10 +803,10 @@ class FakeTournamentsRepository implements TournamentsRepository {
   }
 
   @override
-  Future<void> deleteTournament(String rootGroupId, String tournamentId) async {
+  Future<void> deleteTournament(String rootGroupId, Tournament tournament) async {
     final list = byGroup[rootGroupId];
     if (list == null) return;
-    list.removeWhere((t) => t.id == tournamentId);
+    list.removeWhere((t) => t.id == tournament.id);
     _ctrl(rootGroupId).add(list);
   }
 }
@@ -839,11 +840,11 @@ class FakeMessagesRepository implements MessagesRepository {
   }
 
   @override
-  Stream<List<GroupMessage>> watchMessages(String rootId, {String? salonId}) {
+  Stream<List<GroupMessage>> watchMessages(String rootId, {String? salonId, int limit = kMessagesPage}) {
     final key = _key(rootId, salonId);
     final c = _ctrl(key);
     Future.microtask(() => c.add(_filtered(rootId, salonId)));
-    return c.stream;
+    return c.stream.map((all) => all.length > limit ? all.sublist(all.length - limit) : all);
   }
 
   @override
@@ -874,7 +875,7 @@ class FakeMessagesRepository implements MessagesRepository {
     return msg;
   }
 
-  /// Test-only helper: mirrors what the `onMatchCreated` Cloud Function
+  /// Test-only helper: mirrors what the `onMatchWritten` Cloud Function
   /// posts server-side via the Admin SDK (see functions/index.js's
   /// postMatchHighlights) — no production Dart code path creates a `system`
   /// message itself, so this isn't part of [MessagesRepository].
@@ -985,10 +986,10 @@ class FakeEventsRepository implements EventsRepository {
   }
 
   @override
-  Future<void> deleteEvent(String serverId, String eventId) async {
+  Future<void> deleteEvent(String serverId, ScheduledEvent event) async {
     final list = byServer[serverId];
     if (list == null) return;
-    list.removeWhere((e) => e.id == eventId);
+    list.removeWhere((e) => e.id == event.id);
     _emitAll(serverId);
   }
 

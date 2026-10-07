@@ -1,12 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/tournament.dart';
+import 'synced_query.dart';
 
 abstract class TournamentsRepository {
   /// All tournaments recorded in any of `groupIds`, newest first. Matches on
   /// the `groupId` field by default; pass `bySalon: true` to match on
   /// `salonId` instead (a Salon tournament's `groupId` is always empty — see
-  /// [Tournament.salonId]).
+  /// [Tournament.salonId]). Synced (see [watchSynced]).
   Stream<List<Tournament>> watchTournaments(String rootGroupId, List<String> groupIds, {bool bySalon = false});
 
   /// Persists `tournament` (its `id` is ignored — the repository assigns
@@ -18,8 +19,9 @@ abstract class TournamentsRepository {
   /// `AppState._recordTournamentResult`) is a full-document rewrite.
   Future<void> updateTournament(String rootGroupId, Tournament tournament);
 
-  /// Permanently removes a tournament (see `AppState.canDeleteTournament`).
-  Future<void> deleteTournament(String rootGroupId, String tournamentId);
+  /// Removes a tournament (see `AppState.canDeleteTournament`) — overwritten
+  /// with a [tombstone], so every device's synced copy drops it too.
+  Future<void> deleteTournament(String rootGroupId, Tournament tournament);
 }
 
 class FirebaseTournamentsRepository implements TournamentsRepository {
@@ -39,27 +41,36 @@ class FirebaseTournamentsRepository implements TournamentsRepository {
   @override
   Stream<List<Tournament>> watchTournaments(String rootGroupId, List<String> groupIds, {bool bySalon = false}) {
     if (groupIds.isEmpty) return Stream.value(const []);
-    return _col(rootGroupId)
-        .where(bySalon ? 'salonId' : 'groupId', whereIn: groupIds.take(30).toList())
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snap) => snap.docs.map((d) => Tournament.fromDoc(d.id, d.data())).toList());
+    // A single id (always, for a salon) is an equality filter: the shape a
+    // salon's security rules can check against.
+    final field = bySalon ? 'salonId' : 'groupId';
+    final scope = groupIds.length == 1 ? _col(rootGroupId).where(field, isEqualTo: groupIds.first) : _col(rootGroupId).where(field, whereIn: groupIds.take(30).toList());
+    return watchSynced(
+      scope,
+      parse: Tournament.fromDoc,
+      compare: (a, b) => b.createdAt.compareTo(a.createdAt),
+      key: '$rootCollection/$rootGroupId/tournaments?$field=${groupIds.join(',')}',
+    );
   }
 
   @override
   Future<Tournament> addTournament(String rootGroupId, Tournament tournament) async {
     final ref = _col(rootGroupId).doc();
-    await ref.set(tournament.toMap());
+    await ref.set(stamped(tournament.toMap()));
     return Tournament.fromDoc(ref.id, tournament.toMap());
   }
 
   @override
   Future<void> updateTournament(String rootGroupId, Tournament tournament) async {
-    await _col(rootGroupId).doc(tournament.id).set(tournament.toMap());
+    await _col(rootGroupId).doc(tournament.id).set(stamped(tournament.toMap()));
   }
 
   @override
-  Future<void> deleteTournament(String rootGroupId, String tournamentId) async {
-    await _col(rootGroupId).doc(tournamentId).delete();
+  Future<void> deleteTournament(String rootGroupId, Tournament tournament) async {
+    final data = tournament.toMap();
+    await _col(rootGroupId).doc(tournament.id).set(tombstone({
+      for (final key in const ['groupId', 'salonId', 'createdAt'])
+        if (data[key] != null) key: data[key],
+    }));
   }
 }
