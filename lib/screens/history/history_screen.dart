@@ -9,10 +9,10 @@ import '../../models/tournament.dart';
 import '../../state/app_state.dart';
 import '../../state/player_row.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/avatar.dart';
 import '../../widgets/common.dart';
 import '../../widgets/elo_widgets.dart';
 import '../../widgets/match_card.dart';
+import '../../widgets/player_card.dart';
 import '../../widgets/solo_match_card.dart';
 import '../tournaments/tournament_detail_screen.dart';
 import 'match_detail_screen.dart';
@@ -206,7 +206,7 @@ class _GroupedMatchCardState extends State<_GroupedMatchCard> {
               children: [
                 Expanded(child: Text(resultLine, style: bodyFont(size: 13.5, weight: FontWeight.w700, color: AppColors.ink2))),
                 if (widget.appState.myEloDelta(legs) case final d?) Padding(padding: const EdgeInsets.only(right: 8), child: EloDeltaChip(delta: d)),
-                AvatarCluster(avatars: [for (final p in players.take(4)) (initial: p.initial, color: Color(p.color))]),
+                AvatarCluster(players: players.take(4).toList()),
               ],
             ),
             AnimatedSize(
@@ -462,7 +462,9 @@ class _EloSaveSummaryView extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(appState.playerById(e.key)?.displayName ?? '?', style: bodyFont(size: 12.5, weight: FontWeight.w700, color: AppColors.ink2)),
+                    PlayerAvatar(appState.playerById(e.key), size: 20, fontSize: 9),
+                    const SizedBox(width: 6),
+                    PlayerName(appState.playerById(e.key), style: bodyFont(size: 12.5, weight: FontWeight.w700, color: AppColors.ink2)),
                     const SizedBox(width: 5),
                     EloDeltaChip(delta: e.value),
                   ],

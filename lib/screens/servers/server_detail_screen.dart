@@ -5,8 +5,8 @@ import '../../models/salon.dart';
 import '../../models/server.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/avatar.dart';
 import '../../widgets/common.dart';
+import '../../widgets/player_card.dart';
 import 'salon_form_dialog.dart';
 import 'salon_invite_dialog.dart';
 import 'server_invite_dialog.dart';
@@ -230,9 +230,9 @@ class _MemberRow extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          Avatar(initial: p?.initial ?? '?', color: p != null ? Color(p.color) : AppColors.mut, size: 32, fontSize: 13),
+          PlayerAvatar(p, size: 32, fontSize: 13),
           const SizedBox(width: 10),
-          Expanded(child: Text(p?.displayName ?? uid, style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink))),
+          Expanded(child: PlayerName(p, fallback: uid, style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink))),
           if (isServerOwner)
             Text('OWNER', style: bodyFont(size: 10.5, weight: FontWeight.w800, color: AppColors.mut, letterSpacing: 0.4))
           else if (isOwner)

@@ -443,7 +443,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     child: Stack(
                       children: [
                         // The chosen one plays live; the others hold a still frame.
-                        Positioned.fill(child: ProfileBannerBackground(themeId: b.id, phase: _draft.banner == b.id ? null : 0.35)),
+                        Positioned.fill(child: ProfileBannerBackground(themeId: b.id, phase: _draft.banner == b.id ? null : kStillBannerPhase)),
                         if (unlocks.marks(ShopItem(ShopKind.banner, b.id))) const Positioned(top: 7, right: 7, child: PlusMark(size: 17)),
                         Positioned(
                           left: 10,

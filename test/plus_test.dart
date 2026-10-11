@@ -105,7 +105,9 @@ Future<({AppState state, FakeUsersRepository users, GlobalKey<NavigatorState> na
   ));
   await tester.pump();
   seeded.auth.debugSignIn(who == 'tom' ? _tom : lea);
-  await tester.pumpAndSettle();
+  // The home screen shows its leader's card, live: no pumpAndSettle — but
+  // long enough for the first badges' celebration (3.8 s) to play out.
+  await _settle(tester, frames: 50);
   return (state: seeded.state, users: seeded.users, nav: nav);
 }
 

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../logic/plus.dart';
 import '../state/player_row.dart';
 import '../theme/app_theme.dart';
-import 'avatar.dart';
+import 'avatar_frames.dart';
 import 'common.dart';
+import 'player_card.dart';
 
 /// One column of the top-3 podium (`.pcol`/`.pbar`).
 class PodiumColumn {
@@ -76,6 +78,11 @@ class _PodiumWidgetState extends State<PodiumWidget> with TickerProviderStateMix
     final p = c.row.player;
     final reveal = _revealFor(c.place);
     final crownPop = c.place == 1 ? _crownPop() : kAlwaysCompleteAnimation;
+    final size = _avatarSize[c.place]!;
+    final framed = p.shown.avatarFrame != null;
+    // Room for the decoration round the avatar, which takes none itself.
+    final reach = framed ? size * (kFrameReach - 1) / 2 : 0.0;
+    final metric = '${c.metric.metric} ${c.metric.unit}';
     return Pressable(
       onTap: c.onTap,
       pressedScale: 0.95,
@@ -92,27 +99,55 @@ class _PodiumWidgetState extends State<PodiumWidget> with TickerProviderStateMix
           children: [
             if (c.place == 1)
               Padding(
-                padding: const EdgeInsets.only(bottom: 2),
+                padding: EdgeInsets.only(bottom: 2 + reach),
                 child: AnimatedBuilder(
                   animation: crownPop,
                   builder: (context, child) => Transform.scale(scale: crownPop.value, child: child),
                   child: Icon(Icons.emoji_events, color: AppColors.gold, size: 22),
                 ),
               ),
-            Container(
-              margin: const EdgeInsets.only(bottom: 9),
-              decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: AppColors.bg, width: 3), boxShadow: [
-                BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 12, offset: const Offset(0, 4)),
-              ]),
-              child: Avatar(initial: p.initial, color: Color(p.color), size: _avatarSize[c.place]!, fontSize: c.place == 1 ? 23 : 20),
-            ),
-            Text(p.displayName, style: bodyFont(size: 13, weight: FontWeight.w800, color: AppColors.ink)),
-            const SizedBox(height: 2),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text('${c.metric.metric} ${c.metric.unit}',
-                  style: bodyFont(size: 12, weight: FontWeight.w700, color: AppColors.mut), maxLines: 1, softWrap: false, overflow: TextOverflow.visible),
-            ),
+            // The podium is a spotlight: decorations and name effects play.
+            if (framed)
+              Padding(padding: EdgeInsets.only(bottom: 9 + reach), child: PlayerAvatar(p, size: size, fontSize: c.place == 1 ? 23 : 20, live: true))
+            else
+              Container(
+                margin: const EdgeInsets.only(bottom: 9),
+                decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: AppColors.bg, width: 3), boxShadow: [
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 12, offset: const Offset(0, 4)),
+                ]),
+                child: PlayerAvatar(p, size: size, fontSize: c.place == 1 ? 23 : 20),
+              ),
+            // A player who dressed up their card stands on a little copy of
+            // it: their banner (still — too small for its scene to tell),
+            // their name as they styled it.
+            if (p.dressedUp)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: SizedBox(
+                  width: 96,
+                  child: Nameplate(
+                    user: p,
+                    borderRadius: BorderRadius.circular(AppRadius.scaled(12)),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+                      child: Column(
+                        children: [
+                          CardName(p, size: 13.5, live: true),
+                          Text(metric, style: onBanner(bodyFont(size: 11.5, weight: FontWeight.w700, color: Colors.white.withValues(alpha: 0.8))), maxLines: 1, softWrap: false, overflow: TextOverflow.fade),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            else ...[
+              PlayerName(p, style: bodyFont(size: 13, weight: FontWeight.w800, color: AppColors.ink)),
+              const SizedBox(height: 2),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(metric, style: bodyFont(size: 12, weight: FontWeight.w700, color: AppColors.mut), maxLines: 1, softWrap: false, overflow: TextOverflow.visible),
+              ),
+            ],
             AnimatedBuilder(
               animation: reveal,
               builder: (context, _) => Container(

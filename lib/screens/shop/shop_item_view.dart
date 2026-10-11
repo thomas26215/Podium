@@ -115,13 +115,13 @@ class ShopItemThumb extends StatelessWidget {
         ));
     }
     return switch (item.kind) {
-      ShopKind.banner => ProfileBannerBackground(themeId: item.id, phase: 0.35),
+      ShopKind.banner => ProfileBannerBackground(themeId: item.id, phase: kStillBannerPhase),
       ShopKind.frame => onNight(LayoutBuilder(builder: (context, box) {
           final s = (box.biggest.shortestSide * 0.56).clamp(24.0, 72.0);
-          return FramedAvatar(frameId: item.id, size: s, phase: 0.3, child: Avatar(initial: user.initial, color: accent, size: s, fontSize: s * 0.42));
+          return FramedAvatar(frameId: item.id, size: s, phase: kStillFramePhase, child: Avatar(initial: user.initial, color: accent, size: s, fontSize: s * 0.42));
         })),
       ShopKind.nameFont => onNight(Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: StyledName(text: user.displayName, fontId: item.id, size: 22, accent: accent))),
-      ShopKind.nameEffect => onNight(Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: StyledName(text: user.displayName, effectId: item.id, size: 22, accent: accent, phase: 0.3))),
+      ShopKind.nameEffect => onNight(Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: StyledName(text: user.displayName, effectId: item.id, size: 22, accent: accent, phase: kStillNamePhase))),
       ShopKind.profileEffect => DecoratedBox(
           decoration: _night,
           child: Stack(

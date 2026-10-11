@@ -6,10 +6,10 @@ import '../../logic/time_format.dart';
 import '../../models/game.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/avatar.dart';
 import '../../widgets/common.dart';
 import '../../widgets/duration_wheel_picker.dart';
 import '../../widgets/match_card.dart';
+import '../../widgets/player_card.dart';
 import '../../widgets/score_evolution_chart.dart';
 import '../../widgets/segmented_control.dart';
 import 'step2_players.dart' show PlayedAtPicker;
@@ -52,13 +52,13 @@ class _RanksScoreList extends StatelessWidget {
                     child: Text('${i + 1}', style: bodyFont(size: 13, weight: FontWeight.w800, color: AppColors.onInk)),
                   ),
                   const SizedBox(width: 12),
-                  Avatar(initial: p.initial, color: Color(p.color), size: 38, fontSize: 15),
+                  PlayerAvatar(p, size: 38, fontSize: 15),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(p.displayName, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
+                        PlayerName(p, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
                         if (role != null) Text(role, style: bodyFont(size: 12, weight: FontWeight.w700, color: AppColors.accent)),
                       ],
                     ),
@@ -130,13 +130,13 @@ class _RanksRoundsInput extends StatelessWidget {
                     child: Text('${i + 1}', style: bodyFont(size: 13, weight: FontWeight.w800, color: AppColors.onInk)),
                   ),
                   const SizedBox(width: 12),
-                  Avatar(initial: p.initial, color: Color(p.color), size: 38, fontSize: 15),
+                  PlayerAvatar(p, size: 38, fontSize: 15),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(p.displayName, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
+                        PlayerName(p, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
                         if (role != null) Text(role, style: bodyFont(size: 12, weight: FontWeight.w700, color: AppColors.accent)),
                       ],
                     ),
@@ -269,7 +269,7 @@ class _WinLossScoreList extends StatelessWidget {
             ),
             child: Row(
               children: [
-                AvatarCluster(avatars: [for (final p in members.take(4)) (initial: p.initial, color: Color(p.color))]),
+                AvatarCluster(players: members.take(4).toList()),
                 const SizedBox(width: 12),
                 Expanded(child: Text('Le groupe', style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink))),
                 _WinLossToggle(isWin: isWin, onChanged: (win) => app.setCoopWin(win)),
@@ -301,9 +301,9 @@ class _WinLossScoreList extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Avatar(initial: p.initial, color: Color(p.color), size: 38, fontSize: 15),
+                  PlayerAvatar(p, size: 38, fontSize: 15),
                   const SizedBox(width: 12),
-                  Expanded(child: Text(p.displayName, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink))),
+                  Expanded(child: PlayerName(p, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink))),
                   _WinLossToggle(isWin: isWin, onChanged: (win) => app.setPoints(uid, win ? 1 : 0)),
                 ],
               ),
@@ -353,13 +353,13 @@ class _TimeScoreList extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Avatar(initial: p.initial, color: Color(p.color), size: 40, fontSize: 15),
+                  PlayerAvatar(p, size: 40, fontSize: 15),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(p.displayName, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
+                        PlayerName(p, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
                         if (isRecord && best != null)
                           Text('🏆 Nouveau record (avant : ${formatDuration(best)})', style: bodyFont(size: 11.5, weight: FontWeight.w800, color: AppColors.green))
                         else if (isRecord)
@@ -468,7 +468,7 @@ class _WinLossRoundsInputState extends State<_WinLossRoundsInput> {
               padding: const EdgeInsets.only(bottom: 8),
               child: Row(
                 children: [
-                  AvatarCluster(avatars: [for (final p in members.take(4)) (initial: p.initial, color: Color(p.color))]),
+                  AvatarCluster(players: members.take(4).toList()),
                   const SizedBox(width: 10),
                   Expanded(child: Text('Le groupe', style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink))),
                   _WinLossToggle(isWin: isWin, onChanged: (win) => setState(() => _roundWinners[_coopKey] = win)),
@@ -487,7 +487,7 @@ class _WinLossRoundsInputState extends State<_WinLossRoundsInput> {
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Row(
                   children: [
-                    AvatarCluster(avatars: [for (final p in members.take(4)) (initial: p.initial, color: Color(p.color))]),
+                    AvatarCluster(players: members.take(4).toList()),
                     const SizedBox(width: 10),
                     Expanded(child: Text('Équipe $teamId', style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink))),
                     _WinLossToggle(isWin: isWin, onChanged: (win) => setState(() => _roundWinners[teamId] = win)),
@@ -505,9 +505,9 @@ class _WinLossRoundsInputState extends State<_WinLossRoundsInput> {
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Row(
                   children: [
-                    Avatar(initial: p.initial, color: Color(p.color), size: 34, fontSize: 13),
+                    PlayerAvatar(p, size: 34, fontSize: 13),
                     const SizedBox(width: 10),
-                    Expanded(child: Text(p.displayName, style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink))),
+                    Expanded(child: PlayerName(p, style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink))),
                     _WinLossToggle(isWin: isWin, onChanged: (win) => setState(() => _roundWinners[uid] = win)),
                   ],
                 ),
@@ -649,13 +649,13 @@ class _DetailedScoreInputState extends State<_DetailedScoreInput> {
                 children: [
                   Row(
                     children: [
-                      Avatar(initial: p.initial, color: Color(p.color), size: 40, fontSize: 15),
+                      PlayerAvatar(p, size: 40, fontSize: 15),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(p.displayName, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
+                            PlayerName(p, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
                             if (isLead) Text('▲ EN TÊTE', style: bodyFont(size: 11, weight: FontWeight.w800, color: AppColors.green, letterSpacing: 0.3)),
                           ],
                         ),
@@ -799,7 +799,7 @@ class _RoundsScoreInputState extends State<_RoundsScoreInput> {
               padding: const EdgeInsets.only(bottom: 8),
               child: Row(
                 children: [
-                  AvatarCluster(avatars: [for (final p in members.take(4)) (initial: p.initial, color: Color(p.color))]),
+                  AvatarCluster(players: members.take(4).toList()),
                   const SizedBox(width: 10),
                   Expanded(child: Text('Le groupe', style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink))),
                   SizedBox(
@@ -825,9 +825,9 @@ class _RoundsScoreInputState extends State<_RoundsScoreInput> {
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Row(
                   children: [
-                    Avatar(initial: p.initial, color: Color(p.color), size: 34, fontSize: 13),
+                    PlayerAvatar(p, size: 34, fontSize: 13),
                     const SizedBox(width: 10),
-                    Expanded(child: Text(p.displayName, style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink))),
+                    Expanded(child: PlayerName(p, style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink))),
                     SizedBox(
                       width: 90,
                       child: TextField(
@@ -1115,13 +1115,13 @@ class Step3Scores extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      Avatar(initial: p.initial, color: Color(p.color), size: 40, fontSize: 15),
+                      PlayerAvatar(p, size: 40, fontSize: 15),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(p.displayName, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
+                            PlayerName(p, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
                             if (label.isNotEmpty) Text(label, style: bodyFont(size: 11, weight: FontWeight.w800, color: AppColors.green, letterSpacing: 0.3)),
                           ],
                         ),
@@ -1154,13 +1154,13 @@ class Step3Scores extends StatelessWidget {
                   decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
                   child: Row(
                     children: [
-                      Avatar(initial: p.initial, color: Color(p.color), size: 42, fontSize: 16),
+                      PlayerAvatar(p, size: 42, fontSize: 16),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(p.displayName, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
+                            PlayerName(p, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
                             Pressable(
                               onTap: () => _showEditScoreDialog(
                                 context,
@@ -1220,9 +1220,19 @@ class Step3Scores extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
                             child: Row(
                               children: [
-                                Avatar(initial: p?.initial ?? '?', color: p != null ? Color(p.color) : AppColors.mut, size: 28, fontSize: 11),
+                                PlayerAvatar(p, size: 28, fontSize: 11),
                                 const SizedBox(width: 10),
-                                Expanded(child: Text('${p?.displayName ?? '?'} ${t.delta >= 0 ? '+' : ''}${t.delta}', style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.ink))),
+                                Expanded(
+                                  child: Text.rich(
+                                    TextSpan(children: [
+                                      TextSpan(text: p?.displayName ?? '?', style: playerNameStyle(p, bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.ink))),
+                                      TextSpan(text: ' ${t.delta >= 0 ? '+' : ''}${t.delta}'),
+                                    ]),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.ink),
+                                  ),
+                                ),
                                 Text(hhmm(t.time), style: bodyFont(size: 11.5, weight: FontWeight.w600, color: AppColors.mut)),
                               ],
                             ),
@@ -1286,7 +1296,7 @@ class Step3Scores extends StatelessWidget {
             ),
             child: Row(
               children: [
-                AvatarCluster(avatars: [for (final p in members.take(4)) (initial: p.initial, color: Color(p.color))]),
+                AvatarCluster(players: members.take(4).toList()),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -1332,7 +1342,7 @@ class Step3Scores extends StatelessWidget {
       decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
       child: Row(
         children: [
-          AvatarCluster(avatars: [for (final p in members.take(4)) (initial: p.initial, color: Color(p.color))]),
+          AvatarCluster(players: members.take(4).toList()),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

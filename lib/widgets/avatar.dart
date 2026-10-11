@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../logic/plus.dart';
+import '../models/app_user.dart';
 import '../theme/app_theme.dart';
 import 'avatar_art.dart';
+import 'avatar_frames.dart';
 
 /// Colored circle with a player's avatar (see AppUser.initial): the one
 /// they picked, else their initial — used everywhere from the 30px header
@@ -48,10 +51,48 @@ class Avatar extends StatelessWidget {
   }
 }
 
-/// The overlapping avatar cluster in the home header.
+/// [user]'s [Avatar] in the decoration they picked for their card (see
+/// AppUser.avatarFrame, as everyone sees it — PlusProfile.shown): how a
+/// player shows up everywhere, not just on their profile. A null [user]
+/// (not loaded yet, or gone) is a grey "?".
+///
+/// The decoration holds still unless [live]: a list of framed players
+/// costs a paint each, and only spotlights (the leader, the podium) play
+/// it. It reaches past [size] without taking room, so it drops into a row
+/// laid out for the bare avatar.
+class PlayerAvatar extends StatelessWidget {
+  final AppUser? user;
+  final double size;
+  final double? fontSize;
+  final bool live;
+  final Color? borderColor;
+  final double borderWidth;
+  const PlayerAvatar(this.user, {super.key, this.size = 38, this.fontSize, this.live = false, this.borderColor, this.borderWidth = 0});
+
+  @override
+  Widget build(BuildContext context) {
+    final u = user;
+    final avatar = Avatar(initial: u?.initial ?? '?', color: u == null ? AppColors.mut : Color(u.color), size: size, fontSize: fontSize, borderColor: borderColor, borderWidth: borderWidth);
+    final frame = u?.shown.avatarFrame;
+    if (frame == null) return avatar;
+    final reach = size * kFrameReach;
+    return SizedBox.square(
+      dimension: size,
+      child: OverflowBox(
+        minWidth: reach,
+        maxWidth: reach,
+        minHeight: reach,
+        maxHeight: reach,
+        child: FramedAvatar(frameId: frame, size: size, phase: live ? null : kStillFramePhase, child: avatar),
+      ),
+    );
+  }
+}
+
+/// The overlapping avatars of a few players — the home header, a match.
 class AvatarCluster extends StatelessWidget {
-  final List<({String initial, Color color})> avatars;
-  const AvatarCluster({super.key, required this.avatars});
+  final List<AppUser> players;
+  const AvatarCluster({super.key, required this.players});
 
   @override
   Widget build(BuildContext context) {
@@ -59,20 +100,15 @@ class AvatarCluster extends StatelessWidget {
     const overlap = 9.0;
     return SizedBox(
       height: size,
-      width: avatars.isEmpty ? 0 : size + (avatars.length - 1) * (size - overlap),
+      width: players.isEmpty ? 0 : size + (players.length - 1) * (size - overlap),
       child: Stack(
+        // Decorations reach past their avatars.
+        clipBehavior: Clip.none,
         children: [
-          for (var i = 0; i < avatars.length; i++)
+          for (var i = 0; i < players.length; i++)
             Positioned(
               left: i * (size - overlap),
-              child: Avatar(
-                initial: avatars[i].initial,
-                color: avatars[i].color,
-                size: size,
-                fontSize: 12,
-                borderColor: AppColors.bg,
-                borderWidth: 2.5,
-              ),
+              child: PlayerAvatar(players[i], size: size, fontSize: 12, borderColor: AppColors.bg, borderWidth: 2.5),
             ),
         ],
       ),

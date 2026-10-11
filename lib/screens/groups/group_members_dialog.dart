@@ -5,8 +5,8 @@ import '../../models/group.dart';
 import '../../repositories/guests_repository.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/avatar.dart';
 import '../../widgets/common.dart';
+import '../../widgets/player_card.dart';
 
 /// A group's roster: who's in it and who owns it. The owner can remove a
 /// member or hand ownership over (see [AppState.removeGroupMember] and
@@ -96,39 +96,50 @@ class _MemberTile extends StatelessWidget {
     final name = p?.displayName ?? 'Joueur';
     final guest = isGuestId(uid);
     final badge = uid == group.ownerId ? 'PROPRIÉTAIRE' : (guest ? 'INVITÉ' : null);
+    // A member who dressed up their card is listed on their nameplate.
+    final dressed = p != null && p.dressedUp ? p : null;
+    final mut = dressed != null ? Colors.white.withValues(alpha: 0.75) : AppColors.mut;
+    TextStyle lift(TextStyle style) => dressed != null ? onBanner(style) : style;
 
+    final row = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        children: [
+          PlayerAvatar(p, size: 32, fontSize: 13),
+          const SizedBox(width: 10),
+          Expanded(
+            child: dressed != null
+                ? Row(children: [
+                    Flexible(child: CardName(dressed, size: 14)),
+                    if (isMe) Text(' (vous)', style: onBanner(bodyFont(size: 14, weight: FontWeight.w700, color: Colors.white))),
+                  ])
+                : PlayerName(p, text: isMe ? '$name (vous)' : name, style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink)),
+          ),
+          if (badge != null)
+            Text(badge, style: lift(bodyFont(size: 10, weight: FontWeight.w800, color: mut, letterSpacing: 0.4))),
+          if (canManage)
+            PopupMenuButton<String>(
+              tooltip: 'Gérer $name',
+              icon: Icon(Icons.more_vert_rounded, size: 20, color: mut),
+              onSelected: (v) {
+                if (v == 'owner') _confirmTransfer(context, app, name);
+                if (v == 'remove') _confirmRemove(context, app, name);
+              },
+              itemBuilder: (_) => [
+                if (!guest) const PopupMenuItem(value: 'owner', child: Text('Rendre propriétaire')),
+                const PopupMenuItem(value: 'remove', child: Text('Retirer du groupe', style: TextStyle(color: Colors.red))),
+              ],
+            )
+          else
+            const SizedBox(height: 40),
+        ],
+      ),
+    );
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
-        child: Row(
-          children: [
-            Avatar(initial: p?.initial ?? '?', color: p != null ? Color(p.color) : AppColors.mut, size: 32, fontSize: 13),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(isMe ? '$name (vous)' : name, overflow: TextOverflow.ellipsis, style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink)),
-            ),
-            if (badge != null)
-              Text(badge, style: bodyFont(size: 10, weight: FontWeight.w800, color: AppColors.mut, letterSpacing: 0.4)),
-            if (canManage)
-              PopupMenuButton<String>(
-                tooltip: 'Gérer $name',
-                icon: Icon(Icons.more_vert_rounded, size: 20, color: AppColors.mut),
-                onSelected: (v) {
-                  if (v == 'owner') _confirmTransfer(context, app, name);
-                  if (v == 'remove') _confirmRemove(context, app, name);
-                },
-                itemBuilder: (_) => [
-                  if (!guest) const PopupMenuItem(value: 'owner', child: Text('Rendre propriétaire')),
-                  const PopupMenuItem(value: 'remove', child: Text('Retirer du groupe', style: TextStyle(color: Colors.red))),
-                ],
-              )
-            else
-              const SizedBox(height: 40),
-          ],
-        ),
-      ),
+      child: dressed != null
+          ? Nameplate(user: dressed, borderRadius: BorderRadius.circular(AppRadius.lg), child: row)
+          : Container(decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5), child: row),
     );
   }
 

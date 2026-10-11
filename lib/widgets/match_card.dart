@@ -6,9 +6,9 @@ import '../logic/time_format.dart';
 import '../models/match.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
-import 'avatar.dart';
 import 'common.dart';
 import 'elo_widgets.dart';
+import 'player_card.dart';
 
 const frMonths = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 
@@ -149,7 +149,7 @@ class _SeriesMatchCardState extends State<SeriesMatchCard> {
             children: [
               Expanded(child: Text(resultLine, style: bodyFont(size: 13.5, weight: FontWeight.w700, color: AppColors.ink2))),
               if (widget.appState.myEloDelta(widget.legs) case final d?) Padding(padding: const EdgeInsets.only(right: 8), child: EloDeltaChip(delta: d)),
-              AvatarCluster(avatars: [for (final p in players.take(4)) (initial: p.initial, color: Color(p.color))]),
+              AvatarCluster(players: players.take(4).toList()),
               const SizedBox(width: 4),
               AnimatedRotation(
                 turns: _expanded ? 0.5 : 0,
@@ -212,7 +212,9 @@ class _CardShell extends StatelessWidget {
   }
 }
 
-Widget matchHeader(Game game, String subtitle, DateTime createdAt) {
+/// A match's game, [subtitle] and date — [named]'s name in [subtitle] in
+/// their font.
+Widget matchHeader(Game game, String subtitle, DateTime createdAt, {AppUser? named}) {
   return Row(
     children: [
       Container(
@@ -228,7 +230,7 @@ Widget matchHeader(Game game, String subtitle, DateTime createdAt) {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(game.name, style: bodyFont(size: 16, weight: FontWeight.w800, color: AppColors.ink, letterSpacing: -0.1)),
-            Text(subtitle, style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
+            Text.rich(nameInText(subtitle, named, bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut))),
           ],
         ),
       ),
@@ -255,7 +257,7 @@ class HomeMatchTile extends StatelessWidget {
     }
 
     final line = match.isCoop ? coopLine() : (match.isTeam ? 'Victoire en équipe' : (winner != null ? 'Gagné par ${winner!.displayName}' : ''));
-    return _CardShell(child: matchHeader(game, line, match.createdAt));
+    return _CardShell(child: matchHeader(game, line, match.createdAt, named: winner));
   }
 }
 
@@ -275,6 +277,8 @@ class MatchCard extends StatelessWidget {
     final modeLabel = match.isCoop ? ' · Coopératif$unitLabel' : (match.isTeam ? ' · Équipes$unitLabel' : unitLabel);
     final resultLine = matchResultLine(game, match, appState);
     final players = match.entries.map((e) => appState.playerById(e.playerId)).whereType<AppUser>().toList();
+    final winners = match.winnerIds();
+    final soleWinner = winners.length == 1 ? appState.playerById(winners.first) : null;
 
     return _CardShell(
       onTap: onTap,
@@ -286,10 +290,10 @@ class MatchCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(resultLine, style: bodyFont(size: 13.5, weight: FontWeight.w700, color: AppColors.ink2)),
+                child: Text.rich(nameInText(resultLine, soleWinner, bodyFont(size: 13.5, weight: FontWeight.w700, color: AppColors.ink2))),
               ),
               if (appState.myEloDelta([match]) case final d?) Padding(padding: const EdgeInsets.only(right: 8), child: EloDeltaChip(delta: d)),
-              AvatarCluster(avatars: [for (final p in players.take(4)) (initial: p.initial, color: Color(p.color))]),
+              AvatarCluster(players: players.take(4).toList()),
               const SizedBox(width: 4),
               Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.mut),
             ],

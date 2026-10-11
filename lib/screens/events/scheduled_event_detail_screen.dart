@@ -3,9 +3,9 @@ import 'package:provider/provider.dart';
 
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/avatar.dart';
 import '../../widgets/common.dart';
 import '../../widgets/match_card.dart' show frenchDayMonth, hhmm;
+import '../../widgets/player_card.dart';
 import '../new_game/new_game_sheet.dart';
 
 /// Full view of one scheduled event: date/time, sign-up list (with a
@@ -164,9 +164,9 @@ class ScheduledEventDetailScreen extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Row(
                     children: [
-                      Avatar(initial: p?.initial ?? '?', color: p != null ? Color(p.color) : AppColors.mut, size: 36, fontSize: 14),
+                      PlayerAvatar(p, size: 36, fontSize: 14),
                       const SizedBox(width: 10),
-                      Expanded(child: Text(p?.displayName ?? 'Joueur', style: bodyFont(size: 14.5, weight: FontWeight.w700, color: AppColors.ink))),
+                      Expanded(child: PlayerName(p, fallback: 'Joueur', style: bodyFont(size: 14.5, weight: FontWeight.w700, color: AppColors.ink))),
                       if (id == uid) Text('Toi', style: bodyFont(size: 12, weight: FontWeight.w700, color: AppColors.green)),
                     ],
                   ),
@@ -190,9 +190,9 @@ class ScheduledEventDetailScreen extends StatelessWidget {
                         child: Text('${i + 1}', style: bodyFont(size: 11, weight: FontWeight.w800, color: AppColors.mut)),
                       ),
                       const SizedBox(width: 10),
-                      Avatar(initial: p?.initial ?? '?', color: p != null ? Color(p.color) : AppColors.mut, size: 32, fontSize: 13),
+                      PlayerAvatar(p, size: 32, fontSize: 13),
                       const SizedBox(width: 10),
-                      Expanded(child: Text(p?.displayName ?? 'Joueur', style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink))),
+                      Expanded(child: PlayerName(p, fallback: 'Joueur', style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink))),
                       if (id == uid) Text('Toi', style: bodyFont(size: 12, weight: FontWeight.w700, color: AppColors.mut)),
                     ],
                   ),

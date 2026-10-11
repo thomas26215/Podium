@@ -28,11 +28,14 @@ const _introSeconds = 3.4;
 
 /// Plays [effectId] over its parent (wrap in Positioned.fill): the intro
 /// burst — again whenever [effectId] or [replayToken] changes — then the
-/// ambient loop. Ignores touches.
+/// ambient loop, unless [ambient] is false: the burst alone, to celebrate
+/// a player outside their profile without keeping a screen busy. Skips the
+/// burst when the device asks for reduced motion. Ignores touches.
 class ProfileEffectOverlay extends StatefulWidget {
   final String? effectId;
   final Object? replayToken;
-  const ProfileEffectOverlay({super.key, required this.effectId, this.replayToken});
+  final bool ambient;
+  const ProfileEffectOverlay({super.key, required this.effectId, this.replayToken, this.ambient = true});
 
   @override
   State<ProfileEffectOverlay> createState() => _ProfileEffectOverlayState();
@@ -49,10 +52,16 @@ class _ProfileEffectOverlayState extends State<ProfileEffectOverlay> with Single
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) _intro.value = 1;
+  }
+
+  @override
   void didUpdateWidget(ProfileEffectOverlay old) {
     super.didUpdateWidget(old);
     if (widget.effectId != old.effectId || widget.replayToken != old.replayToken) {
-      if (widget.effectId == null) {
+      if (widget.effectId == null || (MediaQuery.maybeDisableAnimationsOf(context) ?? false)) {
         _intro.value = 1;
       } else {
         _intro.forward(from: 0);
@@ -70,6 +79,16 @@ class _ProfileEffectOverlayState extends State<ProfileEffectOverlay> with Single
   Widget build(BuildContext context) {
     final id = widget.effectId;
     if (id == null) return const SizedBox.shrink();
+    if (!widget.ambient) {
+      return IgnorePointer(
+        child: RepaintBoundary(
+          child: AnimatedBuilder(
+            animation: _intro,
+            builder: (context, _) => _intro.isCompleted ? const SizedBox.shrink() : CustomPaint(painter: ProfileEffectPainter(id, intro: _intro.value, ph: 0, ambient: 0), size: Size.infinite),
+          ),
+        ),
+      );
+    }
     return IgnorePointer(
       child: RepaintBoundary(
         child: AmbientLoop(

@@ -4,8 +4,9 @@ import 'package:provider/provider.dart';
 import '../../models/app_user.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/avatar.dart';
 import '../../widgets/common.dart';
+import '../../widgets/player_card.dart';
+import 'profile_screen.dart';
 
 /// Personal address book (see [AppUser.friendIds]): people you play with
 /// often, added once by e-mail here so the group-invite picker can suggest
@@ -63,6 +64,8 @@ class FriendsScreen extends StatelessWidget {
   }
 }
 
+/// A friend, on their nameplate if they dressed up their card — tap for
+/// their profile.
 class _FriendRow extends StatelessWidget {
   final AppUser friend;
   const _FriendRow({required this.friend});
@@ -70,28 +73,42 @@ class _FriendRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = context.read<AppState>();
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+    final plate = friend.dressedUp;
+    final mut = plate ? Colors.white.withValues(alpha: 0.75) : AppColors.mut;
+    TextStyle lift(TextStyle style) => plate ? onBanner(style) : style;
+    final row = Padding(
       padding: const EdgeInsets.all(12),
-      decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
       child: Row(
         children: [
-          Avatar(initial: friend.initial, color: Color(friend.color), size: 42, fontSize: 16),
+          PlayerAvatar(friend, size: 42, fontSize: 16),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(friend.displayName, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
-                if (friend.email.isNotEmpty) Text(friend.email, style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
+                if (plate) CardName(friend, size: 15) else PlayerName(friend, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
+                if (friend.email.isNotEmpty) Text(friend.email, style: lift(bodyFont(size: 12, weight: FontWeight.w600, color: mut))),
               ],
             ),
           ),
           IconButton(
             onPressed: () => _confirmRemove(context, app, friend),
-            icon: Icon(Icons.close_rounded, size: 20, color: AppColors.mut),
+            icon: Icon(Icons.close_rounded, size: 20, color: mut),
           ),
         ],
+      ),
+    );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Pressable(
+        pressedScale: 0.98,
+        onTap: () {
+          app.openProfile(friend.uid);
+          Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileScreen()));
+        },
+        child: plate
+            ? Nameplate(user: friend, borderRadius: BorderRadius.circular(AppRadius.lg), child: row)
+            : Container(decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5), child: row),
       ),
     );
   }

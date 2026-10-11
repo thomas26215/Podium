@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../logic/plus.dart';
 import '../../logic/tournament_bracket.dart';
+import '../../models/app_user.dart';
 import '../../models/match.dart';
 import '../../models/tournament.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/player_card.dart';
+import '../../widgets/profile_banners.dart';
 import '../history/result_share_dialog.dart';
 import '../new_game/new_game_sheet.dart';
 import 'tournament_seeding_editor.dart';
@@ -145,7 +149,11 @@ class TournamentDetailScreen extends StatelessWidget {
           ),
           if (tournament.isCompleted) ...[
             const SizedBox(height: 16),
-            _ChampionBanner(label: _entrantLabel(app, tournament.entrantById(tournament.winnerEntrantId))),
+            Builder(builder: (_) {
+              final winner = tournament.entrantById(tournament.winnerEntrantId);
+              final solo = winner != null && winner.label == null && winner.playerIds.length == 1 ? app.playerById(winner.playerIds.single) : null;
+              return _ChampionBanner(label: _entrantLabel(app, winner), champion: solo);
+            }),
           ],
           if (tournament.isPending) ...[
             const SizedBox(height: 22),
@@ -252,29 +260,64 @@ class _StatusBadge extends StatelessWidget {
   }
 }
 
+/// Who won the tournament. A champion who played alone shows their avatar,
+/// the trophy on top — and their own card if they dressed it up.
 class _ChampionBanner extends StatelessWidget {
   final String label;
-  const _ChampionBanner({required this.label});
+  final AppUser? champion;
+  const _ChampionBanner({required this.label, this.champion});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: heroDecoration(radius: AppRadius.xl),
-      child: Row(
-        children: [
-          Icon(Icons.emoji_events, color: AppColors.gold, size: 30),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    final player = champion;
+    final dressed = player != null && player.dressedUp ? player : null;
+    final framed = player?.shown.avatarFrame != null;
+    final row = Row(
+      children: [
+        if (player == null)
+          Icon(Icons.emoji_events, color: AppColors.gold, size: 30)
+        else
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Stack(
+              clipBehavior: Clip.none,
               children: [
-                Text('CHAMPION', style: bodyFont(size: 11, weight: FontWeight.w700, color: Colors.white.withValues(alpha: 0.55), letterSpacing: 1.2)),
-                Text(label, style: dispFont(size: 19, weight: FontWeight.w700, color: Colors.white)),
+                PlayerAvatar(player, size: 46, fontSize: 19, live: dressed != null),
+                if (!frameCrowns(player.shown.avatarFrame)) Positioned(top: framed ? -20 : -14, left: 0, right: 0, child: Icon(Icons.emoji_events, color: AppColors.gold, size: 22)),
               ],
             ),
           ),
+        SizedBox(width: framed ? 18 : 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('CHAMPION', style: bodyFont(size: 11, weight: FontWeight.w700, color: Colors.white.withValues(alpha: dressed != null ? 0.75 : 0.55), letterSpacing: 1.2)),
+              if (dressed != null)
+                CardName(dressed, size: 19, live: true)
+              else if (player != null)
+                PlayerName(player, style: dispFont(size: 19, weight: FontWeight.w700, color: Colors.white))
+              else
+                Text(label, style: dispFont(size: 19, weight: FontWeight.w700, color: Colors.white)),
+            ],
+          ),
+        ),
+      ],
+    );
+    if (dressed == null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: heroDecoration(radius: AppRadius.xl),
+        child: row,
+      );
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppRadius.xl),
+      child: Stack(
+        children: [
+          Positioned.fill(child: ProfileBannerBackground(themeId: dressed.shown.banner)),
+          Padding(padding: const EdgeInsets.all(18), child: row),
         ],
       ),
     );

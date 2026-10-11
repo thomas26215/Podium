@@ -78,6 +78,10 @@ const List<BannerTheme> kBannerThemes = [
 
 BannerTheme bannerThemeById(String id) => kBannerThemes.firstWhere((b) => b.id == id, orElse: () => kBannerThemes.firstWhere((b) => b.id == 'nuit'));
 
+/// Where on its loop a banner's scene is held when it doesn't play — a
+/// thumbnail, a nameplate in a list.
+const kStillBannerPhase = 0.35;
+
 /// A banner's gradient and scene, filling its parent.
 ///
 ///  * By default, the scene plays its entrance whenever the theme changes,

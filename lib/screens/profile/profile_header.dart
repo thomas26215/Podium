@@ -8,6 +8,7 @@ import '../../widgets/ambient_loop.dart';
 import '../../widgets/avatar.dart';
 import '../../widgets/badge_widgets.dart';
 import '../../widgets/fx_kit.dart';
+import '../../widgets/player_card.dart';
 import '../../widgets/plus_mark.dart';
 import '../../widgets/profile_banners.dart';
 import '../../widgets/profile_style.dart';
@@ -34,8 +35,7 @@ class ProfileHeaderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = bannerThemeById(user.banner);
     final showcased = user.showcasedBadges.map(badgeById).whereType<BadgeDef>().toList();
-    final title = titleById(user.titleId);
-    final titleBadge = title?.badgeId == null ? null : badgeById(title!.badgeId!);
+    final title = CardTitle.of(user);
     final meta = [if (user.pronouns.isNotEmpty) user.pronouns, ?subtitle].join(' · ');
     return AnimatedContainer(
       duration: const Duration(milliseconds: 450),
@@ -95,16 +95,7 @@ class ProfileHeaderCard extends StatelessWidget {
                                 ],
                               ],
                             ),
-                            if (title != null) ...[
-                              const SizedBox(height: 2),
-                              Text(
-                                '✦ ${title.label}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: bodyFont(size: 12.5, weight: FontWeight.w800, color: titleBadge == null ? Colors.white.withValues(alpha: 0.9) : badgeTierColors(titleBadge.tier).to, letterSpacing: 0.3)
-                                    .copyWith(shadows: const [Shadow(color: Color(0x80000000), blurRadius: 6)]),
-                              ),
-                            ],
+                            if (title != null) ...[const SizedBox(height: 2), title],
                             if (meta.isNotEmpty) ...[
                               const SizedBox(height: 2),
                               Text(meta, maxLines: 2, style: bodyFont(size: 12.5, weight: FontWeight.w700, color: Colors.white.withValues(alpha: 0.72))),

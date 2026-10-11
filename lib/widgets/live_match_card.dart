@@ -5,8 +5,8 @@ import '../models/game.dart';
 import '../models/match.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
-import 'avatar.dart';
 import 'common.dart';
+import 'player_card.dart';
 
 /// Small pulsing red dot used to mark a match as currently live.
 class LiveDot extends StatefulWidget {
@@ -111,21 +111,14 @@ class LiveMatchCard extends StatelessWidget {
             if (leaderPlayer != null)
               Row(
                 children: [
-                  Avatar(initial: leaderPlayer.initial, color: Color(leaderPlayer.color), size: 26, fontSize: 11),
+                  PlayerAvatar(leaderPlayer, size: 26, fontSize: 11),
                   const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      leaderPlayer.displayName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: bodyFont(size: 12.5, weight: FontWeight.w700, color: AppColors.ink),
-                    ),
-                  ),
+                  Expanded(child: PlayerName(leaderPlayer, style: bodyFont(size: 12.5, weight: FontWeight.w700, color: AppColors.ink))),
                   AnimatedCounter(value: leader!.points, style: bodyFont(size: 13, weight: FontWeight.w800, color: AppColors.accent)),
                 ],
               )
             else
-              AvatarCluster(avatars: [for (final p in players.take(3)) (initial: p.initial, color: Color(p.color))]),
+              AvatarCluster(players: players.take(3).toList()),
           ],
         ),
       ),

@@ -10,10 +10,10 @@ import '../../models/plus_membership.dart';
 import '../../state/app_state.dart';
 import '../../state/session_manager.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/avatar.dart';
 import '../../widgets/badge_widgets.dart';
 import '../../widgets/coins.dart';
 import '../../widgets/common.dart';
+import '../../widgets/player_card.dart';
 import '../../widgets/plus_mark.dart';
 import '../../widgets/profile_banners.dart';
 import '../../widgets/profile_style.dart';
@@ -125,9 +125,9 @@ class ProfileScreen extends StatelessWidget {
                                     selected: p.uid == profileId,
                                   ),
                                   child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                    Avatar(initial: p.initial, color: Color(p.color), size: 26, fontSize: 11),
+                                    PlayerAvatar(p, size: 26, fontSize: 11),
                                     const SizedBox(width: 7),
-                                    Text(p.displayName, style: bodyFont(size: 13, weight: FontWeight.w700, color: p.uid == profileId ? AppColors.onInk : AppColors.ink2)),
+                                    PlayerName(p, style: bodyFont(size: 13, weight: FontWeight.w700, color: p.uid == profileId ? AppColors.onInk : AppColors.ink2)),
                                   ]),
                                 ),
                               ),
@@ -596,14 +596,14 @@ class _SwitchAccountDialogState extends State<_SwitchAccountDialog> {
           ),
           child: Row(
             children: [
-              Avatar(initial: account.initial, color: Color(account.color), size: 32, fontSize: 13),
+              PlayerAvatar(account, size: 32, fontSize: 13),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(account.displayName, style: bodyFont(size: 14, weight: FontWeight.w800, color: AppColors.ink)),
+                    PlayerName(account, style: bodyFont(size: 14, weight: FontWeight.w800, color: AppColors.ink)),
                     Text(account.email, style: bodyFont(size: 11.5, weight: FontWeight.w600, color: AppColors.mut)),
                   ],
                 ),

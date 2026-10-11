@@ -386,7 +386,9 @@ class _FadeIndexedStackState extends State<_FadeIndexedStack> with SingleTickerP
       side: _side,
       amplitude: 0.35,
       anchor: Alignment.topCenter,
-      child: IndexedStack(index: widget.index, children: widget.children),
+      // The tabs out of sight hold their animations (a leader's banner,
+      // the podium's decorations…) instead of ticking for nobody.
+      child: IndexedStack(index: widget.index, children: [for (final (i, tab) in widget.children.indexed) TickerMode(enabled: i == widget.index, child: tab)]),
     );
   }
 }

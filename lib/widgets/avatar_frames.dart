@@ -20,6 +20,18 @@ const kAvatarFrames = <({String id, String label})>[
   (id: 'dice', label: 'Dés'),
 ];
 
+/// How far a decoration reaches: [FramedAvatar] takes this many times the
+/// avatar's size.
+const kFrameReach = 1.22;
+
+/// Where on its loop a decoration is held when it doesn't play — a list,
+/// a thumbnail, a picture to share.
+const kStillFramePhase = 0.3;
+
+/// Whether decoration [frameId] crowns its avatar — then nothing else (a
+/// leader's trophy) is set on top of it.
+bool frameCrowns(String? frameId) => frameId == 'royal';
+
 /// Wraps an avatar of diameter [size] in its decoration — or a plain white
 /// rim when [frameId] is null. The decoration traces itself in, then
 /// lives on its ambient loop; [phase] freezes it at one point of the loop
@@ -44,7 +56,7 @@ class FramedAvatar extends StatelessWidget {
         child: child,
       );
     }
-    final outer = size * 1.22;
+    final outer = size * kFrameReach;
     Widget framed(double t, double ph) => SizedBox(
           width: outer,
           height: outer,

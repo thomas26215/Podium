@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../logic/plus.dart';
 import '../../logic/time_format.dart';
+import '../../models/app_user.dart';
 import '../../models/game.dart';
 import '../../models/match.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/avatar.dart';
 import '../../widgets/common.dart';
 import '../../widgets/elo_widgets.dart';
 import '../../widgets/match_card.dart';
+import '../../widgets/player_card.dart';
+import '../../widgets/profile_banners.dart';
 import '../../widgets/score_evolution_chart.dart';
 import '../new_game/new_game_sheet.dart';
 import 'result_share_dialog.dart';
@@ -162,45 +165,102 @@ class MatchDetailScreen extends StatelessWidget {
 
   Widget _hero() {
     final resultLine = matchResultLine(game, match, appState);
-    return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: heroDecoration(radius: AppRadius.xxl),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned(
-            right: -40,
-            top: -40,
-            child: Container(
-              width: 150,
-              height: 150,
-              decoration: BoxDecoration(shape: BoxShape.circle, gradient: RadialGradient(colors: [AppColors.accent.withValues(alpha: 0.5), Colors.transparent])),
+    // A lone winner who dressed up their card takes the hero: the game on
+    // their banner, their decoration and name playing — their victory.
+    final winners = _winners;
+    final winner = !match.isCoop && !match.isTeam && winners.length == 1 && match.entries.length > 1 ? appState.playerById(winners.first) : null;
+    final champion = winner != null && winner.dressedUp ? winner : null;
+    final details = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(game.emoji, style: const TextStyle(fontSize: 30)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(game.name, style: dispFont(size: 22, weight: FontWeight.w800, color: Colors.white, letterSpacing: -0.3)),
             ),
-          ),
-          Column(
+          ],
+        ),
+        const SizedBox(height: 14),
+        if (champion != null)
+          _championLine(champion)
+        else if (resultLine.isNotEmpty)
+          Text(resultLine, style: bodyFont(size: 15, weight: FontWeight.w700, color: Colors.white)),
+        SizedBox(height: champion != null ? 10 : 4),
+        Text(relativeDateLabel(match.createdAt), style: bodyFont(size: 12.5, weight: FontWeight.w600, color: Colors.white.withValues(alpha: champion != null ? 0.75 : 0.6))),
+        if (match.setupPicks.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text('${game.setupChoice?.label ?? SetupChoice.defaultLabel} : ${match.setupPicks.join(', ')}', style: bodyFont(size: 12.5, weight: FontWeight.w700, color: Colors.white.withValues(alpha: 0.8))),
+        ],
+      ],
+    );
+    if (champion == null) {
+      return Container(
+        padding: const EdgeInsets.all(22),
+        decoration: heroDecoration(radius: AppRadius.xxl),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned(
+              right: -40,
+              top: -40,
+              child: Container(
+                width: 150,
+                height: 150,
+                decoration: BoxDecoration(shape: BoxShape.circle, gradient: RadialGradient(colors: [AppColors.accent.withValues(alpha: 0.5), Colors.transparent])),
+              ),
+            ),
+            details,
+          ],
+        ),
+      );
+    }
+    final card = champion.shown;
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadius.xxl),
+        boxShadow: [BoxShadow(color: bannerThemeById(card.banner).colors.last.withValues(alpha: 0.3), blurRadius: 24, offset: const Offset(0, 10))],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.xxl),
+        child: Stack(
+          children: [
+            Positioned.fill(child: ProfileBannerBackground(themeId: card.banner)),
+            Positioned(
+              right: -50,
+              top: -60,
+              child: Container(
+                width: 170,
+                height: 170,
+                decoration: BoxDecoration(shape: BoxShape.circle, gradient: RadialGradient(colors: [Color(card.color).withValues(alpha: 0.45), Colors.transparent])),
+              ),
+            ),
+            Padding(padding: const EdgeInsets.all(22), child: details),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The winner, as their card shows them, and what they won with.
+  Widget _championLine(AppUser champion) {
+    final entry = match.entries.where((e) => e.playerId == champion.uid).firstOrNull;
+    final score = _isWinLoss || entry == null ? '' : (entry.role ?? scoreLabel(entry.points, match.unit));
+    return Row(
+      children: [
+        PlayerAvatar(champion, size: 44, fontSize: 17, live: true),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Text(game.emoji, style: const TextStyle(fontSize: 30)),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(game.name, style: dispFont(size: 22, weight: FontWeight.w800, color: Colors.white, letterSpacing: -0.3)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              if (resultLine.isNotEmpty) Text(resultLine, style: bodyFont(size: 15, weight: FontWeight.w700, color: Colors.white)),
-              const SizedBox(height: 4),
-              Text(relativeDateLabel(match.createdAt), style: bodyFont(size: 12.5, weight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.6))),
-              if (match.setupPicks.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text('${game.setupChoice?.label ?? SetupChoice.defaultLabel} : ${match.setupPicks.join(', ')}', style: bodyFont(size: 12.5, weight: FontWeight.w700, color: Colors.white.withValues(alpha: 0.8))),
-              ],
+              CardName(champion, size: 19, live: true),
+              Text(score.isEmpty ? 'Remporte la partie' : 'Remporte la partie · $score', style: onBanner(bodyFont(size: 13, weight: FontWeight.w700, color: Colors.white.withValues(alpha: 0.85)))),
             ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -318,7 +378,7 @@ class MatchDetailScreen extends StatelessWidget {
               children: [
                 _memberAvatar(e.playerId),
                 const SizedBox(width: 10),
-                Expanded(child: _nameWithCharacter(e, p?.displayName)),
+                Expanded(child: _nameWithCharacter(e, p)),
                 ?_eloChip(e.playerId),
                 // Alone, there's nobody to finish first against.
                 if (win && match.entries.length > 1)
@@ -368,7 +428,7 @@ class MatchDetailScreen extends StatelessWidget {
                     children: [
                       _memberAvatar(entry.playerId),
                       const SizedBox(width: 10),
-                      Expanded(child: _nameWithCharacter(entry, appState.playerById(entry.playerId)?.displayName)),
+                      Expanded(child: _nameWithCharacter(entry, appState.playerById(entry.playerId))),
                       ?_eloChip(entry.playerId),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -517,8 +577,8 @@ class MatchDetailScreen extends StatelessWidget {
 
   /// A player's name, with the character they played (see
   /// [MatchEntry.character]) underneath when one was picked.
-  Widget _nameWithCharacter(MatchEntry e, String? name) {
-    final nameText = Text(name ?? '?', style: bodyFont(size: 14.5, weight: FontWeight.w700, color: AppColors.ink));
+  Widget _nameWithCharacter(MatchEntry e, AppUser? player) {
+    final nameText = PlayerName(player, style: bodyFont(size: 14.5, weight: FontWeight.w700, color: AppColors.ink));
     if (e.character == null) return nameText;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -542,7 +602,7 @@ class MatchDetailScreen extends StatelessWidget {
 
   Widget _memberAvatar(String uid) {
     final p = appState.playerById(uid);
-    return Avatar(initial: p?.initial ?? '?', color: p != null ? Color(p.color) : AppColors.mut, size: 32, fontSize: 13);
+    return PlayerAvatar(p, size: 32, fontSize: 13);
   }
 
   List<List<TimelinePoint>> _rounds() {

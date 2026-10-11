@@ -7,11 +7,12 @@ import '../../models/game.dart';
 import '../../models/message.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/avatar.dart';
 import '../../widgets/common.dart';
 import '../../widgets/game_filter_bar.dart';
+import '../../widgets/player_card.dart';
 import '../new_game/game_actions_sheet.dart' show ChooserOption;
 import '../new_game/new_game_sheet.dart';
+import '../profile/profile_screen.dart';
 
 /// The group's (or, in a Salon, the active salon's) discussion thread — the
 /// "Discussion" tab of `MainShell`, replacing the old standalone games
@@ -310,9 +311,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   onTap: () => Navigator.of(sheetContext).pop(m),
                   child: Row(
                     children: [
-                      Avatar(initial: m.initial, color: Color(m.color), size: 34, fontSize: 13),
+                      PlayerAvatar(m, size: 34, fontSize: 13),
                       const SizedBox(width: 12),
-                      Text(m.displayName, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
+                      PlayerName(m, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
                     ],
                   ),
                 ),
@@ -612,7 +613,7 @@ class _MessageBubble extends StatelessWidget {
             if (showAuthor)
               Padding(
                 padding: const EdgeInsets.only(bottom: 3),
-                child: Text(author?.displayName ?? 'Joueur', style: bodyFont(size: 12, weight: FontWeight.w800, color: AppColors.accent)),
+                child: PlayerName(author, fallback: 'Joueur', style: bodyFont(size: 12, weight: FontWeight.w800, color: AppColors.accent)),
               ),
             if (message.isReply)
               Container(
@@ -627,7 +628,7 @@ class _MessageBubble extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(replyAuthor?.displayName ?? 'Joueur', style: bodyFont(size: 11.5, weight: FontWeight.w800, color: quoteColor)),
+                    PlayerName(replyAuthor, fallback: 'Joueur', style: bodyFont(size: 11.5, weight: FontWeight.w800, color: quoteColor)),
                     Text(
                       message.replyToText ?? '',
                       maxLines: 2,
@@ -690,7 +691,16 @@ class _MessageBubble extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Avatar(initial: author?.initial ?? '?', color: Color(author?.color ?? 0xFF8C8A93), size: 30, fontSize: 12),
+            // Their card is a tap away.
+            Pressable(
+              onTap: author == null
+                  ? null
+                  : () {
+                      context.read<AppState>().openProfile(author!.uid);
+                      Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileScreen()));
+                    },
+              child: PlayerAvatar(author, size: 30, fontSize: 12),
+            ),
             const SizedBox(width: 8),
             Flexible(child: bubble),
           ],

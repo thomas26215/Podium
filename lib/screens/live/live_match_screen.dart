@@ -7,10 +7,10 @@ import '../../logic/time_format.dart';
 import '../../models/match.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/avatar.dart';
 import '../../widgets/common.dart';
 import '../../widgets/live_match_card.dart';
 import '../../widgets/match_card.dart';
+import '../../widgets/player_card.dart';
 import '../../widgets/score_evolution_chart.dart';
 
 /// `mm:ss`, minutes uncapped (so a multi-hour duration like
@@ -187,13 +187,13 @@ class _LiveMatchBody extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    Avatar(initial: p?.initial ?? '?', color: p != null ? Color(p.color) : AppColors.mut, size: 38, fontSize: 15),
+                    PlayerAvatar(p, size: 38, fontSize: 15),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(p?.displayName ?? '?', style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
+                          PlayerName(p, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
                           if (entry.teamId != null)
                             Text('Équipe ${entry.teamId}', style: bodyFont(size: 11.5, weight: FontWeight.w700, color: AppColors.mut)),
                           if (entry.role != null)
@@ -293,9 +293,19 @@ class _LiveMatchBody extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
                     child: Row(
                       children: [
-                        Avatar(initial: p?.initial ?? '?', color: p != null ? Color(p.color) : AppColors.mut, size: 28, fontSize: 11),
+                        PlayerAvatar(p, size: 28, fontSize: 11),
                         const SizedBox(width: 10),
-                        Expanded(child: Text('${p?.displayName ?? '?'} ${t.delta >= 0 ? '+' : ''}${t.delta}', style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.ink))),
+                        Expanded(
+                          child: Text.rich(
+                            TextSpan(children: [
+                              TextSpan(text: p?.displayName ?? '?', style: playerNameStyle(p, bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.ink))),
+                              TextSpan(text: ' ${t.delta >= 0 ? '+' : ''}${t.delta}'),
+                            ]),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.ink),
+                          ),
+                        ),
                         Text(hhmm(t.time), style: bodyFont(size: 11.5, weight: FontWeight.w600, color: AppColors.mut)),
                       ],
                     ),

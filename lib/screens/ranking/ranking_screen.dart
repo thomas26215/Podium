@@ -4,9 +4,9 @@ import 'package:provider/provider.dart';
 import '../../logic/game_filter.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/avatar.dart';
 import '../../widgets/common.dart';
 import '../../widgets/elo_widgets.dart';
+import '../../widgets/player_card.dart';
 import '../../widgets/podium.dart';
 import '../../widgets/rank_row.dart';
 import '../../widgets/segmented_control.dart';
@@ -333,9 +333,9 @@ class _PlayerFilterSheet extends StatelessWidget {
                             ),
                             child: Row(
                               children: [
-                                Avatar(initial: p.initial, color: Color(p.color), size: 32, fontSize: 13),
+                                PlayerAvatar(p, size: 32, fontSize: 13),
                                 const SizedBox(width: 10),
-                                Expanded(child: Text(p.displayName, style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink))),
+                                Expanded(child: PlayerName(p, style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink))),
                                 Icon(
                                   selected ? Icons.check_circle_rounded : Icons.circle_outlined,
                                   color: selected ? AppColors.accent : AppColors.line,

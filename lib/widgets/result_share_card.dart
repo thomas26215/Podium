@@ -1,13 +1,15 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+import '../logic/plus.dart';
 import '../logic/time_format.dart';
 import '../models/app_user.dart';
 import '../models/game.dart';
 import '../models/match.dart';
 import '../state/app_state.dart';
-import 'avatar.dart';
+import 'avatar_frames.dart';
 import 'match_card.dart';
+import 'player_card.dart';
 import 'share_card_parts.dart';
 
 export 'share_card_parts.dart' show kShareCardWidth, kShareImageWidth;
@@ -16,11 +18,9 @@ export 'share_card_parts.dart' show kShareCardWidth, kShareImageWidth;
 class _Ranked {
   final String playerId;
   final String name;
-  final String initial;
-  final Color color;
   final String score;
   final int place;
-  const _Ranked(this.playerId, this.name, this.initial, this.color, this.score, this.place);
+  const _Ranked(this.playerId, this.name, this.score, this.place);
 }
 
 /// A self-contained picture of one match's result, made to be shared as an
@@ -109,7 +109,7 @@ class ResultShareCard extends StatelessWidget {
       final e = entries[i];
       final place = i > 0 && key(entries[i - 1]) == key(e) ? out[i - 1].place : i + 1;
       final score = rule.isWinLoss ? (winners.contains(e.playerId) ? 'Victoire' : '') : (e.role ?? (match.unit == 'time' ? formatDuration(e.points) : sharePts(e.points)));
-      out.add(_Ranked(e.playerId, _name(e.playerId), _player(e.playerId)?.initial ?? '?', _color(e.playerId), score, place));
+      out.add(_Ranked(e.playerId, _name(e.playerId), score, place));
     }
     return out;
   }
@@ -153,16 +153,20 @@ class ResultShareCard extends StatelessWidget {
   Widget _podiumColumn(_Ranked r, {required int slot}) {
     const heights = {1: 74.0, 2: 54.0, 3: 38.0};
     final barColor = {1: SharePalette.accent, 2: SharePalette.ink, 3: SharePalette.bronze}[slot]!;
+    final player = _player(r.playerId);
+    final size = slot == 1 ? 50.0 : 42.0;
+    // Room for their decoration, which takes none itself.
+    final reach = player?.shown.avatarFrame != null ? size * (kFrameReach - 1) / 2 : 0.0;
     return SizedBox(
       width: 96,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (r.place == 1) const Icon(Icons.emoji_events, color: SharePalette.gold, size: 20),
-          const SizedBox(height: 2),
-          Avatar(initial: r.initial, color: r.color, size: slot == 1 ? 50 : 42, fontSize: slot == 1 ? 20 : 17),
-          const SizedBox(height: 5),
-          Text(r.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: shareBodyFont(size: 12.5, weight: FontWeight.w800, color: SharePalette.ink)),
+          SizedBox(height: 2 + reach),
+          PlayerAvatar(player, size: size, fontSize: slot == 1 ? 20 : 17),
+          SizedBox(height: 5 + reach),
+          Text(r.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: playerNameStyle(player, shareBodyFont(size: 12.5, weight: FontWeight.w800, color: SharePalette.ink))),
           Text(r.score.isEmpty ? ' ' : r.score,
               maxLines: 1, overflow: TextOverflow.ellipsis, style: shareBodyFont(size: 11.5, weight: FontWeight.w700, color: SharePalette.mut)),
           const SizedBox(height: 5),
@@ -266,7 +270,7 @@ class ResultShareCard extends StatelessWidget {
             runSpacing: 6,
             children: [
               for (final e in match.entries.take(12))
-                Avatar(initial: _player(e.playerId)?.initial ?? '?', color: _color(e.playerId), size: 34, fontSize: 14),
+                PlayerAvatar(_player(e.playerId), size: 34, fontSize: 14),
             ],
           ),
           if (match.entries.length > 12) Text('+${match.entries.length - 12}', style: shareBodyFont(size: 11.5, weight: FontWeight.w700, color: SharePalette.mut)),
@@ -301,7 +305,7 @@ class ResultShareCard extends StatelessWidget {
         Row(
           children: [
             const Expanded(child: SizedBox()),
-            for (final r in ranked) SizedBox(width: 40, child: Center(child: Avatar(initial: r.initial, color: r.color, size: 22, fontSize: 10))),
+            for (final r in ranked) SizedBox(width: 40, child: Center(child: PlayerAvatar(_player(r.playerId), size: 22, fontSize: 10))),
           ],
         ),
         const SizedBox(height: 6),
@@ -468,7 +472,7 @@ class ResultShareCard extends StatelessWidget {
           children: [
             const SizedBox(width: 36),
             for (final id in playerIds)
-              Expanded(child: Center(child: Avatar(initial: _player(id)?.initial ?? '?', color: _color(id), size: 22, fontSize: 10))),
+              Expanded(child: Center(child: PlayerAvatar(_player(id), size: 22, fontSize: 10))),
           ],
         ),
         const SizedBox(height: 6),

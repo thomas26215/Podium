@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../logic/plus.dart';
 import '../logic/tournament_bracket.dart';
 import '../models/game.dart';
 import '../models/match.dart';
 import '../models/tournament.dart';
 import '../state/app_state.dart';
 import 'match_card.dart';
+import 'player_card.dart';
+import 'profile_banners.dart';
 import 'share_card_parts.dart';
 
 /// A picture of a whole tournament, made to be shared as an image (see
@@ -77,26 +80,59 @@ class TournamentShareCard extends StatelessWidget {
     if (t.isCompleted) {
       final last = _lastMatch;
       final finalistId = last == null ? null : (last.winnerId == last.entrantAId ? last.entrantBId : last.entrantAId);
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-        decoration: BoxDecoration(color: SharePalette.ink, borderRadius: BorderRadius.circular(16)),
-        child: Row(
-          children: [
-            const Icon(Icons.emoji_events, color: SharePalette.gold, size: 38),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      // A champion who played alone shows their avatar — and their own card
+      // if they dressed it up.
+      final winner = t.entrantById(t.winnerEntrantId);
+      final solo = winner != null && winner.label == null && winner.playerIds.length == 1 ? appState.playerById(winner.playerIds.single) : null;
+      final dressed = solo != null && solo.dressedUp ? solo : null;
+      final framed = solo?.shown.avatarFrame != null;
+      final content = Row(
+        children: [
+          if (solo == null)
+            const Icon(Icons.emoji_events, color: SharePalette.gold, size: 38)
+          else
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Stack(
+                clipBehavior: Clip.none,
                 children: [
-                  Text('CHAMPION', style: shareBodyFont(size: 10.5, weight: FontWeight.w800, color: SharePalette.gold, letterSpacing: 0.8)),
-                  Text(_label(t.winnerEntrantId),
-                      maxLines: 2, overflow: TextOverflow.ellipsis, style: shareDispFont(size: 22, weight: FontWeight.w800, color: Colors.white)),
-                  if (finalistId != null)
-                    Text('Finaliste : ${_label(finalistId)}',
-                        maxLines: 1, overflow: TextOverflow.ellipsis, style: shareBodyFont(size: 12, weight: FontWeight.w700, color: Colors.white.withValues(alpha: 0.65))),
+                  PlayerAvatar(solo, size: 46, fontSize: 19),
+                  if (!frameCrowns(solo.shown.avatarFrame)) Positioned(top: framed ? -20 : -14, left: 0, right: 0, child: const Icon(Icons.emoji_events, color: SharePalette.gold, size: 22)),
                 ],
               ),
             ),
+          SizedBox(width: solo != null && framed ? 16 : 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('CHAMPION', style: shareBodyFont(size: 10.5, weight: FontWeight.w800, color: SharePalette.gold, letterSpacing: 0.8)),
+                if (dressed != null)
+                  CardName(dressed, size: 22)
+                else
+                  Text(_label(t.winnerEntrantId),
+                      maxLines: 2, overflow: TextOverflow.ellipsis, style: playerNameStyle(solo, shareDispFont(size: 22, weight: FontWeight.w800, color: Colors.white))),
+                if (finalistId != null)
+                  Text('Finaliste : ${_label(finalistId)}',
+                      maxLines: 1, overflow: TextOverflow.ellipsis, style: onBanner(shareBodyFont(size: 12, weight: FontWeight.w700, color: Colors.white.withValues(alpha: dressed != null ? 0.8 : 0.65)))),
+              ],
+            ),
+          ),
+        ],
+      );
+      if (dressed == null) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+          decoration: BoxDecoration(color: SharePalette.ink, borderRadius: BorderRadius.circular(16)),
+          child: content,
+        );
+      }
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Stack(
+          children: [
+            Positioned.fill(child: ProfileBannerBackground(themeId: dressed.shown.banner, phase: kStillBannerPhase)),
+            Padding(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16), child: content),
           ],
         ),
       );

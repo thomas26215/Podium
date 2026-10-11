@@ -5,10 +5,10 @@ import '../../logic/text_search.dart';
 import '../../models/game.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/avatar.dart';
 import '../../widgets/common.dart';
 import '../../widgets/match_card.dart' show relativeDateLabel;
 import '../../widgets/option_chip.dart';
+import '../../widgets/player_card.dart';
 
 /// One line under the date/format pickers reminding how many players the
 /// game takes (see `Game.playersLabel`) — turns into a warning, never a
@@ -264,12 +264,12 @@ class Step2Players extends StatelessWidget {
                 children: [
               Row(
                 children: [
-                  Pressable(onTap: () => app.togglePlayer(p.uid), child: Avatar(initial: p.initial, color: Color(p.color), size: 38, fontSize: 15)),
+                  Pressable(onTap: () => app.togglePlayer(p.uid), child: PlayerAvatar(p, size: 38, fontSize: 15)),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Pressable(
                       onTap: () => app.togglePlayer(p.uid),
-                      child: Text(p.displayName, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
+                      child: PlayerName(p, style: bodyFont(size: 15, weight: FontWeight.w700, color: AppColors.ink)),
                     ),
                   ),
                   if (d.playerIds.contains(p.uid) && d.mode == 'team')

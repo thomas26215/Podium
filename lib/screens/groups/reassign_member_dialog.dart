@@ -4,8 +4,8 @@ import 'package:provider/provider.dart';
 import '../../repositories/guests_repository.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/avatar.dart';
 import '../../widgets/common.dart';
+import '../../widgets/player_card.dart';
 
 /// Hands a group member's slot over to a different existing account — pick
 /// who to replace, then the e-mail of the account that should take over.
@@ -83,9 +83,9 @@ class _ReassignMemberDialogState extends State<ReassignMemberDialog> {
                                       decoration: cardDecoration(radius: AppRadius.lg, borderWidth: 1.5),
                                       child: Row(
                                         children: [
-                                          Avatar(initial: p?.initial ?? '?', color: p != null ? Color(p.color) : AppColors.mut, size: 32, fontSize: 13),
+                                          PlayerAvatar(p, size: 32, fontSize: 13),
                                           const SizedBox(width: 10),
-                                          Expanded(child: Text(p?.displayName ?? uid, style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink))),
+                                          Expanded(child: PlayerName(p, fallback: uid, style: bodyFont(size: 14, weight: FontWeight.w700, color: AppColors.ink))),
                                           Icon(Icons.chevron_right_rounded, color: AppColors.mut),
                                         ],
                                       ),

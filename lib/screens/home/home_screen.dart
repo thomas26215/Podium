@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../../state/app_state.dart';
 import '../../state/player_row.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/avatar.dart';
+import '../../logic/plus.dart';
 import '../../widgets/common.dart';
 import '../../widgets/live_match_card.dart';
 import '../../widgets/match_card.dart';
@@ -12,6 +12,9 @@ import '../../models/game.dart';
 import '../../models/match.dart';
 import '../../models/scheduled_event.dart';
 import '../../models/tournament.dart';
+import '../../widgets/player_card.dart';
+import '../../widgets/profile_banners.dart';
+import '../../widgets/profile_effects.dart';
 import '../../widgets/rank_row.dart';
 import '../events/scheduled_event_detail_screen.dart';
 import '../events/scheduled_events_list_screen.dart';
@@ -90,7 +93,7 @@ class HomeScreen extends StatelessWidget {
                     if (uid != null) app.openProfile(uid);
                     Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileScreen()));
                   },
-                  child: AvatarCluster(avatars: [for (final p in players.take(3)) (initial: p.initial, color: Color(p.color))]),
+                  child: AvatarCluster(players: players.take(3).toList()),
                 ),
               ],
             ),
@@ -221,7 +224,7 @@ class HomeScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: app.dashboardStyle == DashboardStyle.simple ? _simpleSections(app, winRows) : _completeSections(context, app, stats, winRows),
+                children: app.dashboardStyle == DashboardStyle.simple ? _simpleSections(context, app, winRows) : _completeSections(context, app, stats, winRows),
               ),
             ),
             if (app.viewTournaments.any((t) => !t.isCompleted))
@@ -247,6 +250,11 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+void _openProfile(BuildContext context, AppState app, String uid) {
+  app.openProfile(uid);
+  Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileScreen()));
 }
 
 /// Salon matches (see [ActiveContextKind.salon]) the signed-in player still
@@ -335,12 +343,12 @@ List<Widget> _eventsSection(BuildContext context, AppState app) {
 /// Épuré: just who's leading and the very last game — the rest of the
 /// dashboard (stat chips, full mini-ranking, recent-matches list) is
 /// dropped for a calmer, less busy home screen.
-List<Widget> _simpleSections(AppState app, List<PlayerRow> winRows) {
+List<Widget> _simpleSections(BuildContext context, AppState app, List<PlayerRow> winRows) {
   final lastMatch = app.viewMatches.firstOrNull;
   final lastMatchGame = lastMatch != null ? app.gameById(lastMatch.gameId) : null;
 
   return [
-    FadeSlideIn(child: winRows.isEmpty ? const _SimpleNoDataCard() : _SimpleLeaderCard(row: winRows.first, elo: app.headlineByElo)),
+    FadeSlideIn(child: winRows.isEmpty ? const _SimpleNoDataCard() : _SimpleLeaderCard(row: winRows.first, elo: app.headlineByElo, onTap: () => _openProfile(context, app, winRows.first.player.uid))),
     const SizedBox(height: 22),
     SectionHeader(title: 'Dernière partie', actionLabel: 'Historique', onAction: () => app.setTab(AppTab.history)),
     if (lastMatch == null || lastMatchGame == null)
@@ -361,7 +369,7 @@ List<Widget> _simpleSections(AppState app, List<PlayerRow> winRows) {
 /// dashboard.
 List<Widget> _completeSections(BuildContext context, AppState app, Map<String, int> stats, List<PlayerRow> winRows) {
   return [
-    FadeSlideIn(child: winRows.isEmpty ? const _NoDataHero() : _LeaderHero(row: winRows.first, elo: app.headlineByElo)),
+    FadeSlideIn(child: winRows.isEmpty ? const _NoDataHero() : _LeaderHero(row: winRows.first, elo: app.headlineByElo, onTap: () => _openProfile(context, app, winRows.first.player.uid))),
     const SizedBox(height: 14),
     FadeSlideIn(
       delay: const Duration(milliseconds: 60),
@@ -391,10 +399,7 @@ List<Widget> _completeSections(BuildContext context, AppState app, Map<String, i
                       player: winRows[i].player,
                       value: app.headlineByElo ? winRows[i].elo!.round() : winRows[i].wins,
                       unit: app.headlineByElo ? 'Elo' : 'victoires',
-                      onTap: () {
-                        app.openProfile(winRows[i].player.uid);
-                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileScreen()));
-                      },
+                      onTap: () => _openProfile(context, app, winRows[i].player.uid),
                     ),
                 ],
               ),
@@ -472,103 +477,156 @@ class _PendingDraftBanner extends StatelessWidget {
   }
 }
 
+/// Who's leading — on their own card when they dressed it up (see
+/// DressedCard): their banner playing behind them, their decoration and
+/// name effect live, their title, their profile effect bursting once. The
+/// leader's spot is the most seen in the app; it shows them as they chose.
 class _LeaderHero extends StatelessWidget {
   final PlayerRow row;
   final bool elo; // leads by Elo (a group) rather than by wins (a Salon)
-  const _LeaderHero({required this.row, required this.elo});
+  final VoidCallback onTap;
+  const _LeaderHero({required this.row, required this.elo, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: heroDecoration(radius: AppRadius.xxl),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned(
-            right: -40,
-            top: -40,
-            // The accent glow swells in behind the leader.
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0.4, end: 1),
-              duration: const Duration(milliseconds: 1200),
-              curve: Curves.easeOutCubic,
-              builder: (context, t, child) => Opacity(opacity: t, child: Transform.scale(scale: t, child: child)),
-              child: Container(
-                width: 150,
-                height: 150,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(colors: [AppColors.accent.withValues(alpha: 0.55), Colors.transparent]),
-                ),
-              ),
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('EN TÊTE CETTE SAISON', style: bodyFont(size: 12, weight: FontWeight.w700, color: Colors.white.withValues(alpha: 0.55), letterSpacing: 1.2)),
-              const SizedBox(height: 14),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Avatar(initial: row.player.initial, color: Color(row.player.color), size: 62, fontSize: 26),
-                      Positioned(
-                        top: -12,
-                        left: 0,
-                        right: 0,
-                        // Drops onto the leader's head with a little wobble,
-                        // settling at its resting tilt.
-                        child: TweenAnimationBuilder<double>(
-                          key: ValueKey(row.player.uid),
-                          tween: Tween(begin: 0, end: 1),
-                          duration: const Duration(milliseconds: 900),
-                          curve: Curves.elasticOut,
-                          builder: (context, t, child) => Transform.translate(
-                            offset: Offset(0, -10 * (1 - t)),
-                            child: Transform.rotate(angle: 0.14 + 0.5 * (1 - t), child: Opacity(opacity: t.clamp(0.0, 1.0), child: child)),
-                          ),
-                          child: Icon(Icons.emoji_events, color: AppColors.gold, size: 26),
-                        ),
+    final leader = row.player;
+    final dressed = leader.dressedUp;
+    final card = leader.shown;
+    final framed = card.avatarFrame != null;
+    final title = dressed ? CardTitle.of(card) : null;
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('EN TÊTE CETTE SAISON', style: bodyFont(size: 12, weight: FontWeight.w700, color: Colors.white.withValues(alpha: dressed ? 0.75 : 0.55), letterSpacing: 1.2)),
+        const SizedBox(height: 14),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                PlayerAvatar(leader, size: 62, fontSize: 26, live: true),
+                if (!frameCrowns(card.avatarFrame))
+                  Positioned(
+                    // Above the decoration, when there's one.
+                    top: framed ? -20 : -12,
+                    left: 0,
+                    right: 0,
+                    // Drops onto the leader's head with a little wobble,
+                    // settling at its resting tilt.
+                    child: TweenAnimationBuilder<double>(
+                      key: ValueKey(leader.uid),
+                      tween: Tween(begin: 0, end: 1),
+                      duration: const Duration(milliseconds: 900),
+                      curve: Curves.elasticOut,
+                      builder: (context, t, child) => Transform.translate(
+                        offset: Offset(0, -10 * (1 - t)),
+                        child: Transform.rotate(angle: 0.14 + 0.5 * (1 - t), child: Opacity(opacity: t.clamp(0.0, 1.0), child: child)),
                       ),
-                    ],
-                  ),
-                  const SizedBox(width: 16),
-                  // Bounded, so a long name ellipsizes and the stats line
-                  // shrinks instead of overflowing on a narrow phone.
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(row.player.displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: dispFont(size: 24, weight: FontWeight.w800, color: Colors.white, letterSpacing: -0.4)),
-                        const SizedBox(height: 6),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Row(children: [
-                            AnimatedCounter(value: elo ? row.elo!.round() : row.wins, style: bodyFont(size: 15, weight: FontWeight.w700, color: Colors.white)),
-                            const SizedBox(width: 4),
-                            Text(elo ? 'Elo' : 'victoires', style: bodyFont(size: 13, weight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.6))),
-                            const SizedBox(width: 18),
-                            Row(children: [
-                              AnimatedCounter(value: (row.ratio * 100).round(), style: bodyFont(size: 15, weight: FontWeight.w700, color: Colors.white)),
-                              Text('%', style: bodyFont(size: 15, weight: FontWeight.w700, color: Colors.white)),
-                            ]),
-                            const SizedBox(width: 4),
-                            Text('de winrate', style: bodyFont(size: 13, weight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.6))),
-                          ]),
-                        ),
-                      ],
+                      child: Icon(Icons.emoji_events, color: AppColors.gold, size: 26),
                     ),
+                  ),
+              ],
+            ),
+            SizedBox(width: framed ? 22 : 16),
+            // Bounded, so a long name ellipsizes and the stats line
+            // shrinks instead of overflowing on a narrow phone.
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (dressed)
+                    CardName(leader, size: 24, live: true)
+                  else
+                    Text(leader.displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: dispFont(size: 24, weight: FontWeight.w800, color: Colors.white, letterSpacing: -0.4)),
+                  if (title != null) ...[const SizedBox(height: 2), title],
+                  const SizedBox(height: 6),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Row(children: [
+                      AnimatedCounter(value: elo ? row.elo!.round() : row.wins, style: bodyFont(size: 15, weight: FontWeight.w700, color: Colors.white)),
+                      const SizedBox(width: 4),
+                      Text(elo ? 'Elo' : 'victoires', style: bodyFont(size: 13, weight: FontWeight.w600, color: Colors.white.withValues(alpha: dressed ? 0.75 : 0.6))),
+                      const SizedBox(width: 18),
+                      Row(children: [
+                        AnimatedCounter(value: (row.ratio * 100).round(), style: bodyFont(size: 15, weight: FontWeight.w700, color: Colors.white)),
+                        Text('%', style: bodyFont(size: 15, weight: FontWeight.w700, color: Colors.white)),
+                      ]),
+                      const SizedBox(width: 4),
+                      Text('de winrate', style: bodyFont(size: 13, weight: FontWeight.w600, color: Colors.white.withValues(alpha: dressed ? 0.75 : 0.6))),
+                    ]),
                   ),
                 ],
               ),
+            ),
+          ],
+        ),
+      ],
+    );
+    if (!dressed) {
+      return Pressable(
+        onTap: onTap,
+        pressedScale: 0.98,
+        child: Container(
+          padding: const EdgeInsets.all(22),
+          decoration: heroDecoration(radius: AppRadius.xxl),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned(
+                right: -40,
+                top: -40,
+                // The accent glow swells in behind the leader.
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.4, end: 1),
+                  duration: const Duration(milliseconds: 1200),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, t, child) => Opacity(opacity: t, child: Transform.scale(scale: t, child: child)),
+                  child: Container(
+                    width: 150,
+                    height: 150,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(colors: [AppColors.accent.withValues(alpha: 0.55), Colors.transparent]),
+                    ),
+                  ),
+                ),
+              ),
+              content,
             ],
           ),
-        ],
+        ),
+      );
+    }
+    return Pressable(
+      onTap: onTap,
+      pressedScale: 0.98,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppRadius.xxl),
+          boxShadow: [BoxShadow(color: bannerThemeById(card.banner).colors.last.withValues(alpha: 0.3), blurRadius: 24, offset: const Offset(0, 10))],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppRadius.xxl),
+          child: Stack(
+            children: [
+              Positioned.fill(child: ProfileBannerBackground(themeId: card.banner)),
+              // A soft light in the leader's own colour, as on their card.
+              Positioned(
+                right: -50,
+                top: -60,
+                child: Container(
+                  width: 170,
+                  height: 170,
+                  decoration: BoxDecoration(shape: BoxShape.circle, gradient: RadialGradient(colors: [Color(card.color).withValues(alpha: 0.45), Colors.transparent])),
+                ),
+              ),
+              Padding(padding: const EdgeInsets.all(22), child: content),
+              Positioned.fill(child: ProfileEffectOverlay(effectId: card.profileEffect, ambient: false)),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -595,38 +653,52 @@ class _NoDataHero extends StatelessWidget {
 
 /// Épuré version of [_LeaderHero]: same info (who's leading, Elo or wins, winrate)
 /// on a plain card instead of the dark gradient hero — quieter, less
-/// "look at me" for users who found the full dashboard too busy.
+/// "look at me" for users who found the full dashboard too busy. A leader
+/// who dressed up their card still shows on their [Nameplate], held still.
 class _SimpleLeaderCard extends StatelessWidget {
   final PlayerRow row;
   final bool elo; // see _LeaderHero.elo
-  const _SimpleLeaderCard({required this.row, required this.elo});
+  final VoidCallback onTap;
+  const _SimpleLeaderCard({required this.row, required this.elo, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final leader = row.player;
+    final plate = leader.dressedUp;
+    final ink = plate ? Colors.white : AppColors.ink;
+    final mut = plate ? Colors.white.withValues(alpha: 0.72) : AppColors.mut;
+    TextStyle lift(TextStyle style) => plate ? onBanner(style) : style;
+    final content = Padding(
       padding: const EdgeInsets.all(16),
-      decoration: cardDecoration(radius: AppRadius.xl),
       child: Row(
         children: [
-          Avatar(initial: row.player.initial, color: Color(row.player.color), size: 48, fontSize: 19),
+          PlayerAvatar(leader, size: 48, fontSize: 19),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('En tête · ${row.player.displayName}', style: bodyFont(size: 15, weight: FontWeight.w800, color: AppColors.ink)),
+                Row(children: [
+                  Text('En tête · ', style: lift(bodyFont(size: 15, weight: FontWeight.w800, color: ink))),
+                  Flexible(child: plate ? CardName(leader, size: 15) : PlayerName(leader, style: bodyFont(size: 15, weight: FontWeight.w800, color: ink))),
+                ]),
                 const SizedBox(height: 2),
                 Row(children: [
-                  AnimatedCounter(value: elo ? row.elo!.round() : row.wins, style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)),
-                  Text(elo ? ' Elo · ' : ' victoires · ', style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)),
-                  AnimatedCounter(value: (row.ratio * 100).round(), style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)),
-                  Text('% de winrate', style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut)),
+                  AnimatedCounter(value: elo ? row.elo!.round() : row.wins, style: lift(bodyFont(size: 12.5, weight: FontWeight.w600, color: mut))),
+                  Text(elo ? ' Elo · ' : ' victoires · ', style: lift(bodyFont(size: 12.5, weight: FontWeight.w600, color: mut))),
+                  AnimatedCounter(value: (row.ratio * 100).round(), style: lift(bodyFont(size: 12.5, weight: FontWeight.w600, color: mut))),
+                  Text('% de winrate', style: lift(bodyFont(size: 12.5, weight: FontWeight.w600, color: mut))),
                 ]),
               ],
             ),
           ),
         ],
       ),
+    );
+    return Pressable(
+      onTap: onTap,
+      pressedScale: 0.98,
+      child: plate ? Nameplate(user: leader, borderRadius: BorderRadius.circular(AppRadius.xl), child: content) : Container(decoration: cardDecoration(radius: AppRadius.xl), child: content),
     );
   }
 }

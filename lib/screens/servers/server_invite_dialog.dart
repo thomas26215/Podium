@@ -9,8 +9,8 @@ import '../../models/group_invite_code.dart';
 import '../../models/server_invite_code.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/avatar.dart';
 import '../../widgets/common.dart';
+import '../../widgets/player_card.dart';
 
 enum _InviteMode { email, guest, qr }
 
@@ -133,9 +133,9 @@ class _ServerInviteDialogState extends State<ServerInviteDialog> {
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            Avatar(initial: f.initial, color: Color(f.color), size: 26, fontSize: 11),
+                                            PlayerAvatar(f, size: 26, fontSize: 11),
                                             const SizedBox(width: 7),
-                                            Text(f.displayName, style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.ink)),
+                                            PlayerName(f, style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.ink)),
                                           ],
                                         ),
                                       ),
@@ -198,9 +198,9 @@ class _ServerInviteDialogState extends State<ServerInviteDialog> {
                                             child: Row(
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
-                                                Avatar(initial: g.initial, color: Color(g.color), size: 26, fontSize: 11),
+                                                PlayerAvatar(g, size: 26, fontSize: 11),
                                                 const SizedBox(width: 7),
-                                                Text(g.displayName, style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.ink)),
+                                                PlayerName(g, style: bodyFont(size: 13, weight: FontWeight.w700, color: AppColors.ink)),
                                               ],
                                             ),
                                           ),

@@ -51,6 +51,10 @@ const kNameEffects = <({String? id, String label})>[
   (id: 'holo', label: 'Holo'),
 ];
 
+/// Where on its loop a name effect is held when it doesn't play — a
+/// thumbnail, a name in a list.
+const kStillNamePhase = 0.3;
+
 Duration _periodOf(String effect) => switch (effect) {
       'wave' => const Duration(milliseconds: 2400),
       'neon' || 'shine' => const Duration(seconds: 3),
