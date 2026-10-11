@@ -46,7 +46,8 @@ class GameOverview extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              Icon(Icons.sync_rounded, size: 16, color: AppColors.accent),
+              // The line beside it says it already.
+              const ExcludeSemantics(child: FromLibraryBadge()),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(

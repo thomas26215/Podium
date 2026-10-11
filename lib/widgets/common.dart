@@ -553,6 +553,24 @@ InputDecoration appFieldDecoration({
   );
 }
 
+/// The cloud marking a catalog game that comes from the online library and
+/// still follows it (see `Game.followsLibrary`) — on its card in a group's
+/// or a solo space's catalog, and on its page.
+class FromLibraryBadge extends StatelessWidget {
+  final double size;
+  const FromLibraryBadge({super.key, this.size = 16});
+
+  static const label = 'Vient de la bibliothèque en ligne';
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: label,
+      child: Semantics(label: label, child: Icon(Icons.cloud_done_rounded, size: size, color: AppColors.accent)),
+    );
+  }
+}
+
 /// Shared "emoji box + title/subtitle column + trailing add icon" row used
 /// by both the game-library and other-groups game browsers (see
 /// `game_library_browser.dart`/`other_groups_game_browser.dart`) — those two

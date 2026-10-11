@@ -91,6 +91,7 @@ class Step1Game extends StatelessWidget {
                     name: g.name,
                     sub: g.hasMultipleRules ? '$baseSub · ${g.rules.length} règles' : baseSub,
                     detail: g.summaryLine(),
+                    fromLibrary: g.followsLibrary,
                     selected: selected,
                     // The wizard advances to a dedicated "Quelle règle ?" step
                     // right after this one whenever the game has more than one
@@ -188,9 +189,12 @@ class _GameCard extends StatelessWidget {
   final String? detail;
   final bool selected;
   final bool dashed;
+
+  /// Shows [FromLibraryBadge] in the corner.
+  final bool fromLibrary;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
-  const _GameCard({required this.emoji, required this.name, required this.sub, this.detail, required this.selected, required this.onTap, this.dashed = false, this.onLongPress});
+  const _GameCard({required this.emoji, required this.name, required this.sub, this.detail, required this.selected, required this.onTap, this.dashed = false, this.fromLibrary = false, this.onLongPress});
 
   @override
   Widget build(BuildContext context) {
@@ -212,7 +216,13 @@ class _GameCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(emoji, style: TextStyle(fontSize: 30, color: dashed ? AppColors.accent : null, fontWeight: dashed ? FontWeight.w700 : null)),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(emoji, style: TextStyle(fontSize: 30, color: dashed ? AppColors.accent : null, fontWeight: dashed ? FontWeight.w700 : null)),
+                if (fromLibrary) ...[const Spacer(), const FromLibraryBadge()],
+              ],
+            ),
             const SizedBox(height: 8),
             Text(name, style: bodyFont(size: 15, weight: FontWeight.w800, color: AppColors.ink)),
             Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: bodyFont(size: 11.5, weight: FontWeight.w600, color: AppColors.mut)),

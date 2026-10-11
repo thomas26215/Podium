@@ -2228,6 +2228,34 @@ void main() {
     await tester.pump(const Duration(seconds: 3)); // let the import toast expire
   });
 
+  testWidgets('in the match wizard, a game that follows the online library wears its cloud', (tester) async {
+    final seeded = _buildSeededState();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+    final wonders = Game.simple(id: 'wonders', name: '7 Wonders', emoji: '🏛️', category: 'Société', countType: CountType.highWins, minPlayers: 3, maxPlayers: 7);
+    await seeded.state.gamesRepo.importGame('bandits', wonders, libraryId: 'wonders');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Partie simple'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continuer'));
+    await tester.pumpAndSettle();
+
+    Finder card(String name) => find.ancestor(of: find.text(name), matching: find.byType(Pressable)).first;
+    expect(find.descendant(of: card('7 Wonders'), matching: find.byType(FromLibraryBadge)), findsOneWidget);
+    expect(find.descendant(of: card('Catan'), matching: find.byType(FromLibraryBadge)), findsNothing, reason: 'a default catalog game is not from the online library');
+    expect(find.byType(FromLibraryBadge), findsOneWidget);
+  });
+
   testWidgets('a game created inside one salon is not visible from another salon of the same server', (tester) async {
     final seeded = _buildSeededState();
     await tester.pumpWidget(

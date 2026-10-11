@@ -119,7 +119,13 @@ class _GameTile extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(game.emoji, style: const TextStyle(fontSize: 28)),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(game.emoji, style: const TextStyle(fontSize: 28)),
+                if (game.followsLibrary) ...[const Spacer(), const FromLibraryBadge()],
+              ],
+            ),
             const SizedBox(height: 8),
             Text(game.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: bodyFont(size: 14, weight: FontWeight.w800, color: AppColors.ink, height: 1.2)),
             const SizedBox(height: 3),
