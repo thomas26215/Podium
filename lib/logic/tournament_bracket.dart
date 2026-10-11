@@ -32,7 +32,7 @@ int bracketSizeFor(int entrantCount) {
 /// `e1`/`e2`, `e3` vs winner of `e4`/`e5`).
 ///
 /// Deliberately simple rather than "seeded" (top seeds kept apart until the
-/// final, seed 1 vs 2 never meeting early, …) — Podium tournaments are
+/// final, seed 1 vs 2 never meeting early, …) — Cador tournaments are
 /// casual friend-group brackets, not competition-grade seeding: the
 /// organizer decides who faces whom (or shuffles) on a pending
 /// tournament's screen (see `TournamentSeedingEditor`), which is exactly

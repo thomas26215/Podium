@@ -79,7 +79,7 @@ class _InviteLinkHandlerState extends State<InviteLinkHandler> {
           backgroundColor: AppColors.bg,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
           title: Text('${invite.emoji} Rejoindre « ${invite.name} » ?', style: dispFont(size: 18, weight: FontWeight.w700, color: AppColors.ink)),
-          content: Text('Vous avez reçu une invitation à rejoindre ${invite.kind} sur Podium.', style: bodyFont(size: 14, weight: FontWeight.w600, color: AppColors.mut)),
+          content: Text('Vous avez reçu une invitation à rejoindre ${invite.kind} sur Cador.', style: bodyFont(size: 14, weight: FontWeight.w600, color: AppColors.mut)),
           actions: [
             TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Annuler')),
             TextButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('Rejoindre')),

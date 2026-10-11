@@ -70,7 +70,7 @@ class ProfileScreen extends StatelessWidget {
     final eloRow = mine.firstOrNull;
     final isMe = profileId == app.currentUser?.uid;
     final earnedBadges = app.earnedBadgeIds(profileId);
-    // Only a member's card shows its Podium+ cosmetics.
+    // Only a member's card shows its Cador+ cosmetics.
     final card = profile.shown;
     // Discord-style profile theme: the screen picks up a wash of the
     // player's banner colour at the top — see-through over a backdrop.
@@ -341,8 +341,8 @@ class ProfileScreen extends StatelessWidget {
   }
 }
 
-/// Podium+ and Podium++ on the player's own profile — an invitation, or
-/// their membership — opening the Podium+ page. Holds still: it sits on a
+/// Cador+ and Cador++ on the player's own profile — an invitation, or
+/// their membership — opening the Cador+ page. Holds still: it sits on a
 /// screen everyone sees.
 class _PlusEntry extends StatelessWidget {
   final PlusMembership? membership;
@@ -352,9 +352,9 @@ class _PlusEntry extends StatelessWidget {
   Widget build(BuildContext context) {
     final m = membership;
     final line = m == null
-        ? 'Podium+ pour votre carte, Podium++ pour toute l’interface en plus. 7 jours offerts.'
+        ? 'Cador+ pour votre carte, Cador++ pour toute l’interface en plus. 7 jours offerts.'
         : m.plan == PlusPlan.lifetime
-            ? 'Fondateur à vie · Merci de soutenir Podium !'
+            ? 'Fondateur à vie · Merci de soutenir Cador !'
             : 'Abonnement ${m.plan.label.toLowerCase()} · Gérer';
     return Pressable(
       onTap: () => PlusScreen.open(context),

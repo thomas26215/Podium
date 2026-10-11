@@ -28,7 +28,7 @@ import 'package:podium/widgets/appearance_preview.dart';
 import 'package:podium/widgets/appearance_scope.dart';
 import 'package:podium/widgets/common.dart';
 
-// Léa has Podium++, so every look is hers to pick — what anyone else can
+// Léa has Cador++, so every look is hers to pick — what anyone else can
 // pick is in plus_test.dart.
 final _lea = AppUser(uid: 'lea', email: 'lea@test.fr', displayName: 'Léa', color: 0xFFFF5B34, plus: PlusMembership(tier: PlusTier.plusPlus, plan: PlusPlan.yearly, since: DateTime(2026)));
 const _tom = AppUser(uid: 'tom', email: 'tom@test.fr', displayName: 'Tom', color: 0xFF5B4BE8);
@@ -160,7 +160,7 @@ void main() {
   });
 
   group('tokens', () {
-    test('the default look keeps the original Podium colours', () {
+    test('the default look keeps the original Cador colours', () {
       final light = AppTokens.resolve(const Appearance(), dark: false);
       expect(light.bg, const Color(0xFFF4F2EC));
       expect(light.card, const Color(0xFFFFFFFF));

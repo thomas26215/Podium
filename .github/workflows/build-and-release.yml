@@ -1,4 +1,4 @@
-# Builds a signed release APK of Podium and publishes it as a GitHub
+# Builds a signed release APK of Cador and publishes it as a GitHub
 # Release — the same as running, from a terminal:
 #   flutter build apk --release
 #   gh release create v<version> app-release.apk --notes "…"
@@ -167,7 +167,7 @@ jobs:
             since="récents"
           fi
           {
-            echo "Rédige les notes de mise à jour Google Play de Podium, une app Android de suivi de scores et de classements pour les jeux entre amis, à partir de ces commits $since :"
+            echo "Rédige les notes de mise à jour Google Play de Cador, une app Android de suivi de scores et de classements pour les jeux entre amis, à partir de ces commits $since :"
             echo
             echo "$commits"
             echo
@@ -215,9 +215,9 @@ jobs:
           echo "name=$name" >> "$GITHUB_OUTPUT"
           echo "build=$build" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "apk=podium-$tag-build$build.apk" >> "$GITHUB_OUTPUT"
+          echo "apk=cador-$tag-build$build.apk" >> "$GITHUB_OUTPUT"
           # The Play bundle carries its own, computed build number.
-          if [ -n "$AAB_BUILD" ]; then echo "aab=podium-$tag-build$AAB_BUILD.aab" >> "$GITHUB_OUTPUT"; fi
+          if [ -n "$AAB_BUILD" ]; then echo "aab=cador-$tag-build$AAB_BUILD.aab" >> "$GITHUB_OUTPUT"; fi
           echo "Version $full → release $tag"
 
       - name: Générer les notes de version
@@ -268,13 +268,13 @@ jobs:
             # the commit just built. Version releases (v*) are never touched.
             gh release delete dev --cleanup-tag --yes 2>/dev/null || true
             gh release create dev "${files[@]}" --prerelease --latest=false \
-              --title "Podium dev · $NAME ($(git rev-parse --short HEAD))" --notes-file release_notes.txt --target "$GITHUB_SHA"
+              --title "Cador dev · $NAME ($(git rev-parse --short HEAD))" --notes-file release_notes.txt --target "$GITHUB_SHA"
           elif gh release view "$TAG" >/dev/null 2>&1; then
             # Re-run of a version: update its files in place.
             gh release upload "$TAG" "${files[@]}" --clobber
             gh release edit "$TAG" --notes-file release_notes.txt
           else
-            gh release create "$TAG" "${files[@]}" --title "Podium $TAG" --notes-file release_notes.txt --target "$GITHUB_SHA" --latest
+            gh release create "$TAG" "${files[@]}" --title "Cador $TAG" --notes-file release_notes.txt --target "$GITHUB_SHA" --latest
           fi
           echo "Release : ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/$TAG"
 

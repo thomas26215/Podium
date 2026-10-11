@@ -8,18 +8,18 @@ import '../models/plus_membership.dart';
 import '../theme/app_theme.dart';
 import 'common.dart';
 
-/// Podium+'s own colours — the same in every theme, like a brand: amber,
+/// Cador+'s own colours — the same in every theme, like a brand: amber,
 /// pink and violet, the mythic badges' end of the spectrum.
 const kPlusGradient = [Color(0xFFFFB547), Color(0xFFFF5C8A), Color(0xFF8B5CF6)];
 
-/// The night behind the Podium+ page — the app icon's own navy.
+/// The night behind the Cador+ page — the app icon's own navy.
 const kPlusNight = Color(0xFF080E2A);
 
-/// The mark of a membership: a white plus on Podium's gradient — two, on
-/// a wider pill, for Podium++. Pinned on what a membership unlocks, and
+/// The mark of a membership: a white plus on Cador's gradient — two, on
+/// a wider pill, for Cador++. Pinned on what a membership unlocks, and
 /// next to a member's name on their card.
 class PlusMark extends StatelessWidget {
-  /// Its height — a Podium++ one is wider.
+  /// Its height — a Cador++ one is wider.
   final double size;
 
   /// A white rim, to stand out on any picture (a banner, a frame…).
@@ -113,8 +113,8 @@ class PlusHint extends StatelessWidget {
   }
 }
 
-/// "Podium" and the mark, as one name — "Podium+" or "Podium++" — always in
-/// Podium's own display font, whatever font the player picked for the app.
+/// "Cador" and the mark, as one name — "Cador+" or "Cador++" — always in
+/// Cador's own display font, whatever font the player picked for the app.
 class PlusWordmark extends StatelessWidget {
   final double size;
   final Color color;
@@ -129,7 +129,7 @@ class PlusWordmark extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('Podium', style: GoogleFonts.spaceGrotesk(fontSize: size, fontWeight: FontWeight.w700, color: color, letterSpacing: -size * 0.03, height: 1)),
+          Text('Cador', style: GoogleFonts.spaceGrotesk(fontSize: size, fontWeight: FontWeight.w700, color: color, letterSpacing: -size * 0.03, height: 1)),
           SizedBox(width: size * 0.16),
           PlusMark(size: size * 0.86, rim: false, tier: tier),
         ],

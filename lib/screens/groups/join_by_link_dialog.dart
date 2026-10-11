@@ -30,7 +30,7 @@ class _JoinByLinkDialogState extends State<JoinByLinkDialog> {
   Future<void> _submit(AppState app) async {
     final target = InviteTarget.parse(_linkCtrl.text);
     if (target == null) {
-      setState(() => _error = "Ce n'est pas un lien d'invitation Podium.");
+      setState(() => _error = "Ce n'est pas un lien d'invitation Cador.");
       return;
     }
     setState(() => _error = null);
@@ -58,7 +58,7 @@ class _JoinByLinkDialogState extends State<JoinByLinkDialog> {
             Text('Rejoindre', style: dispFont(size: 20, weight: FontWeight.w700, color: AppColors.ink)),
             const SizedBox(height: 10),
             Text(
-                "Scannez le QR code d'invitation avec l'appareil photo de votre téléphone, ou touchez le lien d'invitation reçu : Podium s'ouvrira pour vous faire rejoindre.",
+                "Scannez le QR code d'invitation avec l'appareil photo de votre téléphone, ou touchez le lien d'invitation reçu : Cador s'ouvrira pour vous faire rejoindre.",
                 style: bodyFont(size: 13.5, weight: FontWeight.w600, color: AppColors.ink2)),
             const SizedBox(height: 18),
             Text("Vous avez reçu le lien ailleurs ? Collez-le ici :", style: bodyFont(size: 12.5, weight: FontWeight.w800, color: AppColors.ink2)),

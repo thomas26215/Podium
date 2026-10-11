@@ -139,7 +139,7 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(find.text('Podium'), findsOneWidget);
+    expect(find.text('Cador'), findsOneWidget);
     expect(find.text('Se connecter'), findsOneWidget);
   });
 
@@ -2965,7 +2965,7 @@ void main() {
     await tester.enterText(find.byType(TextField), 'https://example.com/pas-une-invitation');
     await tester.tap(find.widgetWithText(PrimaryButton, 'Rejoindre'));
     await tester.pumpAndSettle();
-    expect(find.text("Ce n'est pas un lien d'invitation Podium."), findsOneWidget);
+    expect(find.text("Ce n'est pas un lien d'invitation Cador."), findsOneWidget);
 
     final link = inviteLinkFor(GroupInviteCode(groupId: other.id, name: other.name, emoji: other.emoji).encode());
     await tester.enterText(find.byType(TextField), '  $link  ');

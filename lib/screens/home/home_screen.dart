@@ -34,7 +34,7 @@ class HomeScreen extends StatelessWidget {
     final salon = app.currentSalon;
     final group = app.currentGroup;
     final headerEmoji = inSalon ? (salon?.emoji ?? '🎮') : (group?.emoji ?? '🎲');
-    final headerName = inSalon ? (salon?.name ?? 'Salon') : (group?.name ?? 'Podium');
+    final headerName = inSalon ? (salon?.name ?? 'Salon') : (group?.name ?? 'Cador');
     final matchesToReview = inSalon ? _matchesToReview(app) : const <GameMatch>[];
     final players = app.viewPlayers;
     final stats = app.groupStats;

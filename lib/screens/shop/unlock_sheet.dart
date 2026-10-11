@@ -16,7 +16,7 @@ import 'shop_item_view.dart';
 
 /// How the unlock sheet was left.
 enum UnlockOutcome {
-  /// What it was opened for is unlocked now — bought, or with Podium+.
+  /// What it was opened for is unlocked now — bought, or with Cador+.
   unlocked,
 
   /// The player took its other way out (see [showUnlockSheet]).
@@ -25,12 +25,12 @@ enum UnlockOutcome {
 
 /// Opens the sheet unlocking [items] — or a whole [pack] — for good with
 /// jetons, topping the balance up by just what's missing; or the whole
-/// catalogue at once with a membership: Podium+ for the profile card,
-/// Podium++ as soon as a part of the interface is in it. Resolves to how
+/// catalogue at once with a membership: Cador+ for the profile card,
+/// Cador++ as soon as a part of the interface is in it. Resolves to how
 /// it was left — null when just closed.
 ///
 ///  * [title] and [message] head it; [preview] shows the item off.
-///  * [plusPreview] or [plusPreviewLook] is what the Podium+ page shows.
+///  * [plusPreview] or [plusPreviewLook] is what the Cador+ page shows.
 ///  * With [onUse], what the player has can be put on from the sheet —
 ///    the Boutique's way; without it, the sheet closes as soon as it's all
 ///    unlocked — the way of a choice waiting to be saved.
@@ -179,7 +179,7 @@ class _UnlockSheetState extends State<_UnlockSheet> {
         ),
         const SizedBox(height: 14),
         PrimaryButton(label: widget.onUse != null ? 'Utiliser' : 'Continuer', loading: _busy, onPressed: widget.onUse != null ? _use : () => _close(UnlockOutcome.unlocked)),
-        // A member may still buy it, to keep it without Podium+.
+        // A member may still buy it, to keep it without Cador+.
         if (!ownsAll && price > 0) ...[
           Center(
             child: TextButton(
@@ -360,7 +360,7 @@ class _ItemRow extends StatelessWidget {
 }
 
 /// The other way: everything at once, with a membership — or, for a
-/// Podium+ member, by moving up to Podium++.
+/// Cador+ member, by moving up to Cador++.
 class _PlusOffer extends StatelessWidget {
   final PlusTier tier;
   final bool upgrade;

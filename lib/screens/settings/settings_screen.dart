@@ -31,8 +31,8 @@ const _tabs = <({String label, IconData icon})>[
 /// themes, then every piece of the look on its own — colours, surface
 /// effects, backdrop, fonts, corners — with a live miniature of the app
 /// pinned on top, and the app's other settings. Every change applies at
-/// once, everywhere (see AppearanceScope) — but for the Podium+ ones
-/// (marked with a +), which a non-member first sees on the Podium+ page.
+/// once, everywhere (see AppearanceScope) — but for the Cador+ ones
+/// (marked with a +), which a non-member first sees on the Cador+ page.
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -118,7 +118,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 }
 
 /// Applies a pick — at once when the player has it (free, bought, or with
-/// Podium++); otherwise once it's unlocked, with the Boutique's sheet for
+/// Cador++); otherwise once it's unlocked, with the Boutique's sheet for
 /// the theme's [pack] or the one [item], which shows [look] off — in dark
 /// mode when [dark].
 Future<void> _pick(
@@ -222,7 +222,7 @@ class _ThemesTab extends StatelessWidget {
         if (app.plusTier != PlusTier.plusPlus) ...[
           const SizedBox(height: 14),
           PlusHint(
-            text: 'Ce qui est marqué ++ s’achète à l’unité dans la Boutique, ou vient tout entier avec Podium++.',
+            text: 'Ce qui est marqué ++ s’achète à l’unité dans la Boutique, ou vient tout entier avec Cador++.',
             action: 'Boutique',
             tier: PlusTier.plusPlus,
             onTap: () => ShopScreen.open(context, interface: true),
@@ -581,7 +581,7 @@ class _SettingsTab extends StatelessWidget {
         backgroundColor: AppColors.bg,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
         title: Text('Réinitialiser l’apparence ?', style: dispFont(size: 18, weight: FontWeight.w700, color: AppColors.ink)),
-        content: Text('Couleurs, effets, fond, police et barre de navigation reviennent au style d’origine de Podium.', style: bodyFont(size: 14, weight: FontWeight.w600, color: AppColors.mut)),
+        content: Text('Couleurs, effets, fond, police et barre de navigation reviennent au style d’origine de Cador.', style: bodyFont(size: 14, weight: FontWeight.w600, color: AppColors.mut)),
         actions: [
           TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Annuler')),
           TextButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: Text('Réinitialiser', style: TextStyle(color: AppColors.accent))),

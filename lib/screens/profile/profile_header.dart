@@ -23,7 +23,7 @@ class ProfileHeaderCard extends StatelessWidget {
   final VoidCallback? onEdit;
   final void Function(BadgeDef badge)? onTapBadge;
 
-  /// Tapping the Podium+ mark next to a member's name.
+  /// Tapping the Cador+ mark next to a member's name.
   final VoidCallback? onTapPlus;
 
   /// Changing it replays the profile effect (the editor's "Rejouer").

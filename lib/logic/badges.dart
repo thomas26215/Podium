@@ -29,7 +29,7 @@ class BadgeStats {
   final int bestDayStreak;
   final int tournamentsPlayed;
 
-  /// 1 for a player who took the Fondateur plan — Podium++ for good.
+  /// 1 for a player who took the Fondateur plan — Cador++ for good.
   final int founder;
 
   const BadgeStats({
@@ -91,7 +91,7 @@ class BadgeDef {
 /// the rarest.
 final List<BadgeDef> kBadges = [
   // Exclusifs — on offer for a while only, then never again
-  BadgeDef(id: 'founder', symbol: 'lorc/rocket', name: 'Fondateur', description: 'Devenir Fondateur de Podium avec l\'offre de lancement : Podium++ à vie.', tier: BadgeTier.exclusive, target: 1, value: (s) => s.founder, availableUntil: kFounderOfferEnds),
+  BadgeDef(id: 'founder', symbol: 'lorc/rocket', name: 'Fondateur', description: 'Devenir Fondateur de Cador avec l\'offre de lancement : Cador++ à vie.', tier: BadgeTier.exclusive, target: 1, value: (s) => s.founder, availableUntil: kFounderOfferEnds),
   // Parties jouées
   BadgeDef(id: 'first_game', symbol: 'delapouite/meeple', name: 'Première partie', description: 'Jouer sa toute première partie.', tier: BadgeTier.bronze, target: 1, value: (s) => s.played),
   BadgeDef(id: 'played_10', symbol: 'delapouite/rolling-dices', name: 'Mise en jambes', description: 'Jouer 10 parties.', tier: BadgeTier.bronze, target: 10, value: (s) => s.played),

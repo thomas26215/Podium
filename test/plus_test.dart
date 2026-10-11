@@ -1,4 +1,4 @@
-// Podium+ and the Boutique (simulated purchases for now): what's paid, the
+// Cador+ and the Boutique (simulated purchases for now): what's paid, the
 // membership and the jetons on the profile, and how the app keeps paid
 // cosmetics and looks for whoever unlocked them — in the profile editor,
 // on profile cards, in the appearance settings and in the Boutique.
@@ -37,15 +37,15 @@ import 'package:podium/widgets/plus_mark.dart';
 import 'package:podium/widgets/profile_banners.dart';
 import 'package:podium/widgets/profile_style.dart';
 
-/// Podium+: the profile card.
+/// Cador+: the profile card.
 final _membership = PlusMembership(plan: PlusPlan.yearly, since: DateTime(2026, 9, 1));
 
-/// Podium++: the card and the whole interface.
+/// Cador++: the card and the whole interface.
 final _membershipPlusPlus = PlusMembership(tier: PlusTier.plusPlus, plan: PlusPlan.yearly, since: DateTime(2026, 9, 1));
 
 const _lea = AppUser(uid: 'lea', email: 'lea@test.fr', displayName: 'Léa', color: 0xFFFF5B34);
 
-/// A Podium++ member, wearing paid cosmetics.
+/// A Cador++ member, wearing paid cosmetics.
 final _tom = AppUser(uid: 'tom', email: 'tom@test.fr', displayName: 'Tom', color: 0xFF5B4BE8, banner: 'aurora', nameEffect: 'holo', plus: _membershipPlusPlus);
 
 ({AppState state, FakeAuthRepository auth, FakeUsersRepository users}) _seed({AppUser lea = _lea}) {
@@ -110,7 +110,7 @@ Future<({AppState state, FakeUsersRepository users, GlobalKey<NavigatorState> na
 }
 
 /// Lets transitions play out on screens whose decorations loop forever
-/// (Podium+ banners, the Podium+ page's sky), where pumpAndSettle can't.
+/// (Cador+ banners, the Cador+ page's sky), where pumpAndSettle can't.
 Future<void> _settle(WidgetTester tester, {int frames = 12}) async {
   for (var i = 0; i < frames; i++) {
     await tester.pump(const Duration(milliseconds: 100));
@@ -156,7 +156,7 @@ void main() {
       expect(BackdropStyle.values.where((b) => !kPlusBackdrops.contains(b)), isNotEmpty);
     });
 
-    test('the free themes are Podium, Minimal and Papier; the others are sold one by one', () {
+    test('the free themes are Cador, Minimal and Papier; the others are sold one by one', () {
       expect(kAppearancePresets.where((p) => p.look.paidParts.isEmpty).map((p) => p.id), ['podium', 'minimal', 'paper']);
       expect(kShopThemes.map((t) => t.id), isNot(contains('podium')));
       expect(const Appearance().paidParts, isEmpty);
@@ -197,7 +197,7 @@ void main() {
       expect(euros(2000), '20,00 €');
     });
 
-    test('a card shows what its owner may show: everything with Podium+, otherwise the free picks and what they bought', () {
+    test('a card shows what its owner may show: everything with Cador+, otherwise the free picks and what they bought', () {
       const card = AppUser(uid: 'a', email: '', displayName: 'A', color: 0, banner: 'aurora', avatarFrame: 'laurel', nameFont: 'comic', nameEffect: 'holo', profileEffect: 'confetti');
       expect(card.paidPicks, [const ShopItem(ShopKind.banner, 'aurora'), const ShopItem(ShopKind.nameEffect, 'holo')]);
       final free = card.within(const Unlocks());
@@ -208,7 +208,7 @@ void main() {
       expect(free.nameEffect, isNull);
       expect(free.profileEffect, 'confetti');
 
-      expect(card.shown.banner, kDefaultBanner, reason: 'nothing bought, no Podium+');
+      expect(card.shown.banner, kDefaultBanner, reason: 'nothing bought, no Cador+');
       final bought = card.copyWith(ownedItems: ['nameEffect:holo']);
       expect(bought.shown.nameEffect, 'holo', reason: 'bought for good');
       expect(bought.shown.banner, kDefaultBanner);
@@ -237,8 +237,8 @@ void main() {
       expect(mixed.font, FontPair.podium, reason: 'Pixel comes with the Arcade theme, not Verre');
       expect(look.within(Unlocks(owned: {partItem(FontPair.pixel).key})).font, FontPair.pixel, reason: 'a part bought on its own');
 
-      expect(look.allowedBy(const Unlocks(tier: PlusTier.plus)), isFalse, reason: 'Podium+ is the card only');
-      expect(look.allowedBy(const Unlocks(tier: PlusTier.plusPlus)), isTrue, reason: 'Podium++ has the whole interface');
+      expect(look.allowedBy(const Unlocks(tier: PlusTier.plus)), isFalse, reason: 'Cador+ is the card only');
+      expect(look.allowedBy(const Unlocks(tier: PlusTier.plusPlus)), isTrue, reason: 'Cador++ has the whole interface');
       const cardItem = ShopItem(ShopKind.banner, 'aurora');
       expect(const Unlocks(tier: PlusTier.plus).has(cardItem), isTrue);
       expect(tierFor([cardItem]), PlusTier.plus);
@@ -259,7 +259,7 @@ void main() {
       final u = AppUser.fromDoc('lea', {'displayName': 'Léa', 'plus': m.toMap()});
       expect(u.plus, m);
       expect(u.isPlus, isTrue);
-      expect(AppUser.fromDoc('lea', {'plus': {'plan': 'yearly', 'since': Timestamp.now()}}).plus?.tier, PlusTier.plus, reason: 'from before the tiers: Podium+');
+      expect(AppUser.fromDoc('lea', {'plus': {'plan': 'yearly', 'since': Timestamp.now()}}).plus?.tier, PlusTier.plus, reason: 'from before the tiers: Cador+');
       expect(AppUser.fromDoc('lea', {'displayName': 'Léa'}).isPlus, isFalse);
       expect(AppUser.fromDoc('lea', {'plus': {'plan': 'platine', 'since': Timestamp.now()}}).isPlus, isFalse);
       expect(AppUser.fromDoc('lea', {'plus': 'oui'}).isPlus, isFalse);
@@ -291,7 +291,7 @@ void main() {
   });
 
   group('in the app', () {
-    testWidgets('buying, then cancelling Podium+ (simulation) writes the membership — and its look goes with it', (tester) async {
+    testWidgets('buying, then cancelling Cador+ (simulation) writes the membership — and its look goes with it', (tester) async {
       final app = await _pumpApp(tester);
       final state = app.state;
       expect(state.isPlus, isFalse);
@@ -342,7 +342,7 @@ void main() {
       expect(saved.ownedItems, ['banner:aurora']);
     });
 
-    for (final (who, membership, kept) in [('nobody', null, false), ('Podium+', _membership, false), ('Podium++', _membershipPlusPlus, true)]) {
+    for (final (who, membership, kept) in [('nobody', null, false), ('Cador+', _membership, false), ('Cador++', _membershipPlusPlus, true)]) {
       testWidgets('signing in with $who ${kept ? 'keeps' : 'takes off'} a paid look saved on the device', (tester) async {
         SharedPreferences.setMockInitialValues({'appearance_v1': jsonEncode(const Appearance(palette: PaletteId.mint, surface: SurfaceStyle.neon).toJson())});
         final app = await _pumpApp(tester, lea: _lea.copyWith(plus: () => membership));
@@ -351,7 +351,7 @@ void main() {
       });
     }
 
-    testWidgets('a bought theme keeps its parts in the app\'s look, without Podium+', (tester) async {
+    testWidgets('a bought theme keeps its parts in the app\'s look, without Cador+', (tester) async {
       SharedPreferences.setMockInitialValues({'appearance_v1': jsonEncode(const Appearance(surface: SurfaceStyle.neon, font: FontPair.technical, backdrop: BackdropStyle.aurora).toJson())});
       final neon = themePack(kShopThemes.firstWhere((t) => t.id == 'neon'));
       final app = await _pumpApp(tester, lea: _lea.copyWith(ownedItems: [for (final i in neon.items) i.key]));
@@ -372,7 +372,7 @@ void main() {
 
       app.state.openProfile('lea');
       await _settle(tester);
-      expect(find.descendant(of: header, matching: _banner('lava')), findsNothing, reason: 'Léa neither bought it nor has Podium+');
+      expect(find.descendant(of: header, matching: _banner('lava')), findsNothing, reason: 'Léa neither bought it nor has Cador+');
       expect(find.descendant(of: header, matching: _banner(kDefaultBanner)), findsOneWidget);
       expect(find.descendant(of: header, matching: find.byWidgetPredicate((w) => w is FramedAvatar && w.frameId == 'fire')), findsOneWidget, reason: 'she bought the Feu frame');
       expect(find.descendant(of: header, matching: find.byType(PlusMark)), findsNothing);
@@ -391,7 +391,7 @@ void main() {
 
       await _tap(tester, find.text('Enregistrer'));
       expect(find.text('Débloquer « Aurore boréale »'), findsOneWidget);
-      expect(find.text('Ou tout débloquer avec Podium+'), findsOneWidget);
+      expect(find.text('Ou tout débloquer avec Cador+'), findsOneWidget);
       expect(find.text('Simulation : aucun paiement n’est effectué.'), findsOneWidget);
       await _tap(tester, find.text('Enregistrer sans ces options'));
       expect(find.byType(EditProfileScreen), findsNothing, reason: 'saved and closed');
@@ -419,7 +419,7 @@ void main() {
       await tester.pump(const Duration(seconds: 3));
     });
 
-    testWidgets('joining Podium+ from the editor\'s save keeps the pick', (tester) async {
+    testWidgets('joining Cador+ from the editor\'s save keeps the pick', (tester) async {
       final app = await _pumpApp(tester);
       unawaited(app.nav.currentState!.push(MaterialPageRoute(builder: (_) => const EditProfileScreen())));
       await _settle(tester);
@@ -427,15 +427,15 @@ void main() {
       await _tap(tester, find.text('Aurore boréale'));
       await _tap(tester, find.text('Enregistrer'));
 
-      await _tap(tester, find.text('Ou tout débloquer avec Podium+'));
+      await _tap(tester, find.text('Ou tout débloquer avec Cador+'));
       await _tap(tester, find.text('Essayer 7 jours gratuitement'));
-      expect(find.text('Bienvenue dans Podium+ !'), findsOneWidget);
+      expect(find.text('Bienvenue dans Cador+ !'), findsOneWidget);
       expect(app.users.users['lea']!.plus?.plan, PlusPlan.yearly);
       await _tap(tester, find.text('Continuer'));
       expect(find.byType(PlusScreen), findsNothing);
       expect(find.byType(EditProfileScreen), findsNothing, reason: 'unlocked, then saved and closed');
       expect(app.users.users['lea']!.banner, 'aurora');
-      expect(app.users.users['lea']!.ownedItems, isEmpty, reason: 'with Podium+, nothing to buy');
+      expect(app.users.users['lea']!.ownedItems, isEmpty, reason: 'with Cador+, nothing to buy');
       await tester.pump(const Duration(seconds: 3));
     });
 
@@ -445,7 +445,7 @@ void main() {
       await _settle(tester);
       final page = find.descendant(of: find.byType(PlusScreen), matching: find.byType(Scrollable)).first;
       await tester.scrollUntilVisible(find.text('Fondateur à vie'), 300, scrollable: page);
-      expect(find.text('Podium++ pour toujours, et le badge exclusif Fondateur'), findsOneWidget);
+      expect(find.text('Cador++ pour toujours, et le badge exclusif Fondateur'), findsOneWidget);
 
       await _tap(tester, find.text('Fondateur à vie'));
       await _tap(tester, find.text('Devenir Fondateur pour 49,99 €'));
@@ -463,13 +463,13 @@ void main() {
       await tester.pump(const Duration(seconds: 5));
     });
 
-    testWidgets('a member manages their membership on the Podium+ page, and can cancel it', (tester) async {
+    testWidgets('a member manages their membership on the Cador+ page, and can cancel it', (tester) async {
       final app = await _pumpApp(tester, lea: _lea.copyWith(plus: () => _membership));
       unawaited(PlusScreen.open(app.nav.currentContext!));
       await _settle(tester);
-      expect(find.text('Vous êtes membre Podium+'), findsOneWidget);
-      expect(find.text('Podium+ · annuel'), findsOneWidget);
-      expect(find.text('Passer à Podium++'), findsOneWidget, reason: 'the way up');
+      expect(find.text('Vous êtes membre Cador+'), findsOneWidget);
+      expect(find.text('Cador+ · annuel'), findsOneWidget);
+      expect(find.text('Passer à Cador++'), findsOneWidget, reason: 'the way up');
       expect(find.text('Essayer 7 jours gratuitement'), findsNothing, reason: 'no plans to pick');
 
       await _tap(tester, find.text('Résilier l’abonnement'));
@@ -490,7 +490,7 @@ void main() {
 
       await _tap(tester, find.text('Soft UI'));
       expect(find.text('☁️  Thème Soft UI'), findsOneWidget);
-      expect(find.text('Ou tout débloquer avec Podium++'), findsOneWidget, reason: 'the interface takes Podium++');
+      expect(find.text('Ou tout débloquer avec Cador++'), findsOneWidget, reason: 'the interface takes Cador++');
       await _tap(tester, find.byTooltip('Fermer'));
       expect(app.state.appearance.surface, SurfaceStyle.outlined, reason: 'closed without buying: nothing changes');
 
@@ -508,25 +508,25 @@ void main() {
       expect(app.state.appearance.accent, AccentId.custom);
     });
 
-    testWidgets('a Podium+ member moves up to Podium++ for the interface', (tester) async {
+    testWidgets('a Cador+ member moves up to Cador++ for the interface', (tester) async {
       final app = await _pumpApp(tester, lea: _lea.copyWith(plus: () => _membership));
       unawaited(app.nav.currentState!.push(MaterialPageRoute(builder: (_) => const SettingsScreen())));
       await tester.pumpAndSettle();
 
       await _tap(tester, find.text('Soft UI'));
-      await _tap(tester, find.text('Ou passer à Podium++'));
-      expect(find.text('Passez à Podium++'), findsOneWidget);
+      await _tap(tester, find.text('Ou passer à Cador++'));
+      expect(find.text('Passez à Cador++'), findsOneWidget);
       expect(find.text('Essayer 7 jours gratuitement'), findsNothing, reason: 'no second free week for a member');
-      await _tap(tester, find.text('Passer à Podium++ pour 29,99 € par an'));
+      await _tap(tester, find.text('Passer à Cador++ pour 29,99 € par an'));
       expect(app.users.users['lea']!.plus?.tier, PlusTier.plusPlus);
       expect(app.users.users['lea']!.plus?.trialEndsAt, isNull);
       await _tap(tester, find.text('Continuer'));
       expect(find.byType(PlusScreen), findsNothing);
       expect(app.state.appearance.surface, SurfaceStyle.neumorphic, reason: 'unlocked, then applied');
-      expect(app.users.users['lea']!.ownedItems, isEmpty, reason: 'with Podium++, nothing to buy');
+      expect(app.users.users['lea']!.ownedItems, isEmpty, reason: 'with Cador++, nothing to buy');
     });
 
-    testWidgets('without Podium+, the dice only roll looks the player has unlocked', (tester) async {
+    testWidgets('without Cador+, the dice only roll looks the player has unlocked', (tester) async {
       final app = await _pumpApp(tester);
       unawaited(app.nav.currentState!.push(MaterialPageRoute(builder: (_) => const SettingsScreen())));
       await tester.pumpAndSettle();

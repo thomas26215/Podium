@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import '../logic/plus.dart';
 import '../theme/app_theme.dart';
 
-/// A jeton, Podium's coin: gold, notched like a game chip, with the
+/// A jeton, Cador's coin: gold, notched like a game chip, with the
 /// podium's three steps struck in the middle.
 class CoinIcon extends StatelessWidget {
   final double size;

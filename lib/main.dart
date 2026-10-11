@@ -121,7 +121,7 @@ class _ThemedMaterialAppState extends State<_ThemedMaterialApp> with WidgetsBind
   Widget build(BuildContext context) {
     context.watch<AppState>();
     return MaterialApp(
-      title: 'Podium',
+      title: 'Cador',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
       locale: const Locale('fr'),
@@ -161,7 +161,7 @@ class _FirebaseSetupNeededApp extends StatelessWidget {
                   Text('Connectez votre projet Firebase', textAlign: TextAlign.center, style: dispFont(size: 20, weight: FontWeight.w700, color: AppColors.ink)),
                   const SizedBox(height: 12),
                   Text(
-                    "Podium a besoin d'un projet Firebase (Auth + Firestore).\n\n"
+                    "Cador a besoin d'un projet Firebase (Auth + Firestore).\n\n"
                     "1. Créez un projet sur console.firebase.google.com\n"
                     "2. Activez Authentication (E-mail/Mot de passe) et Firestore\n"
                     "3. Depuis ce dossier, lancez :\n"

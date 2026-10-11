@@ -1,6 +1,6 @@
 {
   "name": "functions",
-  "description": "Cloud Functions for Podium — push notifications, member rosters, win tallies, library stats and sync stamps.",
+  "description": "Cloud Functions for Cador — push notifications, member rosters, win tallies, library stats and sync stamps.",
   "engines": {
     "node": "20"
   },

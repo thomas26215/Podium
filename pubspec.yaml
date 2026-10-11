@@ -1,5 +1,5 @@
 name: podium
-description: "Podium — suivi de scores et classements entre amis."
+description: "Cador — suivi de scores et classements entre amis."
 publish_to: 'none'
 
 version: 1.2.0+4

@@ -148,7 +148,7 @@ class Appearance {
 /// backgrounds; [classic] keeps the original hand-picked values and [pure]
 /// goes for plain white and true black.
 enum PaletteId {
-  classic('Podium', 45, 0.26, 0.11),
+  classic('Cador', 45, 0.26, 0.11),
   neutral('Neutre', 240, 0.06, 0.06),
   glacier('Glacier', 212, 0.38, 0.26),
   mint('Menthe', 152, 0.28, 0.18),
@@ -225,7 +225,7 @@ enum CornerStyle {
 /// the default pairing still fit; [tight] fonts keep the negative letter
 /// spacing headings use, the others (monospaced, pixel) drop it.
 enum FontPair {
-  podium('Podium', 'Manrope', 'Space Grotesk'),
+  podium('Cador', 'Manrope', 'Space Grotesk'),
   modern('Moderne', 'Inter', 'Inter Tight', bodyScale: 0.97),
   rounded('Arrondie', 'Nunito', 'Fredoka', bodyScale: 1.02),
   geometric('Géométrique', 'Figtree', 'Outfit'),
@@ -300,7 +300,7 @@ class AppearancePreset {
 }
 
 const kAppearancePresets = <AppearancePreset>[
-  AppearancePreset(id: 'podium', label: 'Podium', emoji: '🏆', description: 'Le style d’origine.', look: Appearance()),
+  AppearancePreset(id: 'podium', label: 'Cador', emoji: '🏆', description: 'Le style d’origine.', look: Appearance()),
   AppearancePreset(
     id: 'soft',
     label: 'Soft UI',

@@ -7,7 +7,7 @@ exactement ce que tu ferais depuis ton terminal :
 ```bash
 flutter pub get && flutter analyze && flutter test
 flutter build apk --release                                  # signé avec ton keystore
-gh release create v1.0.0 podium-v1.0.0-build1.apk --notes "…"
+gh release create v1.0.0 cador-v1.0.0-build1.apk --notes "…"
 ```
 
 1. installe Flutter **3.44.8** (stable) et Java 17 ;
@@ -34,7 +34,7 @@ Augmente aussi le numéro de build (`+2`) à chaque version : Android refuse d�
 ## AAB pour le Play Store
 
 Sur un **tag `v*`** ou un **lancement manuel**, le workflow construit aussi l’AAB (`flutter build appbundle --release`)
-et le joint à la release (`podium-v1.0.1-build3.aab`), à envoyer toi-même dans la Play Console.
+et le joint à la release (`cador-v1.0.1-build3.aab`), à envoyer toi-même dans la Play Console.
 
 Avant de le construire, il vérifie que le numéro de build (le `+3` de `version: 1.1.0+3`) est **strictement supérieur**
 à celui de toutes les versions précédentes — sinon Google Play refuserait l’envoi. Il le lit dans le `pubspec.yaml` de
@@ -92,7 +92,7 @@ permissions** → **Save**.
 ## 4. Installer la release sur ton téléphone
 
 1. Sur le téléphone : `https://github.com/thomas26215/Podium/releases` (connecté à GitHub si le dépôt est privé).
-2. Release **`dev`** (dernier push sur `main`) ou une release de version `v…` → **Assets** → `podium-….apk` →
+2. Release **`dev`** (dernier push sur `main`) ou une release de version `v…` → **Assets** → `cador-….apk` →
    télécharger, puis ouvrir le fichier.
 3. La première fois, autorise l’**installation d’applications inconnues** pour ton navigateur.
 

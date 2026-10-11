@@ -385,7 +385,7 @@ exports.onMessageCreated = onDocumentCreated("{root}/{rootId}/messages/{messageI
   let title;
   let body = message.text;
   if (message.system) {
-    title = "Podium";
+    title = "Cador";
   } else if (Array.isArray(message.pollGameIds) && message.pollGameIds.length > 0) {
     title = "Nouveau sondage";
     body = `${author} : ${message.text}`;
@@ -438,7 +438,7 @@ exports.onGroupMemberAdded = onDocumentUpdated("groups/{groupId}", async (event)
 
   await sendToTokens(
     tokens,
-    { title: "Nouveau groupe", body: `Vous avez été ajouté au groupe « ${after.name || "Podium"} ».` },
+    { title: "Nouveau groupe", body: `Vous avez été ajouté au groupe « ${after.name || "Cador"} ».` },
     "podium_groups",
   );
   logger.info(`group-member-added push sent for group ${event.params.groupId} to ${tokens.length} device(s)`);
@@ -460,7 +460,7 @@ exports.onSalonMemberAdded = onDocumentUpdated("servers/{serverId}/salons/{salon
 
   await sendToTokens(
     tokens,
-    { title: "Nouveau salon", body: `Vous avez été ajouté au salon « ${after.name || "Podium"} ».` },
+    { title: "Nouveau salon", body: `Vous avez été ajouté au salon « ${after.name || "Cador"} ».` },
     "podium_groups",
   );
   logger.info(`salon-member-added push sent for salon ${event.params.salonId} to ${tokens.length} device(s)`);

@@ -55,7 +55,7 @@ class _InviteDialogState extends State<InviteDialog> {
   Future<void> _shareLink(AppState app, Group group) async {
     final message = await app.shareGroupInviteLink(group);
     if (message == null) return;
-    await SharePlus.instance.share(ShareParams(text: message, subject: 'Invitation Podium'));
+    await SharePlus.instance.share(ShareParams(text: message, subject: 'Invitation Cador'));
   }
 
   void _selectMode(_InviteMode mode, AppState app) {
@@ -151,7 +151,7 @@ class _InviteDialogState extends State<InviteDialog> {
                       ),
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
-                        child: Text('Votre ami doit déjà avoir un compte Podium.', style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
+                        child: Text('Votre ami doit déjà avoir un compte Cador.', style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
                       ),
                       if (app.flowError != null) ...[
                         const SizedBox(height: 8),
@@ -224,7 +224,7 @@ class _InviteDialogState extends State<InviteDialog> {
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
                         child: Text(
-                          "Il pourra jouer sans compte Podium ; vous pourrez le relier à un vrai compte plus tard.",
+                          "Il pourra jouer sans compte Cador ; vous pourrez le relier à un vrai compte plus tard.",
                           style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
                         ),
                       ),

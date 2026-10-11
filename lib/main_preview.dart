@@ -130,7 +130,7 @@ void main() {
     child: ListenableBuilder(
       listenable: state,
       builder: (context, _) => MaterialApp(
-        title: 'Podium (preview)',
+        title: 'Cador (preview)',
         debugShowCheckedModeBanner: false,
         theme: buildAppTheme(),
         locale: const Locale('fr'),

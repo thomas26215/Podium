@@ -19,7 +19,7 @@ import '../../widgets/profile_banners.dart';
 import '../../widgets/profile_style.dart';
 import '../profile/profile_header.dart';
 
-/// How the Podium+ page was left.
+/// How the Cador+ page was left.
 enum PlusOutcome {
   /// The player has the membership they needed now — they just joined.
   joined,
@@ -59,35 +59,35 @@ _Offer _offer(PlusTier tier, PlusPlan plan, {bool upgrade = false}) {
         title: 'Fondateur à vie',
         price: '49,99 €',
         per: 'une seule fois',
-        detail: 'Podium++ pour toujours, et le badge exclusif Fondateur',
+        detail: 'Cador++ pour toujours, et le badge exclusif Fondateur',
         tag: 'Offre de lancement',
         cta: 'Devenir Fondateur pour 49,99 €',
-        fine: 'Un seul paiement : Podium++ reste à vous pour toujours.',
+        fine: 'Un seul paiement : Cador++ reste à vous pour toujours.',
       ),
   };
 }
 
-/// The plans of [tier] — the lifetime one is Podium++'s, while its launch
+/// The plans of [tier] — the lifetime one is Cador++'s, while its launch
 /// offer runs.
 List<PlusPlan> _plansOf(PlusTier tier) => [PlusPlan.yearly, PlusPlan.monthly, if (tier == PlusTier.plusPlus && founderOfferOpen(DateTime.now())) PlusPlan.lifetime];
 
 /// "6 oct. 2026".
 String _longDate(DateTime d) => '${frenchDayMonth(d)} ${d.year}';
 
-/// The Podium+ page: what Podium+ (the profile card) and Podium++ (the card
+/// The Cador+ page: what Cador+ (the profile card) and Cador++ (the card
 /// and the whole interface) unlock, and the plans to get them — or, for a
-/// member, their membership, and a way up to Podium++. Always on its own
+/// member, their membership, and a way up to Cador++. Always on its own
 /// night sky, whatever the app's look.
 ///
 /// SIMULATION: "buying" takes no payment (see
 /// AppState.simulatePlusPurchase), and the page says so.
 class PlusScreen extends StatefulWidget {
-  /// The tier the caller needs: Podium++ for a part of the interface — the
-  /// page then offers it alone, as the way up for a Podium+ member too.
+  /// The tier the caller needs: Cador++ for a part of the interface — the
+  /// page then offers it alone, as the way up for a Cador+ member too.
   final PlusTier minTier;
 
   /// A card to show off at the top — the profile editor's draft, so the
-  /// player sees their own picks with Podium+. Without it (nor
+  /// player sees their own picks with Cador+. Without it (nor
   /// [previewLook]), their own card, dressed up.
   final AppUser? preview;
 
@@ -118,7 +118,7 @@ class _PlusScreenState extends State<PlusScreen> {
   PlusPlan _plan = PlusPlan.yearly;
   bool _buying = false;
 
-  /// A Podium+ member who asked to move up to Podium++ on the page.
+  /// A Cador+ member who asked to move up to Cador++ on the page.
   bool _upgrading = false;
 
   /// What the player joined on this page, which turns into a welcome.
@@ -175,7 +175,7 @@ class _PlusScreenState extends State<PlusScreen> {
     final app = context.watch<AppState>();
     final me = app.currentUser;
     final membership = me?.plus;
-    // A Podium+ member moves up to Podium++ here when the caller needs it,
+    // A Cador+ member moves up to Cador++ here when the caller needs it,
     // or when they ask to on their membership card.
     final upgrading = _joined == null && membership?.tier == PlusTier.plus && (widget.minTier == PlusTier.plusPlus || _upgrading);
     final buying = _joined == null && (membership == null || upgrading);
@@ -220,17 +220,17 @@ class _PlusScreenState extends State<PlusScreen> {
                           ),
                         ],
                         const SizedBox(height: 26),
-                        _SectionTitle(buying ? 'Avec Podium+ — votre carte' : (tier == PlusTier.plus ? 'Débloqué pour vous' : 'Votre carte')),
+                        _SectionTitle(buying ? 'Avec Cador+ — votre carte' : (tier == PlusTier.plus ? 'Débloqué pour vous' : 'Votre carte')),
                         _Perks(perks: _Perks.card(tier)),
                         const SizedBox(height: 16),
-                        // What Podium++ adds — dimmed while Podium+ is the one on show.
+                        // What Cador++ adds — dimmed while Cador+ is the one on show.
                         AnimatedOpacity(
                           duration: const Duration(milliseconds: 250),
                           opacity: tier == PlusTier.plusPlus ? 1 : 0.5,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              _SectionTitle(tier == PlusTier.plusPlus && !buying ? 'Et toute l’interface' : 'En plus avec Podium++ — l’interface'),
+                              _SectionTitle(tier == PlusTier.plusPlus && !buying ? 'Et toute l’interface' : 'En plus avec Cador++ — l’interface'),
                               _Perks(perks: _Perks.interface()),
                             ],
                           ),
@@ -269,14 +269,14 @@ class _PlusScreenState extends State<PlusScreen> {
     final String title, text;
     if (joined?.plan == PlusPlan.lifetime) {
       title = 'Bienvenue, Fondateur !';
-      text = 'Podium++ est à vous pour toujours, avec le badge exclusif Fondateur. Merci de soutenir Podium !';
+      text = 'Cador++ est à vous pour toujours, avec le badge exclusif Fondateur. Merci de soutenir Cador !';
     } else if (joined != null) {
       final trialEnd = membership?.trialEndsAt;
       title = 'Bienvenue dans ${joined.tier.label} !';
       text = trialEnd != null ? 'Votre essai gratuit court jusqu’au ${frenchDayMonth(trialEnd)}. Tout est débloqué : à vous de jouer.' : 'Tout est débloqué : à vous de jouer.';
     } else if (upgrading) {
-      title = 'Passez à Podium++';
-      text = 'Gardez tout Podium+, et personnalisez aussi toute l’interface : thèmes, styles, fonds et polices.';
+      title = 'Passez à Cador++';
+      text = 'Gardez tout Cador+, et personnalisez aussi toute l’interface : thèmes, styles, fonds et polices.';
     } else if (membership != null) {
       title = 'Vous êtes membre ${membership.tier.label}';
       text = membership.tier == PlusTier.plus ? 'Bannières, cadres et effets : toute votre carte est débloquée.' : 'Votre carte et toute l’interface : tout est débloqué.';
@@ -284,7 +284,7 @@ class _PlusScreenState extends State<PlusScreen> {
       title = 'Faites briller votre profil';
       text = 'Bannières animées, cadres, polices et effets de pseudo : tout ce qui se voit sur votre carte.';
     } else {
-      title = 'Tout Podium, à votre façon';
+      title = 'Tout Cador, à votre façon';
       text = 'Votre carte, et toute l’interface : thèmes, styles, fonds et polices de l’app.';
     }
     final still = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
@@ -399,7 +399,7 @@ class _PlusScreenState extends State<PlusScreen> {
   }
 }
 
-/// Podium+ or Podium++, side by side: what each covers and from how much.
+/// Cador+ or Cador++, side by side: what each covers and from how much.
 class _TierSwitch extends StatelessWidget {
   final PlusTier selected;
   final ValueChanged<PlusTier>? onPick;
@@ -524,7 +524,7 @@ class _Perks extends StatelessWidget {
 
   static String _some(Iterable<String> labels) => '${labels.take(4).join(', ')}…';
 
-  /// Podium+'s: the profile card — with the mark of [tier] last.
+  /// Cador+'s: the profile card — with the mark of [tier] last.
   static List<_Perk> card(PlusTier tier) => [
         (emoji: '🌌', mark: null, title: '${kPlusBanners.length} bannières animées', text: _some(kBannerThemes.where((b) => kPlusBanners.contains(b.id)).map((b) => b.label))),
         (emoji: '💫', mark: null, title: '${kPlusAvatarFrames.length} cadres d’avatar', text: _some(kAvatarFrames.where((f) => kPlusAvatarFrames.contains(f.id)).map((f) => f.label))),
@@ -533,7 +533,7 @@ class _Perks extends StatelessWidget {
         (emoji: null, mark: tier, title: 'La marque ${tier.label}', text: 'À côté de votre pseudo, sur votre carte de profil.'),
       ];
 
-  /// What Podium++ adds: the whole interface.
+  /// What Cador++ adds: the whole interface.
   static List<_Perk> interface() => [
         (emoji: '🎨', mark: null, title: '${kShopThemes.length} thèmes pour l’app', text: _some(kShopThemes.map((t) => t.label))),
         (emoji: '🪟', mark: null, title: '${kPlusSurfaces.length} styles d’interface', text: _some(kPlusSurfaces.map((s) => s.label))),
@@ -690,7 +690,7 @@ class _Tick extends StatelessWidget {
   }
 }
 
-/// The page's call to action, in Podium+'s gradient.
+/// The page's call to action, in Cador+'s gradient.
 class _PlusButton extends StatelessWidget {
   final String label;
   final bool loading;
@@ -727,7 +727,7 @@ class _PlusButton extends StatelessWidget {
   }
 }
 
-/// A member's plan, dates, the way up to Podium++ for a Podium+ one, and
+/// A member's plan, dates, the way up to Cador++ for a Cador+ one, and
 /// the way out.
 class _MembershipCard extends StatelessWidget {
   final PlusMembership membership;
@@ -789,7 +789,7 @@ class _MembershipCard extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Passer à Podium++', style: bodyFont(size: 14, weight: FontWeight.w800, color: Colors.white)),
+                            Text('Passer à Cador++', style: bodyFont(size: 14, weight: FontWeight.w800, color: Colors.white)),
                             Text('Toute l’interface en plus de votre carte', style: bodyFont(size: 12, weight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.7))),
                           ],
                         ),

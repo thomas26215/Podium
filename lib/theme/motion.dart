@@ -172,7 +172,7 @@ class AppMotion {
     final a = amplitude;
     switch (style) {
       case SurfaceStyle.flat:
-        // Fades in sliding into place — the original Podium entrance.
+        // Fades in sliding into place — the original Cador entrance.
         final e = Curves.easeOutCubic.transform(t);
         return RevealFrame(opacity: e, offset: sideways ? Offset(d * side * (1 - e), 0) : Offset(0, travel * (1 - e)));
       case SurfaceStyle.elevated:

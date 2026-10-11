@@ -27,7 +27,7 @@ class SharePalette {
   static Color get accent => AppColors.accent;
 }
 
-/// The share cards' fonts: always Podium's own, whatever font the sharer
+/// The share cards' fonts: always Cador's own, whatever font the sharer
 /// picked for the app (see [SharePalette]).
 TextStyle shareBodyFont({double? size, FontWeight? weight, double? height, Color? color, double? letterSpacing}) =>
     pairBodyFont(FontPair.podium, size: size, weight: weight, height: height, color: color, letterSpacing: letterSpacing);
@@ -39,7 +39,7 @@ TextStyle shareDispFont({double? size, FontWeight? weight, double? height, Color
 String sharePts(int n) => n.abs() <= 1 ? '$n pt' : '$n pts';
 
 /// The card's outer shell: fixed width, light background, [children]
-/// stacked, and the "Podium · Disponible sur Google Play" footer.
+/// stacked, and the "Cador · Disponible sur Google Play" footer.
 class ShareCardFrame extends StatelessWidget {
   final List<Widget> children;
   const ShareCardFrame({super.key, required this.children});
@@ -145,7 +145,7 @@ class _Footer extends StatelessWidget {
           child: const Icon(Icons.emoji_events_rounded, size: 14, color: Colors.white),
         ),
         const SizedBox(width: 7),
-        Text('Podium', style: shareDispFont(size: 15, weight: FontWeight.w800, color: SharePalette.ink)),
+        Text('Cador', style: shareDispFont(size: 15, weight: FontWeight.w800, color: SharePalette.ink)),
         const SizedBox(width: 12),
         Expanded(
           child: Text('Disponible sur Google Play',

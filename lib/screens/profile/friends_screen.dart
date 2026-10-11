@@ -163,7 +163,7 @@ class _AddFriendDialogState extends State<_AddFriendDialog> {
             ),
             Padding(
               padding: const EdgeInsets.only(top: 8),
-              child: Text('Votre ami doit déjà avoir un compte Podium.', style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
+              child: Text('Votre ami doit déjà avoir un compte Cador.', style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
             ),
             if (app.flowError != null) ...[
               const SizedBox(height: 8),

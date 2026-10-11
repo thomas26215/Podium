@@ -111,7 +111,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             child: Icon(Icons.emoji_events, color: AppColors.gold, size: 30),
                           ),
                           const SizedBox(height: 20),
-                          Text('Podium', style: dispFont(size: 30, weight: FontWeight.w700, color: AppColors.ink, letterSpacing: -0.6)),
+                          Text('Cador', style: dispFont(size: 30, weight: FontWeight.w700, color: AppColors.ink, letterSpacing: -0.6)),
                           const SizedBox(height: 4),
                           Text('Les scores et classements entre amis.', style: bodyFont(size: 14, weight: FontWeight.w600, color: AppColors.mut)),
                         ],

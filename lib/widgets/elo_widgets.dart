@@ -51,7 +51,7 @@ class _EloExplainerSheet extends StatelessWidget {
     (
       Icons.flag_rounded,
       'Vers son niveau',
-      "En coulisses, Podium estime le niveau de chacun d'après qui bat qui. L'Elo grimpe vers ce niveau\u00a0: tant qu'on en est loin, chaque victoire rapporte un bonus et les défaites coûtent peu. Une fois le niveau rejoint, gains et pertes s'équilibrent.",
+      "En coulisses, Cador estime le niveau de chacun d'après qui bat qui. L'Elo grimpe vers ce niveau\u00a0: tant qu'on en est loin, chaque victoire rapporte un bonus et les défaites coûtent peu. Une fois le niveau rejoint, gains et pertes s'équilibrent.",
     ),
     (
       Icons.swap_vert_rounded,
@@ -66,7 +66,7 @@ class _EloExplainerSheet extends StatelessWidget {
     (
       Icons.casino_rounded,
       'La part de chance',
-      "Podium apprend la part de hasard de chaque jeu\u00a0: plus les favoris y perdent souvent, moins ses parties font bouger l'Elo.",
+      "Cador apprend la part de hasard de chaque jeu\u00a0: plus les favoris y perdent souvent, moins ses parties font bouger l'Elo.",
     ),
     (
       Icons.sports_esports_rounded,

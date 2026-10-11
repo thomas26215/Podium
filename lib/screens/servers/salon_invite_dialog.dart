@@ -159,7 +159,7 @@ class _SalonInviteDialogState extends State<SalonInviteDialog> {
                       ),
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
-                        child: Text('Il doit déjà avoir un compte Podium.', style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
+                        child: Text('Il doit déjà avoir un compte Cador.', style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
                       ),
                       if (app.flowError != null) ...[
                         const SizedBox(height: 8),
@@ -232,7 +232,7 @@ class _SalonInviteDialogState extends State<SalonInviteDialog> {
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
                         child: Text(
-                          "Il pourra jouer sans compte Podium ; vous pourrez le relier à un vrai compte plus tard.",
+                          "Il pourra jouer sans compte Cador ; vous pourrez le relier à un vrai compte plus tard.",
                           style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut),
                         ),
                       ),

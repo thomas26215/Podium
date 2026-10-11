@@ -5,9 +5,9 @@ import '../models/app_user.dart';
 import '../models/plus_membership.dart';
 import '../theme/appearance.dart';
 
-// What's paid in Podium — in this one file, so the free/paid split and
+// What's paid in Cador — in this one file, so the free/paid split and
 // the prices can be tuned here alone. Each paid item is unlocked either by
-// a membership — Podium+ for everything on the profile card, Podium++ for
+// a membership — Cador+ for everything on the profile card, Cador++ for
 // that and the whole interface — or by buying it in the Boutique with
 // jetons, for good. The rest stays free: avatar emoji and colour, titles
 // (earned with badges, never bought), palettes, named accents, corners,
@@ -66,7 +66,7 @@ enum ShopKind {
   final int price;
 
   /// Part of the app's look rather than of the profile card — what
-  /// Podium++ adds to Podium+.
+  /// Cador++ adds to Cador+.
   final bool interface;
 }
 
@@ -227,10 +227,10 @@ ShopPack themePack(AppearancePreset theme) {
 
 // ============================== the Fondateur offer ==============================
 
-/// When the launch offer — Fondateur: Podium++ for good, paid once — stops
+/// When the launch offer — Fondateur: Cador++ for good, paid once — stops
 /// being sold: null while it runs until further notice. Setting a date
 /// (`final`, then: DateTime has no const constructor) takes the plan off
-/// the Podium+ page and, for whoever didn't take it, its exclusive badge
+/// the Cador+ page and, for whoever didn't take it, its exclusive badge
 /// off the badges still to unlock (see kBadges).
 const DateTime? kFounderOfferEnds = null;
 
@@ -291,7 +291,7 @@ String euros(int cents) => '${groupDigits(cents ~/ 100)},${(cents % 100).toStrin
 // ============================== who may use what ==============================
 
 /// What a player may use beyond the free catalog: what their membership
-/// covers — the card with Podium+, the interface too with Podium++ — and
+/// covers — the card with Cador+, the interface too with Cador++ — and
 /// what they bought.
 @immutable
 class Unlocks {
@@ -322,7 +322,7 @@ class Unlocks {
   bool marksPart(Object part) => isPaidPart(part) && !owns(partItem(part));
 }
 
-/// The membership [items] take all together: Podium++ as soon as one is a
+/// The membership [items] take all together: Cador++ as soon as one is a
 /// part of the interface.
 PlusTier tierFor(Iterable<ShopItem> items) => items.any((i) => i.kind.interface) ? PlusTier.plusPlus : PlusTier.plus;
 
@@ -392,7 +392,7 @@ extension PlusLook on Appearance {
       };
 }
 
-/// Whether [unlocks] covers [part] of an app look: a free part, Podium++,
+/// Whether [unlocks] covers [part] of an app look: a free part, Cador++,
 /// or one the player bought — on its own or with a theme that has it.
 bool partUnlocked(Object part, Unlocks unlocks) => !isPaidPart(part) || unlocks.has(partItem(part));
 

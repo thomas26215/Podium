@@ -36,8 +36,8 @@ const _tabs = <({String label, IconData icon})>[
 /// pronouns, title, status, bio), avatar (illustration, colour, decoration), card
 /// (banner, name font & effect, profile effect), showcase (pinned badges,
 /// favourite game) and game accounts — with the card previewed live on top.
-/// Podium+ cosmetics (marked with a +) can be tried on the preview by
-/// anyone; saving them takes Podium+.
+/// Cador+ cosmetics (marked with a +) can be tried on the preview by
+/// anyone; saving them takes Cador+.
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
 
@@ -671,12 +671,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       );
 
   /// Opens the sheet unlocking [locked] — what the draft wears that the
-  /// player doesn't have — with jetons or Podium+.
+  /// player doesn't have — with jetons or Cador+.
   Future<UnlockOutcome?> _unlock(List<ShopItem> locked, {String? declineLabel}) => showUnlockSheet(
         context,
         items: locked,
         title: locked.length > 1 ? 'Débloquer vos choix' : 'Débloquer « ${shopItemLabel(locked.single)} »',
-        message: 'À vous pour toujours avec des jetons — ou tout le catalogue avec Podium+.',
+        message: 'À vous pour toujours avec des jetons — ou tout le catalogue avec Cador+.',
         plusPreview: _preview,
         declineLabel: declineLabel,
       );
@@ -747,7 +747,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   /// A selectable square tile with a visual on top and a caption — and
-  /// the Podium+ mark in its corner when [plus].
+  /// the Cador+ mark in its corner when [plus].
   Widget _tile({required bool selected, required VoidCallback onTap, required String label, required Widget child, bool plus = false}) {
     return Pressable(
       onTap: onTap,
@@ -780,7 +780,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   /// A dark swatch previewing a name style, as it'll look on a banner —
-  /// with the Podium+ mark in its corner when [plus].
+  /// with the Cador+ mark in its corner when [plus].
   Widget _darkTile({required bool selected, required VoidCallback onTap, required String caption, required Widget child, bool plus = false}) {
     return Pressable(
       onTap: onTap,

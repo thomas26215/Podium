@@ -4,11 +4,11 @@ import 'package:flutter/foundation.dart';
 /// What a membership unlocks (see lib/logic/plus.dart).
 enum PlusTier {
   /// Every paid cosmetic of the profile card.
-  plus('Podium+'),
+  plus('Cador+'),
 
-  /// All of Podium+, and the app's whole interface too: themes, styles,
+  /// All of Cador+, and the app's whole interface too: themes, styles,
   /// backgrounds, fonts and the made-to-measure colour.
-  plusPlus('Podium++');
+  plusPlus('Cador++');
 
   const PlusTier(this.label);
   final String label;
@@ -19,14 +19,14 @@ enum PlusPlan {
   monthly('Mensuel'),
   yearly('Annuel'),
 
-  /// Paid once, kept for good — the launch offer, Podium++ only.
+  /// Paid once, kept for good — the launch offer, Cador++ only.
   lifetime('Fondateur');
 
   const PlusPlan(this.label);
   final String label;
 }
 
-/// A player's Podium+ or Podium++ membership — on their public profile doc
+/// A player's Cador+ or Cador++ membership — on their public profile doc
 /// (`plus`), so every other player's app knows to show their paid
 /// cosmetics (see lib/logic/plus.dart).
 ///
@@ -80,7 +80,7 @@ class PlusMembership {
     final plan = PlusPlan.values.where((p) => p.name == data['plan']).firstOrNull;
     final since = _date(data['since']);
     if (plan == null || since == null) return null;
-    // From before the tiers, a membership was Podium+.
+    // From before the tiers, a membership was Cador+.
     final tier = PlusTier.values.where((t) => t.name == data['tier']).firstOrNull ?? PlusTier.plus;
     return PlusMembership(tier: tier, plan: plan, since: since, trialEndsAt: _date(data['trialEndsAt']));
   }

@@ -28,7 +28,7 @@ Future<void> showResultShareDialog(
   return _showShareImageDialog(
     context,
     card: ResultShareCard(game: game, match: match, appState: appState, legs: legs),
-    text: 'Notre partie de ${game.name} sur Podium 🏆 $_playStoreUrl',
+    text: 'Notre partie de ${game.name} sur Cador 🏆 $_playStoreUrl',
   );
 }
 
@@ -43,7 +43,7 @@ Future<void> showTournamentShareDialog(
   return _showShareImageDialog(
     context,
     card: TournamentShareCard(tournament: tournament, game: game, appState: appState),
-    text: 'Notre tournoi « ${tournament.name} » sur Podium 🏆 $_playStoreUrl',
+    text: 'Notre tournoi « ${tournament.name} » sur Cador 🏆 $_playStoreUrl',
   );
 }
 
@@ -84,7 +84,7 @@ class _ShareImageDialogState extends State<_ShareImageDialog> {
       image.dispose();
       await SharePlus.instance.share(ShareParams(
         files: [XFile.fromData(png!.buffer.asUint8List(), mimeType: 'image/png')],
-        fileNameOverrides: const ['podium-resultat.png'],
+        fileNameOverrides: const ['cador-resultat.png'],
         text: widget.text,
       ));
       if (mounted) Navigator.of(context).pop();

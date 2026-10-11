@@ -105,7 +105,7 @@ class AppUser {
   /// id: `{'steam': 'lea_42', 'switch': 'SW-1234-5678-9012'}`.
   final Map<String, String> gameAccounts;
 
-  /// Their Podium+ membership, if they have one — what lets their card
+  /// Their Cador+ membership, if they have one — what lets their card
   /// show every paid cosmetic (see lib/logic/plus.dart). Never written by
   /// a profile save: see UsersRepository.setPlus.
   final PlusMembership? plus;

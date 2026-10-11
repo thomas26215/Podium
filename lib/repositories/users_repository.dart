@@ -65,7 +65,7 @@ abstract class UsersRepository {
   /// Adds `badgeIds` to `uid`'s unlocked badges — never removes any.
   Future<void> unlockBadges({required String uid, required List<String> badgeIds});
 
-  /// Sets `uid`'s Podium+ membership — null ends it. SIMULATION: the app
+  /// Sets `uid`'s Cador+ membership — null ends it. SIMULATION: the app
   /// calls it itself for now (see PlusMembership).
   Future<void> setPlus({required String uid, PlusMembership? membership});
 
@@ -330,7 +330,7 @@ class FakeUsersRepository implements UsersRepository {
     final u = users[user.uid];
     if (u == null) return;
     // Everything customizable comes from `user`; what updateProfile never
-    // writes (badges, friends, Podium+, the Boutique wallet) stays as stored.
+    // writes (badges, friends, Cador+, the Boutique wallet) stays as stored.
     users[user.uid] = user.copyWith(badges: u.badges, friendIds: u.friendIds, plus: () => u.plus, ownedItems: u.ownedItems, coins: u.coins);
     _ctrl(user.uid).add(users[user.uid]);
   }

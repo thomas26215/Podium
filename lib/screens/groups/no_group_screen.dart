@@ -94,7 +94,7 @@ class NoGroupScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "Scannez le QR code d'invitation d'un ami avec l'appareil photo de votre téléphone, ou touchez le lien d'invitation qu'il vous a envoyé : Podium s'ouvrira pour vous faire rejoindre son groupe.",
+                        "Scannez le QR code d'invitation d'un ami avec l'appareil photo de votre téléphone, ou touchez le lien d'invitation qu'il vous a envoyé : Cador s'ouvrira pour vous faire rejoindre son groupe.",
                         style: bodyFont(size: 13.5, weight: FontWeight.w600, color: AppColors.ink2),
                       ),
                       const SizedBox(height: 14),

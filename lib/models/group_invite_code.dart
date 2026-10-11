@@ -1,4 +1,4 @@
-/// Public page that turns a shareable invite link into an "open in Podium"
+/// Public page that turns a shareable invite link into an "open in Cador"
 /// button (or a Play Store link when the app isn't installed) — see
 /// docs/rejoindre.html. Carries the same `podium://` code as the QR, in `c`.
 const kInviteLinkPage = 'https://thomas26215.github.io/Podium/rejoindre.html';

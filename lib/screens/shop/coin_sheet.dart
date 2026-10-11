@@ -90,7 +90,7 @@ class _CoinSheetState extends State<_CoinSheet> {
               ),
               const SizedBox(height: 16),
               Text(
-                '100 jetons = 1 €. Les jetons n’expirent pas et ne servent que dans Podium, pour débloquer des objets de la Boutique.',
+                '100 jetons = 1 €. Les jetons n’expirent pas et ne servent que dans Cador, pour débloquer des objets de la Boutique.',
                 style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut, height: 1.35),
               ),
               const SizedBox(height: 6),

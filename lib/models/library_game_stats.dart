@@ -1,4 +1,4 @@
-/// How a `gameLibrary` game fares across every Podium catalog — kept by
+/// How a `gameLibrary` game fares across every Cador catalog — kept by
 /// Cloud Functions in `gameLibraryStats/{gameId}` (see
 /// functions/library_stats.js), which the app only reads. Counted since
 /// those functions went live, never back in time; downloads and plays only

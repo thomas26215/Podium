@@ -301,7 +301,7 @@ class _OfferNote extends StatelessWidget {
 /// spins in, holds a moment, then slides away and calls [onDone]. Driven by
 /// one animation controller — no timers — so it always runs to completion.
 /// It starts once it can be seen: a badge unlocked under another page —
-/// Fondateur, under the Podium+ page it's bought on — is celebrated on
+/// Fondateur, under the Cador+ page it's bought on — is celebrated on
 /// coming back, rather than played out unseen.
 class BadgeUnlockBanner extends StatefulWidget {
   final List<String> badgeIds;

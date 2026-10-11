@@ -278,7 +278,7 @@ class AppState extends ChangeNotifier {
 
   /// Whether [_currentUserSub] has delivered the account's doc since
   /// signing in — only from then on is [currentUser] sure to say whether
-  /// they have Podium+.
+  /// they have Cador+.
   bool _accountDocIn = false;
   List<AppUser> friends = [];
 
@@ -2270,12 +2270,12 @@ class AppState extends ChangeNotifier {
   static const inviteLinkValidity = Duration(days: 7);
 
   /// Opens `group`'s self-join window for [inviteLinkValidity] and returns
-  /// the message to share: a link that opens Podium on the invite (see
+  /// the message to share: a link that opens Cador on the invite (see
   /// [inviteLinkFor]). Null if the group is closed.
   Future<String?> shareGroupInviteLink(Group group) async {
     if (_rejectIfGroupClosed(group.id)) return null;
     await refreshInviteWindow(group.id, validFor: inviteLinkValidity);
-    return 'Rejoins « ${group.name} » sur Podium : ${groupInviteLink(group)}';
+    return 'Rejoins « ${group.name} » sur Cador : ${groupInviteLink(group)}';
   }
 
   /// The link to join `group` — shared as-is (see [shareGroupInviteLink]) or
@@ -3074,9 +3074,9 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  // ============================== PODIUM+ & BOUTIQUE ==============================
+  // =============================== CADOR+ & BOUTIQUE ==============================
 
-  /// Whether the signed-in player has Podium+ or Podium++ (see
+  /// Whether the signed-in player has Cador+ or Cador++ (see
   /// lib/logic/plus.dart).
   bool get isPlus => currentUser?.isPlus ?? false;
 
@@ -3155,7 +3155,7 @@ class AppState extends ChangeNotifier {
   }
 
   /// "Buys" [plan] of [tier] for the signed-in player — moving up from
-  /// Podium+ to Podium++ replaces the membership. SIMULATION: no payment
+  /// Cador+ to Cador++ replaces the membership. SIMULATION: no payment
   /// is taken, the membership goes straight onto their profile; a yearly
   /// plan opens on its free week, as the real one will — but for a member
   /// moving up, whose trial was the first one.
@@ -3165,7 +3165,7 @@ class AppState extends ChangeNotifier {
     return _writePlus(PlusMembership(tier: tier, plan: plan, since: now, trialEndsAt: trial ? now.add(const Duration(days: 7)) : null));
   }
 
-  /// Ends the signed-in player's Podium+ at once. SIMULATION: a real one
+  /// Ends the signed-in player's Cador+ at once. SIMULATION: a real one
   /// would run on to the end of the period already paid for.
   Future<bool> simulatePlusCancel() => _writePlus(null);
 

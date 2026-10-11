@@ -1,4 +1,4 @@
-# Podium
+# Cador
 
 A Flutter + Firebase app for tracking game scores with friends long-term:
 permanent rankings (wins, cumulative points, win ratio, per-game average),

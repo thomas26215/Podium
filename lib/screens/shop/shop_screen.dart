@@ -25,7 +25,7 @@ import 'unlock_sheet.dart';
 /// themes, sold as packs of their parts.
 typedef _Shelf = ({String label, ShopKind? kind});
 
-/// The profile card's shelves — what Podium+ covers…
+/// The profile card's shelves — what Cador+ covers…
 const _cardShelves = <_Shelf>[
   (label: 'Bannières', kind: ShopKind.banner),
   (label: 'Cadres', kind: ShopKind.frame),
@@ -34,7 +34,7 @@ const _cardShelves = <_Shelf>[
   (label: 'Effets de profil', kind: ShopKind.profileEffect),
 ];
 
-/// …and the interface's — what Podium++ adds.
+/// …and the interface's — what Cador++ adds.
 const _interfaceShelves = <_Shelf>[
   (label: 'Thèmes', kind: null),
   (label: 'Styles', kind: ShopKind.surface),
@@ -45,8 +45,8 @@ const _interfaceShelves = <_Shelf>[
 
 /// The Boutique: every paid cosmetic of the profile card and every paid
 /// part of the interface, to buy one by one with jetons and keep for good —
-/// plus packs, cheaper, and the themes, as packs of their parts. Podium+
-/// unlocks the card all at once instead, Podium++ the interface too.
+/// plus packs, cheaper, and the themes, as packs of their parts. Cador+
+/// unlocks the card all at once instead, Cador++ the interface too.
 ///
 /// SIMULATION: jetons and items are "bought" without any payment.
 class ShopScreen extends StatefulWidget {
@@ -305,7 +305,7 @@ class _Wallet extends StatelessWidget {
 }
 
 /// The membership covering the half on show, offered at the top of it —
-/// or, for a Podium+ member on the interface's half, the way up.
+/// or, for a Cador+ member on the interface's half, the way up.
 class _PlusBanner extends StatelessWidget {
   final PlusTier tier;
   final bool upgrade;
@@ -317,7 +317,7 @@ class _PlusBanner extends StatelessWidget {
     final line = switch ((tier, upgrade)) {
       (PlusTier.plus, _) => 'Toute la carte de profil d’un coup. 7 jours offerts.',
       (PlusTier.plusPlus, false) => 'La carte et toute l’interface d’un coup. 7 jours offerts.',
-      (PlusTier.plusPlus, true) => 'Passez à Podium++ : toute l’interface en plus de votre carte.',
+      (PlusTier.plusPlus, true) => 'Passez à Cador++ : toute l’interface en plus de votre carte.',
     };
     return Pressable(
       onTap: onTap,
