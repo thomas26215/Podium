@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
@@ -148,9 +150,71 @@ class EloTierBadge extends StatelessWidget {
   }
 }
 
-/// A player's rating after each rated match, oldest to newest, with the
-/// tier thresholds it crosses drawn as faint lines. Touching a point shows
-/// the rating, the change and the date.
+const _trendSigma = 1 / 20; // width of the trend's Gaussian, as a share of the curve's length
+const _curveSteps = 120; // segments a short curve is drawn with, so it looks round
+
+/// A rating curve, one value per match, drawn smooth: its trend (see
+/// [_trend]) joined by a monotone cubic — Steffen's, which never bulges past
+/// the values it joins: no dip before a jump, no bump above a peak — and
+/// sampled finely enough to look round. x stays the match's index.
+@visibleForTesting
+List<FlSpot> smoothCurve(List<double> values) {
+  final y = _trend(values);
+  final n = y.length;
+  if (n < 3) return [for (final (i, v) in y.indexed) FlSpot(i.toDouble(), v)];
+  final s = [for (var i = 0; i + 1 < n; i++) y[i + 1] - y[i]];
+  // At an end, the slope of the parabola through the last three values,
+  // kept between flat and twice the last step.
+  double end(double last, double before) {
+    final p = 1.5 * last - 0.5 * before;
+    return p.sign != last.sign ? 0 : (p.abs() > 2 * last.abs() ? 2 * last : p);
+  }
+  final slopes = [
+    end(s[0], s[1]),
+    for (var i = 1; i + 1 < n; i++) (s[i - 1].sign + s[i].sign) * math.min(math.min(s[i - 1].abs(), s[i].abs()), (s[i - 1] + s[i]).abs() / 4),
+    end(s[n - 2], s[n - 3]),
+  ];
+  final perStep = (_curveSteps / (n - 1)).ceil();
+  return [
+    for (var i = 0; i + 1 < n; i++)
+      for (var j = 0; j < perStep; j++)
+        () {
+          final t = j / perStep, t2 = t * t, t3 = t2 * t;
+          return FlSpot(i + t, (2 * t3 - 3 * t2 + 1) * y[i] + (t3 - 2 * t2 + t) * slopes[i] + (3 * t2 - 2 * t3) * y[i + 1] + (t3 - t2) * slopes[i + 1]);
+        }(),
+    FlSpot(n - 1.0, y[n - 1]),
+  ];
+}
+
+/// The trend of a rating curve: each value averaged with its neighbours,
+/// the nearest weighing most (a Gaussian, wider the longer the curve, so a
+/// chart of 20 matches comes out as smooth as one of 200). The
+/// window narrows towards the ends, so the curve still starts and ends on
+/// the exact ratings — and a short history, barely smoothed, keeps its shape.
+List<double> _trend(List<double> values) {
+  final n = values.length;
+  final sigma = (n - 1) * _trendSigma;
+  final reach = (3 * sigma).floor();
+  if (reach < 1) return values;
+  final weights = [for (var d = 0; d <= reach; d++) math.exp(-d * d / (2 * sigma * sigma))];
+  return [
+    for (var i = 0; i < n; i++)
+      () {
+        final h = math.min(reach, math.min(i, n - 1 - i));
+        var sum = weights[0] * values[i], total = weights[0];
+        for (var d = 1; d <= h; d++) {
+          sum += weights[d] * (values[i - d] + values[i + d]);
+          total += 2 * weights[d];
+        }
+        return sum / total;
+      }(),
+  ];
+}
+
+/// A player's rating over their rated matches, oldest to newest, as a
+/// smooth line (see [smoothCurve]), with the tier thresholds it crosses
+/// drawn as faint lines. Touching the curve shows the rating after the
+/// nearest match, the change and the date.
 class EloHistoryChart extends StatefulWidget {
   final List<EloPoint> points; // oldest first
   const EloHistoryChart({super.key, required this.points});
@@ -180,14 +244,14 @@ class _EloHistoryChartState extends State<EloHistoryChart> {
         child: Center(child: Text('La courbe apparaîtra après la première partie comptée.', textAlign: TextAlign.center, style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.mut))),
       );
     }
-    final values = [kEloStart, ...points.map((p) => p.rating)];
-    var minY = values.reduce((a, b) => a < b ? a : b);
-    var maxY = values.reduce((a, b) => a > b ? a : b);
+    final curve = smoothCurve([kEloStart, ...points.map((p) => p.rating)]);
+    var minY = curve.map((s) => s.y).reduce(math.min);
+    var maxY = curve.map((s) => s.y).reduce(math.max);
     final pad = maxY == minY ? 50.0 : (maxY - minY) * 0.12;
     minY = (minY - pad).clamp(0, double.infinity);
     maxY += pad;
     final mid = (minY + maxY) / 2;
-    final spots = [for (final (i, v) in values.indexed) FlSpot(i.toDouble(), _revealed ? v : mid)];
+    final spots = [for (final s in curve) FlSpot(s.x, _revealed ? s.y : mid)];
     final accent = AppColors.accent;
     final thresholds = kEloTiers.where((t) => t.min > minY && t.min < maxY).toList();
 
@@ -200,7 +264,7 @@ class _EloHistoryChartState extends State<EloHistoryChart> {
           curve: Curves.easeOutCubic,
           LineChartData(
             minX: 0,
-            maxX: (values.length - 1).toDouble(),
+            maxX: curve.last.x,
             minY: minY,
             maxY: maxY,
             extraLinesData: ExtraLinesData(horizontalLines: [
@@ -221,11 +285,12 @@ class _EloHistoryChartState extends State<EloHistoryChart> {
             lineBarsData: [
               LineChartBarData(
                 spots: spots,
-                isCurved: false,
+                isCurved: true,
+                isStrokeCapRound: true,
                 color: accent,
                 barWidth: 2,
                 belowBarData: BarAreaData(show: true, color: accent.withValues(alpha: 0.08)),
-                dotData: FlDotData(show: values.length <= 40),
+                dotData: const FlDotData(show: false),
               ),
             ],
             gridData: FlGridData(show: true, drawVerticalLine: false, getDrawingHorizontalLine: (_) => FlLine(color: AppColors.line, strokeWidth: 1)),
@@ -252,7 +317,7 @@ class _EloHistoryChartState extends State<EloHistoryChart> {
                 getTooltipItems: (spots) => [
                   for (final s in spots)
                     () {
-                      final i = s.x.toInt();
+                      final i = s.x.round();
                       if (i == 0) return LineTooltipItem('${kEloStart.round()}\nDépart', bodyFont(size: 12.5, weight: FontWeight.w800, color: Colors.white));
                       final p = points[i - 1];
                       final d = p.delta.round();
