@@ -47,6 +47,13 @@ flutter_launcher_icons:
   android: true
   ios: true
   remove_alpha_ios: true
-  image_path: "Podium-icon.png"
-  adaptive_icon_background: "#080E2A"
-  adaptive_icon_foreground: "Podium-icon.png"
+  # Drawn by tool/app_icon.dart.
+  image_path: "assets/icon/cador.png"
+  adaptive_icon_background: "#0B1238"
+  adaptive_icon_foreground: "assets/icon/cador_foreground.png"
+  adaptive_icon_monochrome: "assets/icon/cador_monochrome.png"
+  web:
+    generate: true
+    image_path: "assets/icon/cador.png"
+    background_color: "#0B1238"
+    theme_color: "#0B1238"
