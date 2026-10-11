@@ -13,11 +13,14 @@ import 'common.dart';
 /// library preview, where the game is still being discovered).
 /// [onEditReminders] adds a "Modifier" action on the reminders header —
 /// left null where they can't be edited (a library game not imported yet).
+/// [belowHeader] goes right under the header — a library game's counts (see
+/// LibraryGamePreviewScreen).
 class GameOverview extends StatelessWidget {
   final Game game;
   final bool hero;
   final VoidCallback? onEditReminders;
-  const GameOverview({super.key, required this.game, this.hero = false, this.onEditReminders});
+  final Widget? belowHeader;
+  const GameOverview({super.key, required this.game, this.hero = false, this.onEditReminders, this.belowHeader});
 
   static String countDescription(GameRule rule) => switch (rule.countType) {
         CountType.highWins => 'Points — le plus haut gagne',
@@ -35,6 +38,10 @@ class GameOverview extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         FadeSlideIn(child: hero ? _HeroHeader(game: game, subtitle: subtitle) : _CompactHeader(game: game, subtitle: subtitle)),
+        if (belowHeader != null) ...[
+          const SizedBox(height: 16),
+          FadeSlideIn(delay: const Duration(milliseconds: 40), child: belowHeader!),
+        ],
         if (game.followsLibrary) ...[
           const SizedBox(height: 12),
           Row(

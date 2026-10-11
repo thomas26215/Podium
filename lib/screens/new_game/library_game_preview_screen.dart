@@ -7,19 +7,36 @@ import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
 import '../../widgets/game_overview.dart';
+import '../../widgets/library_stats.dart';
 
 /// Full-screen look at a library game before importing it — everything
-/// [GameOverview] shows for a catalog game, plus the button that actually
-/// imports it (or, when the catalog already holds a copy still following
-/// it, one that just picks that copy instead of importing a duplicate).
-/// Closes itself once the game is picked, back onto the new-game sheet.
-class LibraryGamePreviewScreen extends StatelessWidget {
+/// [GameOverview] shows for a catalog game, under its downloads, matches
+/// played and likes (the last one a button to like it), plus the button
+/// that actually imports it (or, when the catalog already holds a copy
+/// still following it, one that just picks that copy instead of importing
+/// a duplicate). Closes itself once the game is picked, back onto the
+/// new-game sheet.
+class LibraryGamePreviewScreen extends StatefulWidget {
   final Game game;
   const LibraryGamePreviewScreen({super.key, required this.game});
 
   @override
+  State<LibraryGamePreviewScreen> createState() => _LibraryGamePreviewScreenState();
+}
+
+class _LibraryGamePreviewScreenState extends State<LibraryGamePreviewScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<AppState>().refreshLibraryStats();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
+    final game = widget.game;
     final copy = app.libraryCopyOf(game);
 
     return Scaffold(
@@ -35,7 +52,13 @@ class LibraryGamePreviewScreen extends StatelessWidget {
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-        children: [GameOverview(game: game, hero: true)],
+        children: [
+          GameOverview(
+            game: game,
+            hero: true,
+            belowHeader: LibraryStatsStrip(stats: app.libraryStatsOf(game.id), liked: app.likedLibraryGames.contains(game.id), onLike: () => app.toggleLibraryLike(game.id)),
+          ),
+        ],
       ),
       bottomNavigationBar: SafeArea(
         child: Container(

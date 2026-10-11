@@ -41,7 +41,8 @@ abstract class UsersRepository {
   /// `private/account` doc (e-mail, friends). Only readable for your own uid.
   Stream<AppUser?> watchOwnAccount(String uid);
 
-  /// Deletes the `users/{uid}` doc, its private doc and its `emailIndex` entry.
+  /// Deletes the `users/{uid}` doc, its private docs (account, library
+  /// likes) and its `emailIndex` entry.
   Future<void> deleteUser({required String uid, required String email});
 
   /// Registers this device's FCM token for push notifications (a user can
@@ -185,6 +186,9 @@ class FirebaseUsersRepository implements UsersRepository {
   Future<void> deleteUser({required String uid, required String email}) async {
     final batch = _db.batch();
     batch.delete(_private(uid));
+    // Their library likes — the onLibraryLikesWritten Cloud Function then
+    // takes them off each game's count.
+    batch.delete(_public(uid).collection('private').doc('libraryLikes'));
     batch.delete(_public(uid));
     if (email.isNotEmpty) batch.delete(_db.collection('emailIndex').doc(email.trim().toLowerCase()));
     await batch.commit();

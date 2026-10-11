@@ -11,6 +11,15 @@ rules_version = '2';
 //                                       into `memberIds` as a `guest:{guestId}`
 //                                       string (see GuestsRepository)
 //   emailIndex/{lowercasedEmail}        {uid} — lets "invite by email" find a uid
+//   gameLibrary/{gameId}               the shared library of ready-made games
+//   gameLibraryStats/{gameId}          its downloads, matches played and likes,
+//                                       kept by Cloud Functions (see
+//                                       functions/library_stats.js) — as are
+//                                       their ledgers (its `downloads`,
+//                                       `plays` and `likes` subcollections)
+//                                       and `gameLibraryLinks`, which no
+//                                       client ever reads
+//   users/{uid}/private/libraryLikes   the library games a player likes
 //   groups/{groupId}                   a friend group
 //   groups/{groupId}/games/{gameId}    game catalog
 //   groups/{groupId}/matches/{matchId} recorded matches
@@ -215,6 +224,17 @@ match /databases/{database}/documents {
   // Firebase console (console writes bypass these rules), not writable by
   // the app itself.
   match /gameLibrary/{gameId} {
+    allow read: if signedIn();
+    allow write: if false;
+  }
+
+  // Each library game's downloads, matches played and likes, shown in the
+  // library. Counted by Cloud Functions only, from the catalogs' games and
+  // matches and each player's own `private/libraryLikes` list — never
+  // written by the app, so nobody can inflate them. Their ledgers (the
+  // `downloads`/`plays`/`likes` subcollections, `gameLibraryLinks`) match no
+  // rule here: Cloud Functions only.
+  match /gameLibraryStats/{gameId} {
     allow read: if signedIn();
     allow write: if false;
   }

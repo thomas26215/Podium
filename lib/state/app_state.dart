@@ -12,6 +12,7 @@ import '../models/app_user.dart';
 import '../models/game.dart';
 import '../models/group.dart';
 import '../models/group_invite_code.dart';
+import '../models/library_game_stats.dart';
 import '../logic/game_filter.dart';
 import '../logic/game_sort.dart';
 import '../logic/badges.dart';
@@ -554,6 +555,22 @@ class AppState extends ChangeNotifier {
   /// within it (see [setLibraryCategory]).
   String? libraryCategory;
 
+  /// Downloads, matches played and likes of the library games that have
+  /// any, by id, as last fetched (see [refreshLibraryStats]) — read them
+  /// through [libraryStatsOf], which adds the player's own likes not
+  /// tallied yet.
+  Map<String, LibraryGameStats> libraryStats = const {};
+
+  /// The library games the signed-in player likes (see [toggleLibraryLike]).
+  Set<String> likedLibraryGames = const {};
+
+  /// [likedLibraryGames] as it stood when [libraryStats] was fetched — what
+  /// its like counts already hold of the player's own.
+  Set<String> _likesInLibraryStats = const {};
+  DateTime? _libraryStatsAt;
+  Future<void>? _libraryStatsLoad;
+  String? _libraryLikesUid;
+
   // ---- browse games from the user's other groups ----
   bool browsingOtherGroups = false;
   bool otherGroupsLoading = false;
@@ -637,6 +654,11 @@ class AppState extends ChangeNotifier {
     currentSalonId = null;
     currentSalonServerId = null;
     activeContext = ActiveContextKind.group;
+    // Another player's likes: fetched again, with counts to match.
+    likedLibraryGames = const {};
+    _likesInLibraryStats = const {};
+    _libraryLikesUid = null;
+    _libraryStatsAt = null;
     if (user != null) {
       _memberCache[user.uid] = user;
       profileId = user.uid;
@@ -3749,7 +3771,72 @@ class AppState extends ChangeNotifier {
     libraryFilter = const GameFilter();
     libraryCategory = null;
     notifyListeners();
-    await ensureGameLibraryLoaded();
+    await Future.wait([ensureGameLibraryLoaded(), refreshLibraryStats()]);
+  }
+
+  /// Fetches the library's counts again — only those that moved since last
+  /// time (see [GameLibraryRepository.fetchStats]) — and, once per account,
+  /// the games the player likes. At most once a minute: opening the library
+  /// and then a game's page needs no second round.
+  Future<void> refreshLibraryStats() {
+    final uid = currentUser?.uid;
+    if (uid == null) return Future.value();
+    final at = _libraryStatsAt;
+    if (_libraryStatsLoad != null || (at != null && DateTime.now().difference(at) < const Duration(minutes: 1))) {
+      return _libraryStatsLoad ?? Future.value();
+    }
+    _libraryStatsAt = DateTime.now();
+    return _libraryStatsLoad = () async {
+      try {
+        if (_libraryLikesUid != uid) {
+          final liked = await gameLibraryRepo.fetchLikes(uid);
+          if (currentUser?.uid != uid) return;
+          likedLibraryGames = liked;
+          _libraryLikesUid = uid;
+        }
+        final likedBefore = likedLibraryGames;
+        final stats = await gameLibraryRepo.fetchStats();
+        if (currentUser?.uid != uid) return;
+        libraryStats = stats;
+        _likesInLibraryStats = likedBefore;
+      } catch (_) {
+        // Only a nice-to-have: the library works without its counts, and
+        // the next visit tries again.
+        _libraryStatsAt = null;
+      } finally {
+        _libraryStatsLoad = null;
+      }
+      notifyListeners();
+    }();
+  }
+
+  /// Library game [gameId]'s counts, the player's own like counted at once
+  /// — the Cloud Function tallying it takes a moment.
+  LibraryGameStats libraryStatsOf(String gameId) {
+    final stats = libraryStats[gameId] ?? LibraryGameStats(gameId: gameId);
+    final untallied = (likedLibraryGames.contains(gameId) ? 1 : 0) - (_likesInLibraryStats.contains(gameId) ? 1 : 0);
+    return untallied == 0 ? stats : stats.withLikes(stats.likes + untallied);
+  }
+
+  /// Likes library game [gameId], or stops liking it — shown at once, and
+  /// taken back with a toast if it can't be saved.
+  Future<void> toggleLibraryLike(String gameId) async {
+    final uid = currentUser?.uid;
+    if (uid == null) return;
+    // Not before the player's likes are in: they'd overwrite this one.
+    if (_libraryLikesUid != uid) await refreshLibraryStats();
+    if (currentUser?.uid != uid) return;
+    final liked = !likedLibraryGames.contains(gameId);
+    void apply(bool on) => likedLibraryGames = on ? {...likedLibraryGames, gameId} : ({...likedLibraryGames}..remove(gameId));
+    apply(liked);
+    notifyListeners();
+    try {
+      await gameLibraryRepo.setLiked(uid: uid, gameId: gameId, liked: liked);
+    } catch (_) {
+      if (currentUser?.uid != uid) return;
+      apply(!liked);
+      showToast("Votre « J'aime » n'a pas pu être enregistré.", error: true);
+    }
   }
 
   List<Game>? _libraryIndexSource;

@@ -6,6 +6,7 @@ const { onDocumentCreated, onDocumentUpdated, onDocumentWritten } = require("fir
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { logger } = require("firebase-functions");
 const { isDeepStrictEqual } = require("node:util");
+const libraryStats = require("./library_stats");
 
 initializeApp();
 
@@ -143,13 +144,14 @@ exports.onMatchSessionCreated = onDocumentCreated("{root}/{rootId}/matchSessions
 });
 
 // Fires on every write to a match. Keeps the scope's win tally in step (see
-// updateWinsTally) and stamps `updatedAt` when an older app left it out (see
-// stampUpdatedAt). When the match was just recorded (not updated/resumed
-// later, nor deleted), also pushes "X a gagné la partie de Y !" to the rest
-// of the root community (see membershipRef) — to its players only in a big
-// one (see LARGE_AUDIENCE) — and, best effort, drops an auto-generated
-// highlight into the discussion thread if this match made someone's win
-// streak or the leaderboard notable (see postMatchHighlights).
+// updateWinsTally), counts a match just recorded as a play of its library
+// game (see library_stats.js), and stamps `updatedAt` when an older app left
+// it out (see stampUpdatedAt). When the match was just recorded (not
+// updated/resumed later, nor deleted), also pushes "X a gagné la partie de
+// Y !" to the rest of the root community (see membershipRef) — to its
+// players only in a big one (see LARGE_AUDIENCE) — and, best effort, drops
+// an auto-generated highlight into the discussion thread if this match made
+// someone's win streak or the leaderboard notable (see postMatchHighlights).
 exports.onMatchWritten = onDocumentWritten("{root}/{rootId}/matches/{matchId}", async (event) => {
   const { root, rootId, matchId } = event.params;
   if (root !== "groups" && root !== "servers") return;
@@ -161,6 +163,11 @@ exports.onMatchWritten = onDocumentWritten("{root}/{rootId}/matches/{matchId}", 
     lead = await updateWinsTally({ root, rootId, eventId: event.id, before, after: match });
   } catch (e) {
     logger.warn(`updateWinsTally failed for ${root}/${rootId}/matches/${matchId}: ${e}`);
+  }
+  try {
+    await libraryStats.onCatalogMatchWritten({ root, rootId, matchId, before, after: match });
+  } catch (e) {
+    logger.warn(`library plays failed for ${root}/${rootId}/matches/${matchId}: ${e}`);
   }
   if (before || !match || match.deleted) return;
   if (root === "servers" && !match.salonId) return;
@@ -506,12 +513,23 @@ exports.onGameLibraryUpdated = onDocumentUpdated("gameLibrary/{libraryId}", asyn
 // Catalog games, tournaments and a salon's events are synced too (see
 // GamesRepository.watchGames, TournamentsRepository.watchTournaments,
 // EventsRepository.watchEvents): one written by an app from before
-// `updatedAt` gets it stamped here.
+// `updatedAt` gets it stamped here. A catalog game just taken from the
+// library also counts as a download of it (see library_stats.js).
 exports.onGameWritten = onDocumentWritten("{root}/{rootId}/games/{gameId}", async (event) => {
-  const { root } = event.params;
+  const { root, rootId, gameId } = event.params;
   if (root !== "groups" && root !== "servers") return;
   await stampUpdatedAt(event.data);
+  try {
+    await libraryStats.onCatalogGameWritten({ root, rootId, gameId, before: event.data?.before?.data(), after: event.data?.after?.data() });
+  } catch (e) {
+    logger.warn(`library stats failed for ${root}/${rootId}/games/${gameId}: ${e}`);
+  }
 });
+
+// A player liked a library game, or stopped liking it (see
+// GameLibraryRepository.setLiked) — or deleted their account, and with it
+// their list: carried over to the game's like count (see library_stats.js).
+exports.onLibraryLikesWritten = onDocumentWritten("users/{uid}/private/libraryLikes", (event) => libraryStats.onLikesListWritten(event.params.uid, event.data));
 
 exports.onTournamentWritten = onDocumentWritten("{root}/{rootId}/tournaments/{tournamentId}", async (event) => {
   const { root } = event.params;
@@ -726,6 +744,8 @@ exports.deleteMyAccount = onCall(async (request) => {
 
   const batch = db.batch();
   batch.delete(privateAccountRef(uid));
+  // Takes their likes off the library's counts too (see onLibraryLikesWritten).
+  batch.delete(libraryStats.likesListRef(uid));
   batch.delete(db.collection("users").doc(uid));
   if (email) batch.delete(db.collection("emailIndex").doc(email.trim().toLowerCase()));
   await batch.commit();

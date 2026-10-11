@@ -3,10 +3,12 @@ import 'package:provider/provider.dart';
 
 import '../../logic/game_filter.dart';
 import '../../models/game.dart';
+import '../../models/library_game_stats.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
 import '../../widgets/game_filter_bar.dart';
+import '../../widgets/library_stats.dart';
 import '../../widgets/option_chip.dart';
 import 'library_game_preview_screen.dart';
 
@@ -14,7 +16,9 @@ import 'library_game_preview_screen.dart';
 /// group can import ready-made games — including ones with special scoring
 /// rules (roles/ranks) that would be tedious to configure by hand. Tapping
 /// one opens its full preview ([LibraryGamePreviewScreen]), where it's
-/// actually imported; games the catalog already follows are ticked.
+/// actually imported; games the catalog already follows are ticked. Each
+/// row also shows how often the game was downloaded and played, and how
+/// many players like it (see [LibraryGameStats]).
 ///
 /// A row of category chips narrows the list to one `Game.category`; the
 /// filter bar then only offers that category's themes. The library holds
@@ -48,6 +52,7 @@ class _GameLibraryBrowserState extends State<GameLibraryBrowser> {
     }
     final visible = games.take(_shown).toList();
     void preview(Game g) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => LibraryGamePreviewScreen(game: g)));
+    Widget tile(Game g) => _LibraryGameTile(game: g, imported: app.libraryCopyOf(g) != null, stats: app.libraryStatsOf(g.id), liked: app.likedLibraryGames.contains(g.id), onTap: () => preview(g));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -80,10 +85,7 @@ class _GameLibraryBrowserState extends State<GameLibraryBrowser> {
                 : (app.libraryFilter.isActive ? 'Aucun jeu ne correspond à ces filtres.' : 'Aucun résultat pour cette recherche.'),
           )
         else ...[
-          for (final (i, g) in visible.indexed)
-            i < _pageSize
-                ? FadeSlideIn(delay: Duration(milliseconds: i * 30), child: _LibraryGameTile(game: g, imported: app.libraryCopyOf(g) != null, onTap: () => preview(g)))
-                : _LibraryGameTile(game: g, imported: app.libraryCopyOf(g) != null, onTap: () => preview(g)),
+          for (final (i, g) in visible.indexed) i < _pageSize ? FadeSlideIn(delay: Duration(milliseconds: i * 30), child: tile(g)) : tile(g),
           if (games.length > visible.length)
             Padding(
               padding: const EdgeInsets.only(top: 8),
@@ -142,8 +144,10 @@ class _CategoryChips extends StatelessWidget {
 class _LibraryGameTile extends StatelessWidget {
   final Game game;
   final bool imported;
+  final LibraryGameStats stats;
+  final bool liked;
   final VoidCallback onTap;
-  const _LibraryGameTile({required this.game, required this.imported, required this.onTap});
+  const _LibraryGameTile({required this.game, required this.imported, required this.stats, required this.liked, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -167,7 +171,16 @@ class _LibraryGameTile extends StatelessWidget {
           ],
         ],
       ),
-      subtitle: Text([game.category, ?game.summaryLine()].join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis, style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text([game.category, ?game.summaryLine()].join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis, style: bodyFont(size: 12, weight: FontWeight.w600, color: AppColors.mut)),
+          if (!stats.isEmpty) ...[
+            const SizedBox(height: 4),
+            LibraryStatsLine(stats: stats, liked: liked),
+          ],
+        ],
+      ),
     );
   }
 }

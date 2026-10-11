@@ -236,7 +236,10 @@ class AnimatedCounter extends StatelessWidget {
   final TextStyle? style;
   final TextAlign? textAlign;
   final Duration duration;
-  const AnimatedCounter({super.key, required this.value, this.style, this.textAlign, this.duration = const Duration(milliseconds: 1100)});
+
+  /// How each step is written — the plain number by default.
+  final String Function(int value)? format;
+  const AnimatedCounter({super.key, required this.value, this.style, this.textAlign, this.duration = const Duration(milliseconds: 1100), this.format});
 
   @override
   Widget build(BuildContext context) {
@@ -245,12 +248,13 @@ class AnimatedCounter extends StatelessWidget {
     // TweenAnimationBuilder itself takes care of animating from whatever is
     // currently on screen to the new `end` on every later rebuild where
     // `value` changed, never jumping back to 0 on an update.
-    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) return Text('$value', style: style, textAlign: textAlign);
+    final write = format ?? (int n) => '$n';
+    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) return Text(write(value), style: style, textAlign: textAlign);
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: value.toDouble()),
       duration: duration,
       curve: _counterCurve,
-      builder: (context, v, _) => Text('${v.round()}', style: style, textAlign: textAlign),
+      builder: (context, v, _) => Text(write(v.round()), style: style, textAlign: textAlign),
     );
   }
 }
