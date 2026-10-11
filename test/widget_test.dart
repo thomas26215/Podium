@@ -2281,6 +2281,56 @@ void main() {
     expect(state.games.any((g) => g.name == 'Jeu du Salon A'), isTrue, reason: 'still there when switching back to Salon A');
   });
 
+  testWidgets("a salon's catalog is its server admins' to fill: a plain member plays its games, nothing more", (tester) async {
+    final seeded = _buildSeededState(library: [Game.simple(id: 'kart', name: 'Kart', emoji: '🏎️', category: 'Jeu vidéo', countType: CountType.highWins)]);
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: seeded.state,
+        child: const MaterialApp(home: AuthGate()),
+      ),
+    );
+    await tester.pump();
+    seeded.auth.debugSignIn(_lea);
+    await tester.pumpAndSettle();
+
+    final state = seeded.state;
+    await state.createServer(name: 'Café Test', emoji: '☕', emojiBg: 0);
+    await tester.pumpAndSettle();
+    final server = state.servers.single;
+    await state.createSalon(serverId: server.id, name: 'Salon A', emoji: '🎮', emojiBg: 0);
+    await tester.pumpAndSettle();
+    final salon = state.salons.single;
+    await state.serversRepo.joinSalon(serverId: server.id, salonId: salon.id, uid: 'tom');
+    state.selectSalon(server.id, salon.id);
+    await tester.pumpAndSettle();
+    expect(state.canEditGameCatalog, isTrue, reason: 'Léa owns the server');
+
+    seeded.auth.debugSignIn(_tom);
+    await tester.pumpAndSettle();
+    state.selectSalon(server.id, salon.id);
+    await tester.pumpAndSettle();
+    expect(state.canEditGameCatalog, isFalse);
+    final before = state.games.length;
+    state.startNewGame();
+    state.setGameForm((f) => f..name = 'Jeu de Tom');
+    await state.createGame();
+    expect(state.flowError, 'Seuls les admins du serveur ajoutent ou modifient ses jeux.');
+    final kart = (state.gameLibraryRepo as FakeGameLibraryRepository).games.single;
+    expect(await state.importLibraryGame(kart), isFalse);
+    await tester.pumpAndSettle();
+    expect(state.games.length, before, reason: 'nothing reached the catalog');
+
+    // The match wizard offers the salon's games, but no "Nouveau jeu".
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Partie simple'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continuer'));
+    await tester.pumpAndSettle();
+    expect(find.text('Catan'), findsWidgets);
+    expect(find.text('Nouveau jeu'), findsNothing);
+  });
+
   testWidgets('a group\'s messages never show up in a salon whose thread fails to load', (tester) async {
     final seeded = _buildSeededState(serverMessages: _FailingSalonMessagesRepository());
     await tester.pumpWidget(

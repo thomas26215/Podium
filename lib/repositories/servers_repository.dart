@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/salon.dart';
 import '../models/server.dart';
-import 'groups_repository.dart' show InviteException;
+import 'groups_repository.dart' show InviteException, kInviteNoLongerValid;
 import 'users_repository.dart';
 
 abstract class ServersRepository {
@@ -49,6 +49,9 @@ abstract class ServersRepository {
   Future<void> joinSalon({required String serverId, required String salonId, required String uid});
 
   Future<void> setSalonClosed({required String serverId, required String salonId, required bool closed});
+
+  /// Opens the salon's invite window for 30 minutes — and its server's, which
+  /// [joinSalon] joins too.
   Future<void> refreshSalonInviteWindow({required String serverId, required String salonId});
 
   /// Scrubs `uid` from every server/salon it touches, as part of full
@@ -131,16 +134,23 @@ class FirebaseServersRepository implements ServersRepository {
 
   @override
   Future<void> joinServer({required String serverId, required String uid}) async {
-    final doc = await _servers.doc(serverId).get();
-    if (!doc.exists) throw InviteException('Serveur introuvable.');
-    final server = Server.fromDoc(doc.id, doc.data()!);
-    if (server.closed) throw InviteException("Ce serveur est clos et n'accepte plus de nouveaux membres.");
-    if (server.inviteExpiresAt != null && DateTime.now().isAfter(server.inviteExpiresAt!)) {
-      throw InviteException("Ce code d'invitation a expiré — demandez-en un nouveau.");
+    try {
+      final doc = await _servers.doc(serverId).get();
+      if (!doc.exists) throw InviteException('Serveur introuvable.');
+      final server = Server.fromDoc(doc.id, doc.data()!);
+      if (server.closed) throw InviteException("Ce serveur est clos et n'accepte plus de nouveaux membres.");
+      if (server.inviteExpiresAt != null && DateTime.now().isAfter(server.inviteExpiresAt!)) {
+        throw InviteException("Ce code d'invitation a expiré — demandez-en un nouveau.");
+      }
+      await _servers.doc(serverId).update({
+        'memberIds': FieldValue.arrayUnion([uid]),
+      });
+    } on FirebaseException catch (e) {
+      // Only readable by an outsider while it can be joined (see
+      // firestore.rules' isJoinable).
+      if (e.code == 'permission-denied') throw InviteException(kInviteNoLongerValid);
+      rethrow;
     }
-    await _servers.doc(serverId).update({
-      'memberIds': FieldValue.arrayUnion([uid]),
-    });
   }
 
   @override
@@ -195,21 +205,28 @@ class FirebaseServersRepository implements ServersRepository {
 
   @override
   Future<void> joinSalon({required String serverId, required String salonId, required String uid}) async {
-    final salonDoc = await _salons(serverId).doc(salonId).get();
-    if (!salonDoc.exists) throw InviteException('Salon introuvable.');
-    final salon = Salon.fromDoc(salonDoc.id, salonDoc.data()!);
-    if (salon.closed) throw InviteException("Ce salon est clos et n'accepte plus de nouveaux membres.");
-    if (salon.inviteExpiresAt != null && DateTime.now().isAfter(salon.inviteExpiresAt!)) {
-      throw InviteException("Ce code d'invitation a expiré — demandez-en un nouveau.");
+    try {
+      final salonDoc = await _salons(serverId).doc(salonId).get();
+      if (!salonDoc.exists) throw InviteException('Salon introuvable.');
+      final salon = Salon.fromDoc(salonDoc.id, salonDoc.data()!);
+      if (salon.closed) throw InviteException("Ce salon est clos et n'accepte plus de nouveaux membres.");
+      if (salon.inviteExpiresAt != null && DateTime.now().isAfter(salon.inviteExpiresAt!)) {
+        throw InviteException("Ce code d'invitation a expiré — demandez-en un nouveau.");
+      }
+      final batch = _db.batch();
+      batch.update(_salons(serverId).doc(salonId), {
+        'memberIds': FieldValue.arrayUnion([uid]),
+      });
+      batch.update(_servers.doc(serverId), {
+        'memberIds': FieldValue.arrayUnion([uid]),
+      });
+      await batch.commit();
+    } on FirebaseException catch (e) {
+      // Only readable by an outsider while it can be joined, and its server
+      // with it (see firestore.rules' isJoinable, refreshSalonInviteWindow).
+      if (e.code == 'permission-denied') throw InviteException(kInviteNoLongerValid);
+      rethrow;
     }
-    final batch = _db.batch();
-    batch.update(_salons(serverId).doc(salonId), {
-      'memberIds': FieldValue.arrayUnion([uid]),
-    });
-    batch.update(_servers.doc(serverId), {
-      'memberIds': FieldValue.arrayUnion([uid]),
-    });
-    await batch.commit();
   }
 
   @override
@@ -222,9 +239,14 @@ class FirebaseServersRepository implements ServersRepository {
 
   @override
   Future<void> refreshSalonInviteWindow({required String serverId, required String salonId}) async {
-    await _salons(serverId).doc(salonId).update({
-      'inviteExpiresAt': Timestamp.fromDate(DateTime.now().add(const Duration(minutes: 30))),
-    });
+    // The server's window too: joining a salon also joins its server (see
+    // joinSalon), which the rules only let through while the server's own
+    // window is open.
+    final until = Timestamp.fromDate(DateTime.now().add(const Duration(minutes: 30)));
+    final batch = _db.batch()
+      ..update(_salons(serverId).doc(salonId), {'inviteExpiresAt': until})
+      ..update(_servers.doc(serverId), {'inviteExpiresAt': until});
+    await batch.commit();
   }
 
   @override

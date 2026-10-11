@@ -107,20 +107,44 @@ match /databases/{database}/documents {
     return !('inviteExpiresAt' in groupData) || request.time < groupData.inviteExpiresAt;
   }
 
+  // True if a group, server or salon can be joined through an invite right
+  // now (see isSelfJoin()): its invite window is open and it isn't closed —
+  // never someone's "Mon espace solo" (see Group.personal), which has no
+  // invite at all.
+  function isJoinable(data) {
+    return inviteWindowOpen(data) && !isClosed(data) && data.get('personal', false) != true;
+  }
+
   // True if this update only adds the caller's own uid to `memberIds`
   // (nothing else touched) — the shape of a self-service QR invite join.
-  // It's a write-only check: a non-member can perform it without ever being
-  // able to `read` the doc first, since the QR code itself already carries
-  // everything the client needs (see GroupInviteCode). Also requires the
-  // invite window to still be open, so a screenshot/photo of an old code
-  // can't be replayed forever — see inviteWindowOpen().
+  // The QR code itself already carries everything the client needs (see
+  // GroupInviteCode). Also requires the invite window to still be open, so a
+  // screenshot/photo of an old code can't be replayed forever — see
+  // inviteWindowOpen().
   function isSelfJoin(before) {
     let addedMembers = request.resource.data.memberIds.removeAll(before.memberIds);
     return request.resource.data.diff(before).affectedKeys().hasOnly(['memberIds'])
       && request.resource.data.memberIds.removeAll([request.auth.uid]) == before.memberIds
       && addedMembers.size() > 0
-      && inviteWindowOpen(before)
-      && !isClosed(before);
+      && isJoinable(before);
+  }
+
+  // True if this update only takes the caller out of `memberIds` — and out
+  // of `adminIds`, for an admin: leaving a server or a salon, as deleting an
+  // account does (see ServersRepository.deleteAllUserData). Never a
+  // server's owner, who deletes it instead.
+  function isSelfLeave(before) {
+    return request.resource.data.diff(before).affectedKeys().hasOnly(['memberIds', 'adminIds'])
+      && request.auth.uid != before.get('ownerId', null)
+      && request.resource.data.memberIds == before.memberIds.removeAll([request.auth.uid])
+      && request.resource.data.get('adminIds', []) == before.get('adminIds', []).removeAll([request.auth.uid]);
+  }
+
+  // True if this update changes nothing — what joining a salon also writes
+  // to its server for someone already a member of it (see
+  // ServersRepository.joinSalon).
+  function changesNothing(before) {
+    return request.resource.data.diff(before).affectedKeys().size() == 0;
   }
 
   // True if this update on a group is something any plain member may do:
@@ -211,6 +235,13 @@ match /databases/{database}/documents {
     return request.auth.uid in salonDoc(serverId, salonId).data.memberIds;
   }
 
+  // True if the caller may take part in salon `salonId`: a member of it, or
+  // an owner/admin of its server — who sees, and plays in, every salon
+  // without being listed in each.
+  function inSalon(serverId, salonId) {
+    return isServerAdmin(serverDoc(serverId).data) || isSalonMember(serverId, salonId);
+  }
+
   // True if this update touches `adminIds` — promoting/demoting an admin is
   // owner-only (see the `servers/{serverId}` update rule below), unlike
   // every other admin-manageable field on the doc.
@@ -296,7 +327,12 @@ match /databases/{database}/documents {
   }
 
   match /groups/{groupId} {
-    allow read: if signedIn() && isMember(resource.data);
+    // A group can also be fetched (never listed) by whoever could join it
+    // right now (see isJoinable()), as the app does before joining through
+    // an invite (see GroupsRepository.joinGroup). It reveals nothing joining
+    // wouldn't.
+    allow get: if signedIn() && (isMember(resource.data) || isJoinable(resource.data));
+    allow list: if signedIn() && isMember(resource.data);
 
     allow create: if signedIn()
       && request.resource.data.ownerId == request.auth.uid
@@ -404,7 +440,9 @@ match /databases/{database}/documents {
   }
 
   match /servers/{serverId} {
-    allow read: if signedIn() && isServerMember(resource.data);
+    // Fetchable by whoever could join it too, like a group.
+    allow get: if signedIn() && (isServerMember(resource.data) || isJoinable(resource.data));
+    allow list: if signedIn() && isServerMember(resource.data);
 
     allow create: if signedIn()
       && request.resource.data.ownerId == request.auth.uid
@@ -415,27 +453,40 @@ match /databases/{database}/documents {
     // demoting an admin (`adminIds`) is further restricted to the owner
     // alone — an admin can't grant itself or anyone else more power. A
     // non-member can also self-join via QR (see isSelfJoin()), same pattern
-    // as a Group.
-    allow update: if signedIn() && (
-      isSelfJoin(resource.data)
-      || (resource.data.ownerId == request.auth.uid)
-      || (isServerAdmin(resource.data) && !changesAdminIds(resource.data))
-    );
+    // as a Group, and any member but the owner can leave (see
+    // isSelfLeave()). The owner always stays a member, as in a Group.
+    allow update: if signedIn()
+      && request.resource.data.ownerId in request.resource.data.memberIds
+      && (
+        isSelfJoin(resource.data)
+        || (resource.data.ownerId == request.auth.uid)
+        || (isServerAdmin(resource.data) && !changesAdminIds(resource.data))
+        || (isServerMember(resource.data) && (isSelfLeave(resource.data) || changesNothing(resource.data)))
+      );
 
     allow delete: if signedIn() && resource.data.ownerId == request.auth.uid;
 
     match /salons/{salonId} {
-      allow read: if signedIn() && (
+      allow list: if signedIn() && (
         request.auth.uid in resource.data.memberIds || isServerAdmin(serverDoc(serverId).data)
+      );
+      // Fetchable by whoever could join it too, like a group.
+      allow get: if signedIn() && (
+        request.auth.uid in resource.data.memberIds || isServerAdmin(serverDoc(serverId).data) || isJoinable(resource.data)
       );
       // Only the server's owner/admins create or delete a salon — the whole
       // point of a Server over a Group is that this isn't a free-for-all.
       allow create, delete: if signedIn() && isServerAdmin(serverDoc(serverId).data);
-      // Roster changes: admin, or a non-member self-joining via QR (see
+      // Roster changes: admin, a non-member self-joining via QR (see
       // ServersRepository.joinSalon — the matching server-membership write
       // happens as a separate update on the parent `servers/{serverId}` doc,
-      // covered by isSelfJoin() there too).
-      allow update: if signedIn() && (isSelfJoin(resource.data) || isServerAdmin(serverDoc(serverId).data));
+      // covered by isSelfJoin() there too), or a member leaving (see
+      // isSelfLeave()).
+      allow update: if signedIn() && (
+        isSelfJoin(resource.data)
+        || isServerAdmin(serverDoc(serverId).data)
+        || (request.auth.uid in resource.data.memberIds && isSelfLeave(resource.data))
+      );
     }
 
     match /games/{gameId} {
@@ -453,14 +504,14 @@ match /databases/{database}/documents {
       allow read: if signedIn() && (
         isSalonMember(serverId, resource.data.salonId) || isServerAdmin(serverDoc(serverId).data)
       );
-      // Any salon member can record or edit a match in it — same trust model
-      // as a Group's matches (this app doesn't try to enforce the
-      // confirm/reject workflow itself at the rules layer; the client only
-      // ever calls confirmMatch/rejectMatch through vetted paths — see
-      // AppState.confirmMatch/rejectMatch). Blocked once the server or the
-      // specific salon is closed.
+      // Anyone taking part in the salon (see inSalon()) can record or edit a
+      // match in it — same trust model as a Group's matches (this app
+      // doesn't try to enforce the confirm/reject workflow itself at the
+      // rules layer; the client only ever calls confirmMatch/rejectMatch
+      // through vetted paths — see AppState.confirmMatch/rejectMatch).
+      // Blocked once the server or the specific salon is closed.
       allow create: if signedIn()
-        && isSalonMember(serverId, request.resource.data.salonId)
+        && inSalon(serverId, request.resource.data.salonId)
         && !isClosed(serverDoc(serverId).data)
         && !isClosed(salonDoc(serverId, request.resource.data.salonId).data)
         && !isTombstone();
@@ -469,7 +520,7 @@ match /databases/{database}/documents {
       allow update: if signedIn() && (
         isTombstone()
           ? isServerAdmin(serverDoc(serverId).data)
-          : isSalonMember(serverId, request.resource.data.salonId)
+          : inSalon(serverId, request.resource.data.salonId)
             && !isClosed(serverDoc(serverId).data)
             && !isClosed(salonDoc(serverId, request.resource.data.salonId).data)
       );
@@ -477,19 +528,19 @@ match /databases/{database}/documents {
     }
 
     // A discussion thread scoped by `salonId` (see the data model recap
-    // above) — same trust model as a Group's `messages`: any salon member
-    // can post (attributed to themselves) or read; an existing message can
-    // only be changed by a poll vote (isPollVote()), a reaction
-    // (isReaction()), or the author editing their own text (isMessageEdit()),
-    // and only their own author can delete one.
+    // above) — same trust model as a Group's `messages`: anyone taking part
+    // in the salon (see inSalon()) can post (attributed to themselves) or
+    // read; an existing message can only be changed by a poll vote
+    // (isPollVote()), a reaction (isReaction()), or the author editing their
+    // own text (isMessageEdit()), and only their own author can delete one.
     match /messages/{messageId} {
       allow read: if signedIn() && (
         isSalonMember(serverId, resource.data.salonId) || isServerAdmin(serverDoc(serverId).data)
       );
       allow create: if signedIn()
-        && isSalonMember(serverId, request.resource.data.salonId)
+        && inSalon(serverId, request.resource.data.salonId)
         && isValidNewMessage();
-      allow update: if signedIn() && isSalonMember(serverId, resource.data.salonId)
+      allow update: if signedIn() && inSalon(serverId, resource.data.salonId)
         && (isPollVote(resource.data) || isMessageEdit(resource.data) || isReaction(resource.data));
       allow delete: if signedIn() && resource.data.authorId == request.auth.uid;
     }
@@ -501,14 +552,14 @@ match /databases/{database}/documents {
         isSalonMember(serverId, resource.data.salonId) || isServerAdmin(serverDoc(serverId).data)
       );
       allow create: if signedIn()
-        && (isSalonMember(serverId, request.resource.data.salonId) || isServerAdmin(serverDoc(serverId).data))
+        && inSalon(serverId, request.resource.data.salonId)
         && !isClosed(serverDoc(serverId).data)
         && !isClosed(salonDoc(serverId, request.resource.data.salonId).data)
         && !isTombstone();
       allow update: if signedIn() && (
         isTombstone()
           ? isServerAdmin(serverDoc(serverId).data)
-          : (isSalonMember(serverId, request.resource.data.salonId) || isServerAdmin(serverDoc(serverId).data))
+          : inSalon(serverId, request.resource.data.salonId)
             && !isClosed(serverDoc(serverId).data)
             && !isClosed(salonDoc(serverId, request.resource.data.salonId).data)
       );
@@ -534,7 +585,7 @@ match /databases/{database}/documents {
       allow read: if signedIn() && (
         isSalonMember(serverId, resource.data.salonId) || isServerAdmin(serverDoc(serverId).data)
       );
-      allow create: if signedIn() && isSalonMember(serverId, request.resource.data.salonId)
+      allow create: if signedIn() && inSalon(serverId, request.resource.data.salonId)
         && request.resource.data.startedBy == request.auth.uid;
       allow update, delete: if signedIn() && resource.data.startedBy == request.auth.uid;
     }

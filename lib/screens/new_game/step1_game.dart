@@ -101,11 +101,13 @@ class Step1Game extends StatelessWidget {
                   ),
                 );
               }),
-            FadeSlideIn(
-              key: const ValueKey('new-game'),
-              delay: staggerDelay(shown.length, stepMs: 30, maxMs: 300),
-              child: _GameCard(emoji: '＋', name: 'Nouveau jeu', sub: 'Créer', selected: false, dashed: true, onTap: () => _showNewGameChooser(context, app)),
-            ),
+            // A salon's catalog is its server admins' to fill.
+            if (app.canEditGameCatalog)
+              FadeSlideIn(
+                key: const ValueKey('new-game'),
+                delay: staggerDelay(shown.length, stepMs: 30, maxMs: 300),
+                child: _GameCard(emoji: '＋', name: 'Nouveau jeu', sub: 'Créer', selected: false, dashed: true, onTap: () => _showNewGameChooser(context, app)),
+              ),
           ],
         ),
         if ((app.gameGridFilter.isActive || app.gameSearch.trim().isNotEmpty) && shown.isEmpty) ...[

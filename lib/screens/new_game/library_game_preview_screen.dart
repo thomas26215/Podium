@@ -79,6 +79,8 @@ class _LibraryGamePreviewScreenState extends State<LibraryGamePreviewScreen> {
                 ),
               ] else if (app.activeContextClosed)
                 Text('Ce groupe est fermé : son catalogue ne peut plus changer.', textAlign: TextAlign.center, style: bodyFont(size: 12.5, weight: FontWeight.w700, color: AppColors.mut))
+              else if (!app.canEditGameCatalog)
+                Text('Seuls les admins du serveur ajoutent des jeux à ce salon.', textAlign: TextAlign.center, style: bodyFont(size: 12.5, weight: FontWeight.w700, color: AppColors.mut))
               else ...[
                 if (app.flowError != null) ...[
                   Text(app.flowError!, style: bodyFont(size: 12.5, weight: FontWeight.w600, color: AppColors.accent)),

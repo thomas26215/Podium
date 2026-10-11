@@ -40,7 +40,7 @@ class GameDetailScreen extends StatelessWidget {
         children: [
           GameOverview(
             game: current,
-            onEditReminders: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => GameRulesScreen(game: current))),
+            onEditReminders: app.canEditGameCatalog ? () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => GameRulesScreen(game: current))) : null,
           ),
         ],
       ),

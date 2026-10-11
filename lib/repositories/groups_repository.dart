@@ -10,6 +10,11 @@ class InviteException implements Exception {
   String toString() => message;
 }
 
+/// Why joining through an invite is refused once its group, server or salon
+/// can no longer be joined (see firestore.rules' isJoinable): the invite
+/// expired, or it's closed to newcomers.
+const kInviteNoLongerValid = "Cette invitation n'est plus valable — elle a expiré, ou n'accepte plus de nouveaux membres. Demandez-en une nouvelle.";
+
 abstract class GroupsRepository {
   /// Every group the user is a direct member of.
   Stream<List<Group>> watchMyGroups(String uid);
@@ -135,21 +140,28 @@ class FirebaseGroupsRepository implements GroupsRepository {
 
   @override
   Future<void> joinGroup({required String groupId, required String uid}) async {
-    final doc = await _groups.doc(groupId).get();
-    if (!doc.exists) throw InviteException('Groupe introuvable.');
-    final group = Group.fromDoc(doc.id, doc.data()!);
-    if (group.closed) {
-      throw InviteException('Ce groupe est clos et n\'accepte plus de nouveaux membres.');
+    try {
+      final doc = await _groups.doc(groupId).get();
+      if (!doc.exists) throw InviteException('Groupe introuvable.');
+      final group = Group.fromDoc(doc.id, doc.data()!);
+      if (group.closed) {
+        throw InviteException('Ce groupe est clos et n\'accepte plus de nouveaux membres.');
+      }
+      // Fast client-side check with a friendly message — the real gate is the
+      // matching `inviteWindowOpen` check in firestore.rules' `isSelfJoin`, so
+      // a modified client can't just skip this and join anyway.
+      if (group.inviteExpiresAt != null && DateTime.now().isAfter(group.inviteExpiresAt!)) {
+        throw InviteException("Ce code d'invitation a expiré — demandez-en un nouveau.");
+      }
+      await _groups.doc(groupId).update({
+        'memberIds': FieldValue.arrayUnion([uid]),
+      });
+    } on FirebaseException catch (e) {
+      // A group can only be read by an outsider while it can be joined (see
+      // firestore.rules' isJoinable), so a refusal means just that.
+      if (e.code == 'permission-denied') throw InviteException(kInviteNoLongerValid);
+      rethrow;
     }
-    // Fast client-side check with a friendly message — the real gate is the
-    // matching `inviteWindowOpen` check in firestore.rules' `isSelfJoin`, so
-    // a modified client can't just skip this and join anyway.
-    if (group.inviteExpiresAt != null && DateTime.now().isAfter(group.inviteExpiresAt!)) {
-      throw InviteException("Ce code d'invitation a expiré — demandez-en un nouveau.");
-    }
-    await _groups.doc(groupId).update({
-      'memberIds': FieldValue.arrayUnion([uid]),
-    });
   }
 
   @override

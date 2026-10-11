@@ -388,6 +388,8 @@ class FakeServersRepository implements ServersRepository {
     if (s == null) return;
     salons[salonId] = s.copyWith(inviteExpiresAt: DateTime.now().add(const Duration(minutes: 30)));
     _emitSalons(serverId);
+    // Its server's too, as the real repository does.
+    await refreshServerInviteWindow(serverId);
   }
 
   @override

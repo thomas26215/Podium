@@ -69,8 +69,10 @@ class ChooserOption extends StatelessWidget {
 /// standalone games catalog.
 Future<void> showGameActionsSheet(BuildContext context, AppState app, Game game) async {
   // A closed group/salon is frozen against catalog changes (see
-  // AppState.setGroupClosed/setSalonClosed) — only offer read-only actions there.
+  // AppState.setGroupClosed/setSalonClosed) — only offer read-only actions
+  // there, and to a salon's plain members (see AppState.canEditGameCatalog).
   final closed = app.activeContextClosed;
+  final editable = !closed && app.canEditGameCatalog;
   await showModalBottomSheet(
     context: context,
     sheetAnimationStyle: appSheetAnimation,
@@ -101,7 +103,7 @@ Future<void> showGameActionsSheet(BuildContext context, AppState app, Game game)
                 },
               ),
               const SizedBox(height: 10),
-              if (!closed) ...[
+              if (editable) ...[
                 ChooserOption(
                   icon: Icons.tune_rounded,
                   title: 'Modifier les paramètres',
@@ -114,7 +116,7 @@ Future<void> showGameActionsSheet(BuildContext context, AppState app, Game game)
                 ),
                 const SizedBox(height: 10),
               ],
-              if (!closed) ...[
+              if (editable) ...[
                 ChooserOption(
                   icon: Icons.swap_horiz_rounded,
                   title: game.followsLibrary ? 'Remplacer par un autre jeu de la bibliothèque' : 'Remplacer par un jeu de la bibliothèque',
@@ -126,15 +128,16 @@ Future<void> showGameActionsSheet(BuildContext context, AppState app, Game game)
                 ),
                 const SizedBox(height: 10),
               ],
-              ChooserOption(
-                icon: Icons.menu_book_rounded,
-                title: 'Aide-mémoire',
-                subtitle: 'Ajoutez des rappels de règles, classés par catégorie — sans effet sur les scores.',
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => GameRulesScreen(game: game)));
-                },
-              ),
+              if (app.canEditGameCatalog)
+                ChooserOption(
+                  icon: Icons.menu_book_rounded,
+                  title: 'Aide-mémoire',
+                  subtitle: 'Ajoutez des rappels de règles, classés par catégorie — sans effet sur les scores.',
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => GameRulesScreen(game: game)));
+                  },
+                ),
               if (app.canManageGameCatalog && !closed) ...[
                 const SizedBox(height: 10),
                 ChooserOption(

@@ -2472,6 +2472,23 @@ class AppState extends ChangeNotifier {
     return groupById(root)?.ownerId == uid;
   }
 
+  /// Whether the player may add games to the current catalog and edit them:
+  /// any member of a group, but only the owner/admins of a server for a
+  /// salon's, as firestore.rules has it.
+  bool get canEditGameCatalog {
+    if (activeContext != ActiveContextKind.salon) return true;
+    final uid = currentUser?.uid;
+    return uid != null && (currentSalonServer?.isAdmin(uid) ?? false);
+  }
+
+  /// [canEditGameCatalog], or why not as [flowError].
+  bool _rejectIfCatalogLocked() {
+    if (canEditGameCatalog) return false;
+    flowError = 'Seuls les admins du serveur ajoutent ou modifient ses jeux.';
+    notifyListeners();
+    return true;
+  }
+
   Future<bool> deleteGame(String gameId) async {
     final root = _activeRootId;
     if (root == null) return false;
@@ -2499,7 +2516,7 @@ class AppState extends ChangeNotifier {
   Future<bool> updateGameRules(Game game, List<GameRuleSection> sections) async {
     final root = _activeRootId;
     if (root == null) return false;
-    if (_rejectIfActiveContextClosed()) return false;
+    if (_rejectIfActiveContextClosed() || _rejectIfCatalogLocked()) return false;
     busy = true;
     flowError = null;
     notifyListeners();
@@ -3915,7 +3932,7 @@ class AppState extends ChangeNotifier {
   Future<bool> replaceGameWithLibrary(Game target, Game libraryGame) async {
     final root = _activeRootId;
     if (root == null) return false;
-    if (_rejectIfActiveContextClosed()) return false;
+    if (_rejectIfActiveContextClosed() || _rejectIfCatalogLocked()) return false;
     if (target.libraryId == libraryGame.id) return true;
     final existingCopy = libraryCopyOf(libraryGame);
     final duplicate = existingCopy != null && existingCopy.id != target.id ? existingCopy : null;
@@ -4017,6 +4034,7 @@ class AppState extends ChangeNotifier {
   Future<bool> importLibraryGame(Game libraryGame) async {
     final root = _activeRootId;
     if (root == null) return false;
+    if (_rejectIfCatalogLocked()) return false;
     busy = true;
     flowError = null;
     notifyListeners();
@@ -4160,7 +4178,7 @@ class AppState extends ChangeNotifier {
   Future<void> createGame() async {
     final root = _activeRootId;
     if (root == null || !gameForm.isValid) return;
-    if (_rejectIfActiveContextClosed()) return;
+    if (_rejectIfActiveContextClosed() || _rejectIfCatalogLocked()) return;
     busy = true;
     flowError = null;
     notifyListeners();
