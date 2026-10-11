@@ -28,7 +28,7 @@ class Appearance {
 
   const Appearance({
     this.palette = PaletteId.classic,
-    this.accent = AccentId.orange,
+    this.accent = AccentId.mint,
     this.customHue = 200,
     this.surface = SurfaceStyle.flat,
     this.corners = CornerStyle.standard,
@@ -179,6 +179,9 @@ enum AccentId {
   blue('Bleu', Color(0xFF3B82F6)),
   sky('Ciel', Color(0xFF0B8BD0)),
   teal('Lagon', Color(0xFF0E9F94)),
+  /// The default, named after the app like the default palette and font:
+  /// the icon's mint, darkened until white text reads on it.
+  mint('Cador', Color(0xFF1DA578)),
   green('Vert', Color(0xFF1F9D57)),
   lime('Olive', Color(0xFF5E9A12)),
   amber('Ambre', Color(0xFFD97706)),

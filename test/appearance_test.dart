@@ -160,20 +160,20 @@ void main() {
   });
 
   group('tokens', () {
-    test('the default look keeps the original Cador colours', () {
+    test('the default look keeps the original Cador neutrals, with the mint accent', () {
       final light = AppTokens.resolve(const Appearance(), dark: false);
       expect(light.bg, const Color(0xFFF4F2EC));
       expect(light.card, const Color(0xFFFFFFFF));
       expect(light.ink, const Color(0xFF18171C));
       expect(light.line, const Color(0x14181713));
-      expect(light.accent, const Color(0xFFFF5B34));
-      expect(light.accentSoft, const Color(0xFFFFE9E1));
+      expect(light.accent, const Color(0xFF1DA578));
+      expect(light.accentSoft, Color.alphaBlend(light.accent.withValues(alpha: 0.13), Colors.white));
       expect(light.canvas, light.bg, reason: 'no backdrop: screens paint their own background');
       final dark = AppTokens.resolve(const Appearance(), dark: true);
       expect(dark.bg, const Color(0xFF16151A));
       expect(dark.card, const Color(0xFF201F26));
       expect(dark.hero, const Color(0xFF2E2C36));
-      expect(dark.accentSoft, const Color(0xFF402A20));
+      expect(dark.accentSoft, Color.alphaBlend(dark.accent.withValues(alpha: 0.2), const Color(0xFF1C1B21)));
     });
 
     test('the flat style draws cards exactly as before', () {

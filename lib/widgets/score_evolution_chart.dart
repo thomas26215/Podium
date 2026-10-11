@@ -6,6 +6,19 @@ import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import 'common.dart';
 
+/// The chart's line colours: the accent first, then the others — minus
+/// those whose hue sits too close to the accent's (a mint or green accent
+/// next to the green would make two players' lines look alike).
+List<Color> scoreLineColors(Color accent, {required Color green, required Color gold}) {
+  final accentHue = HSLColor.fromColor(accent).hue;
+  bool apart(Color c) {
+    final d = (HSLColor.fromColor(c).hue - accentHue).abs();
+    return (d > 180 ? 360 - d : d) > 20;
+  }
+
+  return [accent, ...[green, gold, const Color(0xFF5B4BE8), const Color(0xFFE5537B), const Color(0xFFFF5B34), const Color(0xFF3B82F6)].where(apart)];
+}
+
 /// Line chart of each player's cumulative score across rounds, built
 /// straight from a match's (or in-progress draft's) `timeline` — works for
 /// both round-synced and free-form score entry, since each append one
@@ -49,7 +62,7 @@ class _ScoreEvolutionChartState extends State<ScoreEvolutionChart> {
       );
     }
 
-    final colors = [AppColors.accent, AppColors.green, AppColors.gold, const Color(0xFF5B4BE8), const Color(0xFFE5537B)];
+    final colors = scoreLineColors(AppColors.accent, green: AppColors.green, gold: AppColors.gold);
     var maxY = 0.0, minY = 0.0, maxX = 0.0;
     final bars = <LineChartBarData>[];
     var ci = 0;
