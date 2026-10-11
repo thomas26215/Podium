@@ -1,0 +1,12 @@
+{
+  "name": "podium-store-assets",
+  "private": true,
+  "description": "Renders the Play Store visuals (HTML/CSS) to 1080x1920 PNGs with Playwright.",
+  "type": "module",
+  "scripts": {
+    "render": "node render.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.55.0"
+  }
+}

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>07 · Grimpez de Bronze à Diamant</title>
+  <link rel="stylesheet" href="system.css">
+  <style>body { --panel: 6; }</style>
+</head>
+<body>
+  <div class="head">
+    <h1 class="title">Grimpez de Bronze<br>à <em>Diamant</em></h1>
+    <p class="subtitle">Courbe Elo, records et badges à débloquer.</p>
+  </div>
+
+  <!-- layout A: Léa's profile behind, her Elo in front -->
+  <div class="phone" style="--k: 0.8; left: 56px; top: 476px; z-index: 1;"><img src="../raw/07a_profil_haut.png" alt=""></div>
+  <div class="phone" style="--k: 0.92; left: 356px; top: 760px; z-index: 2;"><img src="../raw/07a_profil_elo.png" alt=""></div>
+
+  <!-- her medals, floating in the free corner: Numéro 1 (gold, tonight's),
+       Esprit d'équipe (silver), Mise en jambes (bronze) -->
+  <div class="pop round" style="--src: url(../raw/07b_badges.png); --x: 82; --y: 1060; --w: 168; --h: 168; --s: 0.92; --r: 84; left: 760px; top: 492px;"></div>
+  <div class="pop round" style="--src: url(../raw/07b_badges.png); --x: 82; --y: 1442; --w: 168; --h: 168; --s: 0.62; --r: 84; left: 668px; top: 612px;"></div>
+  <div class="pop round" style="--src: url(../raw/07b_badges.png); --x: 829; --y: 1442; --w: 168; --h: 168; --s: 0.62; --r: 84; left: 930px; top: 640px;"></div>
+
+  <!-- the tier and what's left to Diamant, coming out of the Elo card -->
+  <div class="pop" style="--src: url(../raw/07a_profil_elo.png); --x: 56; --y: 372; --w: 968; --h: 214; --s: 0.72; --r: 40; left: 327px; top: 981px;"></div>
+
+  <!-- tonight's unlock, as it pops up on Léa's phone -->
+  <div class="pop" style="--src: url(../raw/05x_enregistree_badge.png); --x: 44; --y: 155; --w: 992; --h: 192; --s: 0.56; --r: 60; left: 400px; top: 1736px; z-index: 6;"></div>
+</body>
+</html>

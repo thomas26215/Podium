@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>08 · Créez votre groupe ou votre serveur</title>
+  <link rel="stylesheet" href="system.css">
+  <style>
+    body { --panel: 7; }
+
+    /* The app's icon and name, where the line ends. */
+    .brand { position: absolute; left: 690px; top: 492px; width: 300px; text-align: center; z-index: 3; }
+    .brand img { width: 150px; height: 150px; border-radius: 22%; box-shadow: 0 24px 60px rgba(2, 4, 18, 0.6), 0 0 0 2px rgba(255, 255, 255, 0.10); }
+    .brand span { display: block; margin-top: 8px; font: 700 52px/1 'Space Grotesk', sans-serif; letter-spacing: -0.02em; }
+  </style>
+</head>
+<body>
+  <div class="head">
+    <h1 class="title">Créez votre groupe<br>ou votre <em>serveur</em></h1>
+    <p class="subtitle">Pour vos amis, ou pour tout un café jeux.</p>
+  </div>
+
+  <!-- layout A: all of Léa's groups and servers behind, the café's server in front -->
+  <div class="phone" style="--k: 0.8; left: 56px; top: 476px; z-index: 1;"><img src="../raw/08a_groupes.png" alt=""></div>
+  <div class="phone" style="--k: 0.92; left: 356px; top: 760px; z-index: 2;"><img src="../raw/08b_serveur.png" alt=""></div>
+
+  <div class="brand"><img src="../../assets/icon/cador_512.png" alt=""><span>Cador</span></div>
+
+  <!-- the next event of the café's Mario Kart salon -->
+  <div class="pop" style="--src: url(../raw/08c_salon_evenements.png); --x: 56; --y: 1515; --w: 386; --h: 290; --s: 0.62; --r: 52; left: 780px; top: 1052px;"></div>
+
+  <!-- "Créer": a group between friends, or a server for a café -->
+  <div class="pop" style="--src: url(../raw/08a_quoi_creer.png); --x: 32; --y: 1676; --w: 1016; --h: 668; --s: 0.355; --r: 52; left: 36px; top: 1626px; z-index: 6;"></div>
+</body>
+</html>

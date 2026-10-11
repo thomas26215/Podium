@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>01 · Qui est le meilleur ? Prouvez-le.</title>
+  <link rel="stylesheet" href="system.css">
+  <style>
+    body { --panel: 0; }
+
+    /* A podium flanking the phone: a blue and a mint step, the phone
+       standing in for the first place, crowned like the icon's meeple. */
+    .bars { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; z-index: 0; }
+    .crown { position: absolute; left: 448px; top: 356px; width: 184px; z-index: 3; filter: drop-shadow(0 10px 30px rgba(245, 166, 35, 0.45)); }
+    .crown-glow { position: absolute; left: 290px; top: 238px; width: 500px; height: 360px; border-radius: 50%;
+      background: radial-gradient(closest-side, rgba(255, 190, 77, 0.32), rgba(255, 190, 77, 0)); z-index: 1; }
+  </style>
+</head>
+<body>
+  <svg class="bars" viewBox="0 0 1080 1920" aria-hidden="true">
+    <defs>
+      <linearGradient id="b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5B9DF5"/><stop offset="1" stop-color="#2F6FD0"/></linearGradient>
+      <linearGradient id="m" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#63DDB3"/><stop offset="1" stop-color="#2FAF86"/></linearGradient>
+    </defs>
+    <!-- slanted tops, rounded -->
+    <path d="M 40 1500 Q 40 1464 76 1458 L 214 1434 Q 250 1428 250 1464 L 250 1960 L 40 1960 Z" fill="url(#b)"/>
+    <path d="M 830 1488 Q 830 1452 866 1458 L 1004 1482 Q 1040 1488 1040 1524 L 1040 1960 L 830 1960 Z" fill="url(#m)"/>
+  </svg>
+
+  <div class="head">
+    <h1 class="title">Qui est le meilleur ?<br><em>Prouvez-le.</em></h1>
+    <p class="subtitle">Un classement Elo permanent pour votre groupe.</p>
+  </div>
+
+  <div class="crown-glow"></div>
+  <svg class="crown" viewBox="0 0 220 150" aria-hidden="true">
+    <path d="M 34 128 L 22 46 L 74 84 L 110 22 L 146 84 L 198 46 L 186 128 Z" fill="#F7B23B" stroke="#F7B23B" stroke-width="22" stroke-linejoin="round"/>
+    <path d="M 34 128 L 186 128" stroke="#E0951C" stroke-width="10" stroke-linecap="round"/>
+  </svg>
+
+  <div class="phone" style="left: 177px; top: 476px; z-index: 2;"><img src="../raw/01_classement.png" alt=""></div>
+
+  <!-- the podium, coming out of the screen -->
+  <div class="pop" style="--src: url(../raw/01_classement.png); --x: 96; --y: 823; --w: 888; --h: 730; --s: 0.84; --r: 56; left: 167px; top: 884px;"></div>
+</body>
+</html>

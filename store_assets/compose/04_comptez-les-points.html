@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>04 · Comptez les points, manche après manche</title>
+  <link rel="stylesheet" href="system.css">
+  <style>body { --panel: 3; }</style>
+</head>
+<body>
+  <div class="head">
+    <h1 class="title">Comptez les <em>points</em>,<br>manche après manche</h1>
+    <p class="subtitle">Cador compte, vos amis suivent en direct.</p>
+  </div>
+
+  <!-- layout B: Chloé's live view behind, Léa's scoring in front -->
+  <div class="phone" style="--k: 0.8; left: 443px; top: 476px; z-index: 1;"><img src="../raw/04b_direct.png" alt=""></div>
+  <div class="phone" style="--k: 0.92; left: 56px; top: 760px; z-index: 2;"><img src="../raw/04a_scores_haut.png" alt=""></div>
+
+  <!-- whose phone is whose -->
+  <div class="tag" style="left: 72px; top: 590px;"><i style="--src: url(../raw/04b_direct.png); --x: 90; --y: 536; --d: 96;"></i>Léa note les manches</div>
+  <div class="tag" style="left: 668px; top: 1092px;"><i style="--src: url(../raw/03b_qui_joue_pronostic.png); --x: 89; --y: 973; --d: 94;"></i>Chloé suit</div>
+
+  <!-- Chloé's home: the live card -->
+  <div class="pop" style="--src: url(../raw/04b_chloe_accueil.png); --x: 55; --y: 421; --w: 494; --h: 373; --s: 0.62; --r: 52; left: 712px; top: 1186px;"></div>
+
+  <!-- Léa's screen, further down: the chart -->
+  <div class="pop" style="--src: url(../raw/04a_scores_graphique.png); --x: 56; --y: 1501; --w: 968; --h: 617; --s: 0.672; --r: 42; left: 44px; top: 1474px; z-index: 6;"></div>
+</body>
+</html>

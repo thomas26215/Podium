@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>02 · Fini les scores perdus sur papier</title>
+  <link rel="stylesheet" href="system.css">
+  <style>
+    body { --panel: 1; }
+
+    /* The old way: a crumpled score sheet, scribbled, crossed out, stained. */
+    .paper {
+      position: absolute;
+      left: 26px;
+      top: 668px;
+      width: 452px;
+      height: 760px;
+      transform: rotate(-7deg);
+      transform-origin: 50% 40%;
+      background:
+        radial-gradient(circle at 78% 86%, transparent 62px, rgba(135, 88, 42, 0.30) 64px, rgba(135, 88, 42, 0.16) 70px, transparent 74px),
+        linear-gradient(90deg, transparent 70px, rgba(229, 72, 77, 0.45) 70px, rgba(229, 72, 77, 0.45) 72px, transparent 72px),
+        repeating-linear-gradient(180deg, transparent 0 63px, rgba(74, 120, 210, 0.22) 63px 65px),
+        linear-gradient(170deg, #FFFDF6, #F3EEDF);
+      background-position: 0 0, 0 0, 0 120px, 0 0;
+      border-radius: 6px;
+      box-shadow: 0 40px 90px rgba(2, 4, 18, 0.55), 0 4px 0 rgba(255, 255, 255, 0.4) inset;
+      clip-path: polygon(0 2.2%, 6% 0.6%, 13% 2%, 21% 0.4%, 30% 1.8%, 38% 0.2%, 47% 1.6%, 56% 0.3%, 64% 1.9%, 73% 0.5%, 82% 1.7%, 91% 0.2%, 100% 1.5%, 100% 100%, 0 100%);
+      font-family: 'Caveat', cursive;
+      color: #2B3A67;
+      z-index: 1;
+    }
+    .paper .holes { position: absolute; left: 22px; top: 84px; bottom: 40px; width: 24px;
+      background: radial-gradient(circle, #0B1335 0 9px, transparent 10px) 0 0 / 24px 128px repeat-y; opacity: 0.85; }
+    .paper h2 { position: absolute; left: 92px; top: 54px; font-weight: 700; font-size: 60px; letter-spacing: 0.02em; }
+    .paper h2 small { font-size: 40px; font-weight: 500; color: #5B6A94; }
+    .paper table { position: absolute; left: 88px; top: 150px; border-collapse: collapse; font-weight: 500; font-size: 44px; line-height: 64px; }
+    .paper th { font-weight: 700; font-size: 40px; padding-right: 28px; text-align: left; }
+    .paper td { padding-right: 28px; text-align: left; }
+    .paper .x { text-decoration: line-through; text-decoration-thickness: 4px; text-decoration-color: #C0392B; color: #7B86A6; }
+    .paper .q { position: absolute; left: 72px; top: 612px; font-size: 50px; line-height: 48px; font-weight: 700; transform: rotate(-5deg); color: #C0392B; }
+    .paper svg { position: absolute; left: 0; top: 0; width: 452px; height: 760px; }
+  </style>
+</head>
+<body>
+  <div class="head">
+    <h1 class="title">Fini les scores<br>perdus sur <em>papier</em></h1>
+    <p class="subtitle">Chaque partie gardée, chaque stat calculée.</p>
+  </div>
+
+  <div class="paper" aria-hidden="true">
+    <div class="holes"></div>
+    <h2>SKYJO <small>jeudi ?</small></h2>
+    <table>
+      <tr><th>Léa</th><th>Hugo</th><th>Inès</th><th>Mal.</th></tr>
+      <tr><td>12</td><td>5</td><td>18</td><td>9</td></tr>
+      <tr><td><span class="x">22</span></td><td>19</td><td>39</td><td>26</td></tr>
+      <tr><td>20</td><td><span class="x">31</span></td><td>46</td><td>?</td></tr>
+      <tr><td>35</td><td>39</td><td>5?</td><td>63</td></tr>
+      <tr><td>41</td><td>…</td><td></td><td></td></tr>
+    </table>
+    <!-- the Elo line, lost on paper: a pencil scribble -->
+    <svg viewBox="0 0 452 760">
+      <path d="M 0 566 C 30 560, 46 530, 70 548 S 98 600, 124 572 S 150 520, 176 556 S 196 618, 222 590 C 240 572, 236 548, 258 556 C 284 566, 270 604, 300 598 S 336 552, 360 574 S 400 626, 452 612"
+        fill="none" stroke="#3B3F52" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="0.75"/>
+      <path d="M 300 598 C 316 602, 330 586, 336 576" fill="none" stroke="#3B3F52" stroke-width="4" stroke-linecap="round" opacity="0.5"/>
+    </svg>
+    <div class="q">Qui a<br>gagné ?</div>
+  </div>
+
+  <div class="phone" style="left: 298px; top: 476px; z-index: 2;"><img src="../raw/02_accueil.png" alt=""></div>
+
+  <!-- everything counted: the stats, coming out of the screen -->
+  <div class="pop" style="--src: url(../raw/02_accueil.png); --x: 40; --y: 706; --w: 1000; --h: 226; --s: 0.78; --r: 44; left: 210px; top: 928px;"></div>
+</body>
+</html>

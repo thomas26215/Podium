@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="canvas" content="1024x500">
+  <title>Image de présentation · 1024 × 500</title>
+  <link rel="stylesheet" href="system.css">
+  <style>
+    /* Google Play's feature graphic: the series' navy, halos, stars and Elo
+       line on one 1024 × 500 canvas — the brand and the promise on the left,
+       the app on the right, the centre kept light (a promo video's play
+       button lands there). */
+    html, body { width: 1024px; height: 500px; }
+    body { background: var(--navy); }
+
+    .bg { position: absolute; left: 0; top: 0; width: 1024px; height: 500px; z-index: 0; }
+
+    .brand { position: absolute; left: 72px; top: 104px; display: flex; align-items: center; gap: 18px; z-index: 3; }
+    .brand img { width: 84px; height: 84px; border-radius: 22%; box-shadow: 0 14px 34px rgba(2, 4, 18, 0.6), 0 0 0 1.5px rgba(255, 255, 255, 0.12); }
+    .brand span { font: 700 60px/1 'Space Grotesk', sans-serif; letter-spacing: -0.02em; }
+
+    .promise { position: absolute; left: 72px; top: 222px; z-index: 3; }
+    .promise h1 { font: 700 44px/1.02 'Space Grotesk', sans-serif; letter-spacing: -0.03em; text-transform: uppercase; text-shadow: 0 4px 22px rgba(2, 4, 18, 0.5); }
+    .promise h1 em { font-style: normal; color: var(--gold-light); }
+    .promise p { margin-top: 16px; font: 600 22px/1.3 'Manrope', sans-serif; color: var(--text-dim); }
+
+    /* Smaller handsets: softer shadows than on the tall visuals. */
+    .phone { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.24), inset 0 0 0 1.5px rgba(0, 0, 0, 0.35), 0 24px 60px rgba(2, 4, 18, 0.7), 0 8px 18px rgba(2, 4, 18, 0.45); }
+    .pop { box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.85), 0 18px 44px rgba(2, 4, 18, 0.62), 0 5px 12px rgba(2, 4, 18, 0.35); }
+    .pop.round { box-shadow: 0 14px 34px rgba(2, 4, 18, 0.62), 0 4px 10px rgba(2, 4, 18, 0.35); }
+  </style>
+</head>
+<body>
+  <svg class="bg" viewBox="0 0 1024 500" aria-hidden="true">
+    <defs>
+      <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#070C27"/><stop offset="0.6" stop-color="#0B1238"/><stop offset="1" stop-color="#111A49"/>
+      </linearGradient>
+      <radialGradient id="gold"><stop offset="0" stop-color="#F5A623" stop-opacity="0.26"/><stop offset="0.55" stop-color="#F5A623" stop-opacity="0.08"/><stop offset="1" stop-color="#F5A623" stop-opacity="0"/></radialGradient>
+      <radialGradient id="blue"><stop offset="0" stop-color="#4A90F2" stop-opacity="0.34"/><stop offset="0.55" stop-color="#4A90F2" stop-opacity="0.11"/><stop offset="1" stop-color="#4A90F2" stop-opacity="0"/></radialGradient>
+      <radialGradient id="mint"><stop offset="0" stop-color="#5FDDB6" stop-opacity="0.26"/><stop offset="1" stop-color="#5FDDB6" stop-opacity="0"/></radialGradient>
+      <radialGradient id="accent"><stop offset="0" stop-color="#1DA578" stop-opacity="0.22"/><stop offset="1" stop-color="#1DA578" stop-opacity="0"/></radialGradient>
+      <linearGradient id="ink" x1="0" y1="0" x2="1024" y2="0" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#1DA578"/><stop offset="0.5" stop-color="#5FDDB6"/><stop offset="0.8" stop-color="#F5A623"/><stop offset="1" stop-color="#FFD27A"/>
+      </linearGradient>
+      <linearGradient id="fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1DA578" stop-opacity="0.10"/><stop offset="1" stop-color="#1DA578" stop-opacity="0"/></linearGradient>
+      <filter id="glow" x="-5%" y="-50%" width="110%" height="200%"><feGaussianBlur stdDeviation="7"/></filter>
+    </defs>
+    <rect width="1024" height="500" fill="url(#ground)"/>
+    <circle cx="230" cy="190" r="330" fill="url(#gold)"/>
+    <circle cx="800" cy="250" r="340" fill="url(#blue)"/>
+    <circle cx="980" cy="470" r="220" fill="url(#mint)"/>
+    <circle cx="560" cy="520" r="260" fill="url(#accent)"/>
+    <!-- stars, kept off the text -->
+    <g fill="#FFFFFF">
+      <circle cx="40" cy="44" r="2" opacity="0.6"/><circle cx="318" cy="40" r="1.6" opacity="0.5"/><circle cx="470" cy="62" r="2.2" opacity="0.7"/>
+      <circle cx="604" cy="30" r="1.6" opacity="0.5"/><circle cx="992" cy="36" r="2" opacity="0.6"/><circle cx="36" cy="300" r="1.8" opacity="0.5"/>
+      <circle cx="560" cy="180" r="1.6" opacity="0.45"/><circle cx="420" cy="452" r="1.8" opacity="0.5"/><circle cx="1004" cy="250" r="1.6" opacity="0.5"/>
+      <circle cx="250" cy="468" r="1.6" opacity="0.4"/><circle cx="700" cy="44" r="1.4" opacity="0.45"/>
+    </g>
+    <g>
+      <path d="M 520 70 Q 522 82 534 84 Q 522 86 520 98 Q 518 86 506 84 Q 518 82 520 70 Z" fill="#F5A623" opacity="0.8"/>
+      <path d="M 44 392 Q 45.6 401 54 402 Q 45.6 403 44 412 Q 42.4 403 34 402 Q 42.4 401 44 392 Z" fill="#FFFFFF" opacity="0.55"/>
+      <path d="M 980 140 Q 981.6 149 990 150 Q 981.6 151 980 160 Q 978.4 151 970 150 Q 978.4 149 980 140 Z" fill="#5FDDB6" opacity="0.7"/>
+      <path d="M 606 452 Q 607.4 460 615 461 Q 607.4 462 606 470 Q 604.6 462 597 461 Q 604.6 460 606 452 Z" fill="#4A90F2" opacity="0.7"/>
+    </g>
+    <!-- the Elo line, rising under the promise and behind the phones -->
+    <path d="M -20 476 C 180 466, 380 450, 520 416 S 700 300, 800 216 S 950 104, 1044 80 L 1044 520 L -20 520 Z" fill="url(#fill)"/>
+    <path d="M -20 476 C 180 466, 380 450, 520 416 S 700 300, 800 216 S 950 104, 1044 80" fill="none" stroke="url(#ink)" stroke-width="12" stroke-linecap="round" opacity="0.5" filter="url(#glow)"/>
+    <path d="M -20 476 C 180 466, 380 450, 520 416 S 700 300, 800 216 S 950 104, 1044 80" fill="none" stroke="url(#ink)" stroke-width="4.5" stroke-linecap="round"/>
+  </svg>
+
+  <div class="brand"><img src="../../assets/icon/cador_512.png" alt=""><span>Cador</span></div>
+  <div class="promise">
+    <h1>Qui est le meilleur ?<br><em>Prouvez-le.</em></h1>
+    <p>Scores, classement Elo et tournois entre amis.</p>
+  </div>
+
+  <!-- Léa's Elo behind; in front, a finished match opened from the history:
+       the 7 Wonders she won -->
+  <div class="phone" style="--k: 0.33; left: 738px; top: 40px; z-index: 1;"><img src="../raw/07a_profil_elo.png" alt=""></div>
+  <div class="phone" style="--k: 0.37; left: 594px; top: 76px; z-index: 2;"><img src="../raw/09a_7wonders_haut.png" alt=""></div>
+
+  <!-- her score sheet, coming out of the match: Rhodes, +46 Elo, 52 points -->
+  <div class="pop" style="--src: url(../raw/09a_7wonders_haut.png); --x: 92; --y: 770; --w: 896; --h: 655; --s: 0.34; --r: 42; left: 576px; top: 230px;"></div>
+
+  <!-- her Numéro 1 medal -->
+  <div class="pop round" style="--src: url(../raw/07b_badges.png); --x: 82; --y: 1060; --w: 168; --h: 168; --s: 0.5; --r: 84; left: 892px; top: 330px;"></div>
+</body>
+</html>

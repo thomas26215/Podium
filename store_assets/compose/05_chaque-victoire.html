@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>05 · Chaque victoire fait grimper l'Elo</title>
+  <link rel="stylesheet" href="system.css">
+  <style>body { --panel: 4; }</style>
+</head>
+<body>
+  <div class="head">
+    <h1 class="title">Chaque victoire<br>fait grimper <em>l'Elo</em></h1>
+    <p class="subtitle">Battre plus fort que soi rapporte davantage.</p>
+  </div>
+
+  <!-- layout A: the history behind, the match in front -->
+  <div class="phone" style="--k: 0.8; left: 56px; top: 476px; z-index: 1;"><img src="../raw/05a_historique.png" alt=""></div>
+  <div class="phone" style="--k: 0.92; left: 356px; top: 760px; z-index: 2;"><img src="../raw/05b_detail_haut.png" alt=""></div>
+
+  <!-- the pronostic of visual 3, remembered -->
+  <div class="note" style="left: 668px; top: 520px;">13 % au pronostic…<br>&nbsp;&nbsp;et pourtant !</div>
+  <svg class="arrow" style="left: 760px; top: 640px;" width="200" height="560" viewBox="0 0 200 560" aria-hidden="true">
+    <path d="M 96 8 C 150 120, 150 330, 56 548" fill="none" stroke="#FFBE4D" stroke-width="7" stroke-linecap="round"/>
+    <path d="M 30 506 L 56 548 L 92 512" fill="none" stroke="#FFBE4D" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+
+  <!-- Léa's line in the match: 1st, +61 Elo -->
+  <div class="pop" style="--src: url(../raw/05b_detail_haut.png); --x: 76; --y: 759; --w: 928; --h: 137; --s: 0.76; --r: 29; left: 320px; top: 1210px;"></div>
+
+  <!-- the history's banner, coming out of it: everyone's Elo, and the lead -->
+  <div class="pop" style="--src: url(../raw/05a_historique.png); --x: 54; --y: 345; --w: 972; --h: 386; --s: 0.56; --r: 42; left: 74px; top: 652px; z-index: 6;"></div>
+</body>
+</html>

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>03 · Ce soir, on joue à quoi ?</title>
+  <link rel="stylesheet" href="system.css">
+  <style>body { --panel: 2; }</style>
+</head>
+<body>
+  <div class="head">
+    <h1 class="title">Ce soir, on joue<br><em>à quoi ?</em></h1>
+    <p class="subtitle">On vote, et l'Elo fait le pronostic.</p>
+  </div>
+
+  <!-- layout A: "Qui joue ?" behind, the group's discussion in front -->
+  <div class="phone" style="--k: 0.8; left: 56px; top: 476px; z-index: 1;"><img src="../raw/03b_qui_joue_haut.png" alt=""></div>
+  <div class="phone" style="--k: 0.92; left: 356px; top: 760px; z-index: 2;"><img src="../raw/03a_discussion.png" alt=""></div>
+
+  <!-- Hugo's taunt, in the free corner -->
+  <div class="pop" style="--src: url(../raw/03a_discussion.png); --x: 152; --y: 1541; --w: 778; --h: 208; --s: 0.47; --r: 42; left: 648px; top: 560px;"></div>
+
+  <!-- the poll, coming out of the discussion -->
+  <div class="pop" style="--src: url(../raw/03a_discussion.png); --x: 56; --y: 910; --w: 968; --h: 594; --s: 0.66; --r: 52; left: 370px; top: 1270px;"></div>
+
+  <!-- the pronostic, from "Qui joue ?" -->
+  <div class="pop" style="--src: url(../raw/03b_qui_joue_pronostic.png); --x: 55; --y: 1707; --w: 970; --h: 412; --s: 0.52; --r: 39; left: 40px; top: 1680px; z-index: 6;"></div>
+</body>
+</html>
